@@ -226,6 +226,26 @@ export class OBSClient extends EventEmitter {
     };
   }
 
+  /** Mulai streaming OBS (StartStream) — dipakai tombol Start/Stop Output di live-control */
+  async startStreaming() {
+    const status = await this._call('GetStreamStatus').catch(() => null);
+    if (status && status.outputActive) {
+      return { active: true, changed: false, note: 'Streaming sudah berjalan' };
+    }
+    await this._call('StartStream');
+    return { active: true, changed: true };
+  }
+
+  /** Hentikan streaming OBS (StopStream) */
+  async stopStreaming() {
+    const status = await this._call('GetStreamStatus').catch(() => null);
+    if (status && !status.outputActive) {
+      return { active: false, changed: false, note: 'Streaming memang sedang tidak berjalan' };
+    }
+    await this._call('StopStream');
+    return { active: false, changed: true };
+  }
+
   /** Hentikan klien & timer reconnect (dipakai saat shutdown bridge) */
   stop() {
     this._stopped = true;

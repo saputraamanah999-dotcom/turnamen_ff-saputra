@@ -370,7 +370,7 @@ export function getDetectionInfo() {
   };
 }
 
-export default {
+const windowsApi = {
   refresh,
   listWindows,
   findGameWindow,
@@ -380,3 +380,4 @@ export default {
   setGameTitles,
   initWindows,
 };
+export default windowsApi;

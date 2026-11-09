@@ -1,9 +1,10 @@
 "use client";
 // /admin/settings — wizard setup 11 langkah + pengaturan tema (§24)
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle2, Circle, Database, Palette, RotateCcw } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
-import { useActiveTournament, useMatches, useStandings, useTeams } from "@/services/firestore/hooks";
+import { useActiveTournament, useMatches, useStandings, useTeams, useBroadcast } from "@/services/firestore/hooks";
+import { checkObserverStatus } from "@/services/observer/client";
 import { applyTheme, DEFAULT_THEME, getStoredTheme, THEMES } from "@/lib/themes";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -14,8 +15,18 @@ export default function AdminSettingsPage() {
   const teams = useTeams(tid, false);
   const matches = useMatches(tid, false);
   const standings = useStandings(tid, false);
+  const broadcast = useBroadcast(tid);
   const { toast } = useToast();
   const [theme, setTheme] = useState("firestorm");
+  // Sinyal nyata untuk wizard: status AI Observer diprobe sekali saat halaman dibuka.
+  const [observerOnline, setObserverOnline] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    checkObserverStatus()
+      .then((s) => { if (alive) setObserverOnline(s.online); })
+      .catch(() => { if (alive) setObserverOnline(false); });
+    return () => { alive = false; };
+  }, []);
 
   function pickTheme(id: string) {
     setTheme(id);
@@ -30,9 +41,9 @@ export default function AdminSettingsPage() {
     { label: "Tim terdaftar", done: (teams.data?.length ?? 0) > 0 && status === "online" },
     { label: "Match dibuat", done: (matches.data?.length ?? 0) > 0 && status === "online" },
     { label: "Overlay OBS dikonfigurasi", done: true, note: "Buat URL di Overlay Manager → pasang di OBS" },
-    { label: "Laptop produksi tersambung (scrcpy + OBS)", done: false, note: "Panduan: documentation/OBS_SETUP.md" },
-    { label: "AI Observer terhubung (opsional)", done: false, note: "Cek menu AI Observer" },
-    { label: "Broadcast diuji", done: false, note: "Broadcast Control" },
+    { label: "Laptop produksi tersambung (scrcpy + OBS)", done: (broadcast.data?.streamMode ?? "offline") !== "offline", note: "Atur di Broadcast Control / Interactive Stream — panduan: documentation/OBS_SETUP.md" },
+    { label: "AI Observer terhubung (opsional)", done: observerOnline, note: "Cek menu AI Observer" },
+    { label: "Broadcast diuji (pernah live)", done: broadcast.data?.live?.state === "live" || broadcast.data?.live?.endedAt != null, note: "Broadcast Control" },
     { label: "Hasil pertama dipublikasikan", done: (standings.data?.publishedMatchCount ?? 0) > 0 && status === "online" },
     { label: "Turnamen dipublikasikan (status aktif)", done: tournament?.status === "active" },
   ];

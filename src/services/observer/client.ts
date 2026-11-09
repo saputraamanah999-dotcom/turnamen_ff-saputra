@@ -55,11 +55,18 @@ export async function fetchObserverEvents(): Promise<ObserverEvent[]> {
     const res = await fetch(`${getObserverUrl()}/events`, { signal: AbortSignal.timeout(3000) });
     const data = await res.json();
     const events = Array.isArray(data) ? data : (data.events ?? []);
+    // Observer mengirim ISO string (Python datetime.isoformat) — parse dengan
+    // Date.parse; jangan Number(iso) yang menghasilkan NaN → Invalid Date.
+    const parseObserverTimestamp = (v: unknown): number => {
+      if (typeof v === "number" && Number.isFinite(v)) return v;
+      if (typeof v === "string" && v.trim()) { const t = Date.parse(v); if (Number.isFinite(t)) return t; }
+      return Date.now();
+    };
     return events.map((e: Record<string, unknown>, i: number) => ({
       id: String(e.eventId ?? i),
       tournamentId: "",
       type: String(e.type ?? "MANUAL_EVENT") as ObserverEvent["type"],
-      timestamp: Number(e.timestamp ?? Date.now()),
+      timestamp: parseObserverTimestamp(e.timestamp),
       playerName: e.playerName as string | undefined,
       teamName: e.teamName as string | undefined,
       confidence: Number(e.confidence ?? 0),

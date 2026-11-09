@@ -52,14 +52,22 @@ export default function OverlayPage() {
   const winner = rows[0];
 
   // Skala berdasarkan lebar bila param w diberikan (rasio aspek dipertahankan).
-  const style = useMemo<React.CSSProperties>(() => {
+  // SSR aman: server merender scale saja; ukuran jendela diukur ulang di
+  // useEffect setelah mount — tidak ada mismatch style hydration.
+  const [windowScale, setWindowScale] = useState(1);
+  useEffect(() => {
     const w = Number(search.get("w") ?? 0);
-    if (w > 0 && typeof window !== "undefined") {
-      const s = Math.min(1, window.innerWidth / w);
-      return { transform: `scale(${s * scale})`, transformOrigin: "top left" };
-    }
-    return { transform: `scale(${scale})`, transformOrigin: "top left" };
-  }, [search, scale]);
+    if (w <= 0) return;
+    // Diukur setelah frame pertama — hindari setState sinkron di dalam effect.
+    const raf = requestAnimationFrame(() => {
+      setWindowScale(Math.min(1, window.innerWidth / w));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [search]);
+  const style = useMemo<React.CSSProperties>(
+    () => ({ transform: `scale(${windowScale * scale})`, transformOrigin: "top left" }),
+    [windowScale, scale],
+  );
 
   return (
     <div className="ov-root fixed inset-0 p-2" style={style} aria-label={`Overlay ${layout}`}>

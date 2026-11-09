@@ -182,7 +182,7 @@ export default function MatchEntryPage() {
                   <input
                     type="number"
                     min={1}
-                    max={12}
+                    max={activeTournament?.teamCapacity ?? 12}
                     disabled={preview}
                     className="bo-input !h-9 w-20 text-center"
                     value={r.placement ?? ""}

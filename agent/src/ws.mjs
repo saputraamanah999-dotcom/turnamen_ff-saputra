@@ -445,7 +445,7 @@ export class AgentWsHub {
   stop() {
     this._closed = true;
     for (const c of [...this.clients]) {
-      try { c._hb && clearInterval(c._hb); } catch { /* abaikan */ }
+      try { if (c._hb) clearInterval(c._hb); } catch { /* abaikan */ }
       try { c.ws.close(1001, "agent shutdown"); } catch { /* abaikan */ }
       try { c.ws.terminate(); } catch { /* abaikan */ }
     }

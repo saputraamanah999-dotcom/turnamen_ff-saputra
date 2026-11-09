@@ -54,7 +54,6 @@ function fmtArg(a) {
 function emit(level, color, tag, msg, ...rest) {
   const body = [msg, ...rest].map(fmtArg).join(" ");
   const consoleLine = `${C.gray}${hhmmss()}${C.reset} ${color}${C.bold}[${tag}]${C.reset} ${body}`;
-  // eslint-disable-next-line no-console
   if (level === "error") console.error(consoleLine);
   else console.log(consoleLine);
   appendFile(`[${ts()}] [${tag}] ${body}`);

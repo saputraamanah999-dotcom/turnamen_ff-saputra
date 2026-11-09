@@ -93,7 +93,7 @@ export default function AdminPresentationPage() {
 
   const rows = standings.data?.standings ?? [];
   const section = SECTIONS[index] as (typeof SECTIONS)[number];
-  const tvUrl = useMemo(() => (tid ? `/display?dwell=12000` : "/display"), [tid]);
+  const tvUrl = "/display";
 
   return (
     <div className="space-y-4">

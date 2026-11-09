@@ -44,13 +44,13 @@ export default function GuideIndexPage() {
             {GUIDES.slice(0, 5).map((g) => (
               <li key={g.n} className="flex gap-2">
                 <span className="text-fs-text/40">#{g.n}</span>
-                <a href={g.href} className="hover:underline">{g.title}</a>
+                <Link href={g.href} className="hover:underline">{g.title}</Link>
               </li>
             ))}
             {GUIDES.slice(11, 13).map((g) => (
               <li key={g.n} className="flex gap-2">
                 <span className="text-fs-text/40">#{g.n}</span>
-                <a href={g.href} className="hover:underline">{g.title}</a>
+                <Link href={g.href} className="hover:underline">{g.title}</Link>
               </li>
             ))}
             <li className="flex gap-2">

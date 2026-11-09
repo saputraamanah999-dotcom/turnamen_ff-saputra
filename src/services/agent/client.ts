@@ -113,7 +113,10 @@ function lsGet(k: string): string {
 }
 function lsSet(k: string, v: string) {
   if (typeof window === "undefined") return;
-  try { v ? window.localStorage.setItem(k, v) : window.localStorage.removeItem(k); } catch { /* abaikan */ }
+  try {
+    if (v) window.localStorage.setItem(k, v);
+    else window.localStorage.removeItem(k);
+  } catch { /* abaikan */ }
 }
 
 export function getAgentUrl(): string { return lsGet(LS_URL); }

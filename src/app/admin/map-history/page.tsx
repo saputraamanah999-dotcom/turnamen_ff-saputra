@@ -11,10 +11,10 @@ import { DataStatusBanner, EmptyState } from "@/components/common/stat";
 import { useAdminSession } from "@/services/auth/admin";
 import { useActiveTournament, useMatches } from "@/services/firestore/hooks";
 import { checkObserverStatus, fetchObserverEvents, type ObserverStatus } from "@/services/observer/client";
-import { updateDoc, doc } from "firebase/firestore";
+import { updateDoc, doc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/services/firebase/client";
 import { writeAuditLog } from "@/services/scoring/publish";
-import { MAP_CATALOG } from "@/lib/constants";
+import { MAP_CATALOG, formatTime } from "@/lib/constants";
 import type { ObserverEvent } from "@/lib/types";
 
 function confidenceStatus(c: number): { label: string; cls: string } {
@@ -56,7 +56,7 @@ export default function AdminMapHistoryPage() {
     try {
       await updateDoc(doc(db, `tournaments/${tid}/matches/${matchId}`), {
         map,
-        updatedAt: Date.now(),
+        updatedAt: serverTimestamp(),
       });
       await writeAuditLog({
         action: "CORRECT_MAP",
@@ -121,7 +121,7 @@ export default function AdminMapHistoryPage() {
                   const detected = e.playerName ?? e.reason ?? "UNKNOWN";
                   return (
                     <tr key={e.id} className="border-b-2 border-fs-edge/10">
-                      <td className="px-3 py-2 font-bold tabular-nums">{new Date(e.timestamp).toLocaleTimeString("id-ID")}</td>
+                      <td className="px-3 py-2 font-bold tabular-nums">{formatTime(e.timestamp) ?? "—"}</td>
                       <td className="px-3 py-2 font-bold"><MapPin className="mr-1 inline h-3.5 w-3.5 text-zb-purple" />{detected}</td>
                       <td className="px-3 py-2 tabular-nums">{(e.confidence * 100).toFixed(0)}%</td>
                       <td className="px-3 py-2"><BoBadge className={st.cls}>{st.label}</BoBadge></td>

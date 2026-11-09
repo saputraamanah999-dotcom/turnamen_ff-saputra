@@ -11,8 +11,12 @@ export function useIsMobile() {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     }
     mql.addEventListener("change", onChange)
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    return () => mql.removeEventListener("change", onChange)
+    // Ukur setelah frame pertama — hindari setState sinkron di dalam effect.
+    const raf = requestAnimationFrame(onChange)
+    return () => {
+      mql.removeEventListener("change", onChange)
+      cancelAnimationFrame(raf)
+    }
   }, [])
 
   return !!isMobile

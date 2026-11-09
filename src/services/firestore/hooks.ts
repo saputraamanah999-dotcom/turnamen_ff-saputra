@@ -19,6 +19,7 @@ import {
   query,
   where,
   type FirestoreError,
+  type QueryConstraint,
 } from "firebase/firestore";
 import { db } from "@/services/firebase/client";
 import type {
@@ -113,7 +114,7 @@ export function useCollection<T>(
     if (!db || !path) return;
     const ref = collection(db, path);
      
-    const constraints: any[] = [];
+    const constraints: QueryConstraint[] = [];
     if (opts?.whereField && opts?.whereValue) constraints.push(where(opts.whereField, "==", opts.whereValue));
     if (opts?.orderByField) constraints.push(orderBy(opts.orderByField, opts.orderDir ?? "asc"));
     if (opts?.limitCount) constraints.push(limit(opts.limitCount));

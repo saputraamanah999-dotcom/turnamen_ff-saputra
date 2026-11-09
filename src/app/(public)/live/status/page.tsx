@@ -127,7 +127,7 @@ export default function LiveStatusPage() {
                 {broadcast.data.event.type.replaceAll("_", " ")}
               </p>
               <p className="text-[11px] font-bold text-fs-muted">
-                {new Date(broadcast.data.event.at).toLocaleTimeString("id-ID")}
+                {formatTime(broadcast.data.event.at) ?? "—"}
                 {broadcast.data.event.message ? ` — ${broadcast.data.event.message}` : ""}
               </p>
             </BoCard>

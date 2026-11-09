@@ -20,6 +20,8 @@ export const ALLOWED_COMMANDS = [
   'toggleSource', // tampil/sembunyikan sumber di scene
   'refreshOverlay', // refresh browser source overlay
   'getOutputs', // status stream & recording
+  'startStreaming', // mulai streaming OBS (StartStream)
+  'stopStreaming', // hentikan streaming OBS (StopStream)
 ];
 
 export function isCommandAllowed(command) {
@@ -120,6 +122,20 @@ export async function handleCommand(command, params, ctx) {
     case 'getOutputs': {
       if (!obs.connected) return badRequest(command, 'OBS tidak terhubung');
       const data = await obs.getOutputStatus();
+      return { ok: true, command, data };
+    }
+
+    case 'startStreaming': {
+      if (!obs.connected) return badRequest(command, 'OBS tidak terhubung');
+      const data = await obs.startStreaming();
+      logger.info('OBS streaming dimulai (via bridge)');
+      return { ok: true, command, data };
+    }
+
+    case 'stopStreaming': {
+      if (!obs.connected) return badRequest(command, 'OBS tidak terhubung');
+      const data = await obs.stopStreaming();
+      logger.info('OBS streaming dihentikan (via bridge)');
       return { ok: true, command, data };
     }
 
