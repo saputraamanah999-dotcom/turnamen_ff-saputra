@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "note": "Katalog map lokal (tanpa API eksternal). Perbarui manual jika ada map baru. regionHint = petunjuk posisi nama map pada HUD.",
+  "maps": [
+    {
+      "name": "BERMUDA",
+      "aliases": ["BERMUDA REMASTERED", "BERMUDA 2.0"],
+      "regionHint": "Nama map tampil di pojok kiri atas HUD saat memasuki match / loading."
+    },
+    {
+      "name": "PURGATORY",
+      "aliases": ["PURGATORY 2.0"],
+      "regionHint": "Nama map tampil di pojok kiri atas HUD saat memasuki match / loading."
+    },
+    {
+      "name": "KALAHARI",
+      "aliases": ["KALAHARI 2.0"],
+      "regionHint": "Nama map tampil di pojok kiri atas HUD saat memasuki match / loading."
+    },
+    {
+      "name": "ALPINE",
+      "aliases": ["ALPINE 2.0"],
+      "regionHint": "Nama map tampil di pojok kiri atas HUD saat memasuki match / loading."
+    },
+    {
+      "name": "NEXTERRA",
+      "aliases": ["NEXTERRA 2.0"],
+      "regionHint": "Nama map tampil di pojok kiri atas HUD saat memasuki match / loading."
+    }
+  ]
+}

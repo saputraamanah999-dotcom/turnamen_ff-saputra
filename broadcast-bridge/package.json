@@ -1,0 +1,27 @@
+{
+  "name": "zeroid-broadcast-bridge",
+  "version": "1.0.0",
+  "description": "Jembatan lokal (localhost/LAN only) antara website ZEROID ESPORTS dan OBS Studio via obs-websocket v5. Gratis, tanpa API berbayar.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node src/index.js",
+    "start": "node src/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "obs",
+    "obs-websocket",
+    "broadcast",
+    "esports",
+    "overlay"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "obs-websocket-js": "^5.0.5",
+    "ws": "^8.17.1"
+  }
+}

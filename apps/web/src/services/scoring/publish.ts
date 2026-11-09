@@ -1,0 +1,272 @@
+"use client";
+// ============================================================
+// ZEROID ESPORTS — Alur admin: entri hasil, publish, audit log
+// Karena proyek memakai Firebase Spark (tanpa Cloud Functions),
+// seluruh perhitungan resmi dilakukan di aplikasi admin yang
+// TERAUTENTIKASI, dan keamanan ditegakkan oleh Firestore Rules.
+// ============================================================
+
+import {
+  collection,
+  doc,
+  getDocs,
+  serverTimestamp,
+  setDoc,
+  writeBatch,
+} from "firebase/firestore";
+import { db } from "@/services/firebase/client";
+import { SCORING_VERSION } from "@/lib/constants";
+import { calcMatchResult, computeStandings, validateResultEntries } from "@/lib/scoring";
+import type { Match, MatchResult, Team } from "@/lib/types";
+
+export interface ResultEntryInput {
+  teamId: string;
+  teamName: string;
+  teamTag?: string;
+  placement: number | null;
+  kills: number | null;
+}
+
+/** Simpan draft hasil (belum dipublikasikan). */
+export async function saveDraftResults(
+  tournamentId: string,
+  match: Match,
+  entries: ResultEntryInput[],
+  actor: { uid: string; email: string },
+): Promise<void> {
+  if (!db) throw new Error("Firebase tidak terkonfigurasi.");
+  const validEntries = entries.filter((e) => e.placement != null && e.kills != null);
+  const errors = validateResultEntries(
+    validEntries as { teamId: string; teamName: string; placement: number | null; kills: number | null }[],
+  );
+  if (errors.length) throw new Error(errors.map((e) => e.message).join("\n"));
+
+  const batch = writeBatch(db);
+  for (const e of validEntries) {
+    const res = calcMatchResult(e.teamId, e.teamName, e.placement!, e.kills!, e.teamTag);
+    const ref = doc(db, `tournaments/${tournamentId}/matches/${match.id}/results/${e.teamId}`);
+    batch.set(ref, res, { merge: true });
+  }
+  batch.update(doc(db, `tournaments/${tournamentId}/matches/${match.id}`), {
+    updatedAt: serverTimestamp(),
+    scoringVersion: SCORING_VERSION,
+  });
+  await batch.commit();
+  await writeAuditLog({
+    action: "SAVE_DRAFT_RESULTS",
+    actor,
+    targetType: "match",
+    targetId: match.id,
+    details: { matchNumber: match.matchNumber, teams: validEntries.length },
+  });
+}
+
+/**
+ * Publish hasil: validasi → hitung ulang seluruh klasemen dari
+ * SEMUA match yang sudah dipublikasikan → tulis dokumen
+ * publicLeaderboards → update status match → audit log.
+ */
+export async function publishResults(
+  tournamentId: string,
+  match: Match,
+  entries: ResultEntryInput[],
+  finalGamePlacement: Record<string, number> = {},
+  actor?: { uid: string; email: string },
+): Promise<void> {
+  if (!db) throw new Error("Firebase tidak terkonfigurasi.");
+
+  const filled = entries.filter((e) => e.placement != null && e.kills != null);
+  const errors = validateResultEntries(
+    filled as { teamId: string; teamName: string; placement: number | null; kills: number | null }[],
+  );
+  if (errors.length) throw new Error(errors.map((e) => e.message).join("\n"));
+
+  // 1. Tulis hasil resmi match ini.
+  const batch = writeBatch(db);
+  const results: MatchResult[] = filled.map((e) =>
+    calcMatchResult(e.teamId, e.teamName, e.placement!, e.kills!, e.teamTag),
+  );
+  for (const res of results) {
+    const ref = doc(db, `tournaments/${tournamentId}/matches/${match.id}/results/${res.teamId}`);
+    batch.set(ref, res, { merge: true });
+  }
+
+  // 2. Update status match.
+  batch.update(doc(db, `tournaments/${tournamentId}/matches/${match.id}`), {
+    status: "completed",
+    resultsPublished: true,
+    isCurrent: false,
+    scoringVersion: SCORING_VERSION,
+    updatedAt: serverTimestamp(),
+  });
+  await batch.commit();
+
+  // 3. Hitung ulang akumulasi seluruh match yang sudah dipublikasikan.
+  const matchesSnap = await getDocs(
+    collection(db, `tournaments/${tournamentId}/matches`),
+  );
+  const published = matchesSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as Match)
+    .filter((m) => m.resultsPublished || m.id === match.id);
+
+  const accum: {
+    teamId: string; teamName: string; teamTag: string; teamNumber: number; placement: number; kills: number;
+  }[] = [];
+  for (const m of published) {
+    const resSnap = await getDocs(
+      collection(db, `tournaments/${tournamentId}/matches/${m.id}/results`),
+    );
+    resSnap.docs.forEach((d) => {
+      const r = d.data() as MatchResult;
+      accum.push({
+        teamId: r.teamId,
+        teamName: r.teamName,
+        teamTag: r.teamTag ?? "",
+        teamNumber: 0,
+        placement: r.placement,
+        kills: r.kills,
+      });
+    });
+  }
+
+  // Nomor tim untuk tie order stabil.
+  const teamsSnap = await getDocs(collection(db, `tournaments/${tournamentId}/teams`));
+  const teamNumber = new Map<string, number>();
+  teamsSnap.docs.forEach((d) => {
+    const t = d.data() as Team;
+    teamNumber.set(t.id, t.number ?? 0);
+  });
+  accum.forEach((a) => {
+    a.teamNumber = teamNumber.get(a.teamId) ?? 999;
+  });
+
+  // 4. Susun klasemen + tiebreaker, lalu tulis dokumen publik.
+  const standings = computeStandings(accum, finalGamePlacement);
+  await setDoc(doc(db, `publicLeaderboards/${tournamentId}`), {
+    tournamentId,
+    standings,
+    publishedMatchCount: published.length,
+    totalKills: standings.reduce((a, r) => a + r.kills, 0),
+    scoringVersion: SCORING_VERSION,
+    updatedAt: serverTimestamp(),
+  });
+
+  await writeAuditLog({
+    action: "PUBLISH_RESULTS",
+    actor,
+    targetType: "match",
+    targetId: match.id,
+    details: { matchNumber: match.matchNumber, publishedMatchCount: published.length },
+  });
+}
+
+// ---------- CRUD generik admin ----------
+
+export async function upsertTeam(
+  tournamentId: string,
+  team: Partial<Team> & { id?: string },
+  actor?: { uid: string; email: string },
+) {
+  if (!db) throw new Error("Firebase tidak terkonfigurasi.");
+  const ref = team.id
+    ? doc(db, `tournaments/${tournamentId}/teams/${team.id}`)
+    : doc(collection(db, `tournaments/${tournamentId}/teams`));
+  await setDoc(ref, { ...team, id: ref.id, updatedAt: serverTimestamp() }, { merge: true });
+  await writeAuditLog({
+    action: team.id ? "UPDATE_TEAM" : "CREATE_TEAM",
+    actor,
+    targetType: "team",
+    targetId: ref.id,
+    details: { name: team.name },
+  });
+  return ref.id;
+}
+
+export async function deleteTeam(tournamentId: string, teamId: string, actor?: { uid: string; email: string }) {
+  if (!db) throw new Error("Firebase tidak terkonfigurasi.");
+  const { deleteDoc } = await import("firebase/firestore");
+  await deleteDoc(doc(db, `tournaments/${tournamentId}/teams/${teamId}`));
+  await writeAuditLog({ action: "DELETE_TEAM", actor, targetType: "team", targetId: teamId });
+}
+
+export async function deleteMatch(tournamentId: string, matchId: string, actor?: { uid: string; email: string }) {
+  if (!db) throw new Error("Firebase tidak terkonfigurasi.");
+  const { deleteDoc } = await import("firebase/firestore");
+  await deleteDoc(doc(db, `tournaments/${tournamentId}/matches/${matchId}`));
+  await writeAuditLog({ action: "DELETE_MATCH", actor, targetType: "match", targetId: matchId });
+}
+
+export async function upsertMatch(
+  tournamentId: string,
+  match: Partial<Match> & { id?: string },
+  actor?: { uid: string; email: string },
+) {
+  if (!db) throw new Error("Firebase tidak terkonfigurasi.");
+  const ref = match.id
+    ? doc(db, `tournaments/${tournamentId}/matches/${match.id}`)
+    : doc(collection(db, `tournaments/${tournamentId}/matches`));
+  await setDoc(ref, { ...match, id: ref.id, updatedAt: serverTimestamp() }, { merge: true });
+  await writeAuditLog({
+    action: match.id ? "UPDATE_MATCH" : "CREATE_MATCH",
+    actor,
+    targetType: "match",
+    targetId: ref.id,
+    details: { matchNumber: match.matchNumber, map: match.map },
+  });
+  return ref.id;
+}
+
+/** Set satu match sebagai "current" (yang sedang berjalan). */
+export async function setCurrentMatch(
+  tournamentId: string,
+  matchId: string | null,
+  actor?: { uid: string; email: string },
+) {
+  if (!db) throw new Error("Firebase tidak terkonfigurasi.");
+  const batch = writeBatch(db);
+  const matchesSnap = await getDocs(collection(db, `tournaments/${tournamentId}/matches`));
+  matchesSnap.docs.forEach((d) => {
+    if (d.data().isCurrent === true) {
+      batch.update(d.ref, { isCurrent: false, updatedAt: serverTimestamp() });
+    }
+  });
+  if (matchId) {
+    batch.update(doc(db, `tournaments/${tournamentId}/matches/${matchId}`), {
+      isCurrent: true,
+      status: "live",
+      updatedAt: serverTimestamp(),
+    });
+  }
+  batch.update(doc(db, `tournaments/${tournamentId}`), {
+    currentMatchId: matchId,
+    liveStatus: matchId ? "live" : "intermission",
+    updatedAt: serverTimestamp(),
+  });
+  await batch.commit();
+  await writeAuditLog({
+    action: "SET_CURRENT_MATCH",
+    actor,
+    targetType: "match",
+    targetId: matchId ?? "(kosong)",
+  });
+}
+
+export async function writeAuditLog(payload: {
+  action: string;
+  actor?: { uid: string; email: string };
+  targetType: string;
+  targetId: string;
+  details?: Record<string, unknown>;
+}) {
+  if (!db) return;
+  try {
+    await setDoc(doc(collection(db, "auditLogs")), {
+      ...payload,
+      actorUid: payload.actor?.uid ?? "system",
+      actorEmail: payload.actor?.email ?? "system",
+      createdAt: serverTimestamp(),
+    });
+  } catch {
+    // Audit log tidak boleh memblokir operasi utama.
+  }
+}

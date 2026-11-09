@@ -1,0 +1,6 @@
+# Rahasia & file lokal — JANGAN di-commit
+node_modules/
+.env
+logs/
+config.json
+npm-debug.log*

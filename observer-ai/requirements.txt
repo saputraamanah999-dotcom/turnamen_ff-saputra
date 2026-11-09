@@ -1,0 +1,10 @@
+# ZEROID AI OBSERVER — dependensi 100% lokal & gratis (tanpa API berbayar)
+fastapi>=0.110
+uvicorn[standard]>=0.29
+mss>=9.0.1
+opencv-python-headless>=4.9
+numpy>=1.24
+pydantic>=2.6
+pydantic-settings>=2.2
+rapidocr-onnxruntime>=1.3.24
+psutil>=5.9

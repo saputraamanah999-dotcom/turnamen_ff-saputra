@@ -1,0 +1,20 @@
+{
+  "sceneWhitelist": [
+    "Starting Soon",
+    "Main Gameplay",
+    "Gameplay + Compact Leaderboard",
+    "Full Leaderboard",
+    "Top 3 Ranking",
+    "Match Results",
+    "Break",
+    "Winner Announcement",
+    "Stream Offline"
+  ],
+  "overlaySources": {
+    "full": "/overlay/:tournamentId/full",
+    "compact": "/overlay/:tournamentId/compact",
+    "top3": "/overlay/:tournamentId/top3",
+    "matchInfo": "/overlay/:tournamentId/match-info",
+    "lowerThird": "/overlay/:tournamentId/lower-third"
+  }
+}

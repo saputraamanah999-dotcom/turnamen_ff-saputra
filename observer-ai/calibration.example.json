@@ -1,0 +1,10 @@
+{
+  "comment": "Salin file ini menjadi calibration.json lalu sesuaikan x,y,w,h. Koordinat mengikuti frame hasil capture (lebar maksimum 1280px). Nilai default mengasumsikan frame berukuran 1280x720.",
+  "regions": {
+    "player_hud": { "x": 24, "y": 88, "w": 420, "h": 60 },
+    "team_hud": { "x": 24, "y": 152, "w": 420, "h": 44 },
+    "map_name": { "x": 24, "y": 24, "w": 320, "h": 40 },
+    "killfeed": { "x": 920, "y": 88, "w": 344, "h": 220 },
+    "minimap": { "x": 880, "y": 420, "w": 200, "h": 200 }
+  }
+}

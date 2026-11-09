@@ -1,0 +1,44 @@
+# ============================================
+# ZEROID ESPORTS — Git ignore
+# ============================================
+
+# Kredensial & rahasia — JANGAN PERNAH di-push
+.env
+.env.local
+.env.*.local
+secrets/
+**/serviceAccountKey*.json
+**/service-account*.json
+
+# Dependencies
+node_modules/
+
+# Build output
+.next/
+out/
+build/
+dist/
+
+# Python (observer-ai)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+calibration.json
+
+# Broadcast bridge
+logs/
+config.json
+
+# OS & editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Logs
+*.log
+.firebase/
+firebase-debug.log*
+firestore-debug.log*

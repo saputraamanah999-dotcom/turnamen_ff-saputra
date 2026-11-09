@@ -1,0 +1,97 @@
+"use client";
+// ============================================================
+// ZEROID ESPORTS — Komponen dasar neobrutalism
+// ============================================================
+
+import { forwardRef, type ButtonHTMLAttributes, type HTMLAttributes } from "react";
+import { cn } from "@/lib/utils";
+
+export function BoCard({
+  className,
+  children,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={cn("bo-card", className)} {...props}>
+      {children}
+    </div>
+  );
+}
+
+export function BoCardLg({
+  className,
+  children,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={cn("bo-card-lg", className)} {...props}>
+      {children}
+    </div>
+  );
+}
+
+type BoButtonVariant =
+  | "primary"
+  | "yellow"
+  | "cyan"
+  | "purple"
+  | "white"
+  | "black"
+  | "destructive";
+
+interface BoButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: BoButtonVariant;
+}
+
+const variantClass: Record<BoButtonVariant, string> = {
+  primary: "bo-btn-primary",
+  yellow: "bo-btn-yellow",
+  cyan: "bo-btn-cyan",
+  purple: "bo-btn-purple",
+  white: "bo-btn-white",
+  black: "bo-btn-black",
+  destructive: "bg-[#e5484d] text-white",
+};
+
+export const BoButton = forwardRef<HTMLButtonElement, BoButtonProps>(
+  function BoButton({ className, variant = "primary", ...props }, ref) {
+    return (
+      <button
+        ref={ref}
+        className={cn("bo-btn", variantClass[variant], className)}
+        {...props}
+      />
+    );
+  },
+);
+
+export function BoBadge({
+  className,
+  children,
+  ...props
+}: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span className={cn("bo-badge bg-white text-zb-black", className)} {...props}>
+      {children}
+    </span>
+  );
+}
+
+export function SectionTitle({
+  kicker,
+  title,
+  className,
+}: {
+  kicker?: string;
+  title: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("mb-6", className)}>
+      {kicker ? (
+        <span className="bo-kicker mb-2 inline-block bg-zb-purple">{kicker}</span>
+      ) : null}
+      <h2 className="bo-title">{title}</h2>
+    </div>
+  );
+}

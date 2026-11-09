@@ -1,0 +1,124 @@
+rules_version = '2';
+
+// ============================================================
+// ZEROID ESPORTS — Battle Off Friends (BOF)
+// Firestore Security Rules
+// Publik: hanya BACA data yang sudah dipublikasikan.
+// Admin: tulis sesuai peran di koleksi adminRoles.
+// Superadmin: kelola peran admin & konfigurasi sistem.
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helper ----------
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myRole() {
+      return get(/databases/$(database)/documents/adminRoles/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return signedIn() && myRole() in ['admin', 'superadmin'];
+    }
+
+    function isSuperAdmin() {
+      return signedIn() && myRole() == 'superadmin';
+    }
+
+    // ---------- adminRoles ----------
+    // Hanya superadmin boleh mengelola peran; admin boleh MEMBACA sendiri.
+    match /adminRoles/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
+
+    // ---------- tournaments ----------
+    match /tournaments/{tournamentId} {
+      allow read: if resource.data.status == 'active' || resource.data.status == 'completed' || isAdmin();
+      allow create, update: if isAdmin();
+      allow delete: if isSuperAdmin();
+
+      // ---------- teams ----------
+      match /teams/{teamId} {
+        allow read: if isAdmin()
+          || get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.status in ['active', 'completed'];
+        allow create, update: if isAdmin();
+        allow delete: if isAdmin();
+      }
+
+      // ---------- matches ----------
+      match /matches/{matchId} {
+        allow read: if isAdmin()
+          || get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.status in ['active', 'completed'];
+
+        allow create, update: if isAdmin();
+        allow delete: if isSuperAdmin();
+
+        // ---------- results (per match) ----------
+        match /results/{teamId} {
+          // Publik boleh membaca hasil match yang SUDAH dipublikasikan.
+          allow read: if isAdmin()
+            || get(/databases/$(database)/documents/tournaments/$(tournamentId))
+                 .data.status in ['active', 'completed'];
+          allow write: if isAdmin();
+        }
+      }
+    }
+
+    // ---------- publicLeaderboards ----------
+    match /publicLeaderboards/{tournamentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------- scoringConfigurations ----------
+    match /scoringConfigurations/{configId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // ---------- broadcastSettings ----------
+    match /broadcastSettings/{tournamentId} {
+      allow read: if true;
+      // Catatan: stream key TIDAK pernah disimpan di dokumen ini.
+      allow write: if isAdmin();
+    }
+
+    // ---------- observerEvents ----------
+    // Publik hanya boleh membaca event yang DIKONFIRMASI panitia
+    // dan bila fitur timeline publik diaktifkan.
+    match /observerEvents/{tournamentId} {
+      match /events/{eventId} {
+        allow read: if isAdmin()
+          || (resource.data.status == 'confirmed'
+              && get(/databases/$(database)/documents/broadcastSettings/$(tournamentId)).data.showPublicTimeline == true);
+        // Event ditulis oleh admin (konfirmasi/koreksi operator).
+        allow create, update: if isAdmin();
+        allow delete: if isSuperAdmin();
+      }
+    }
+
+    // ---------- auditLogs ----------
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      // Log hanya dibuat oleh aplikasi admin terautentikasi; tidak bisa diedit/dihapus.
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // ---------- users ----------
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid;
+      allow delete: if isSuperAdmin();
+    }
+
+    // ---------- Default: tolak semua ----------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
