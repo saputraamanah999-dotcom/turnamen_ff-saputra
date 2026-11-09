@@ -26,17 +26,17 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b-[3px] border-zb-black bg-white">
+    <header className="sticky top-0 z-50 border-b border-fs-edge bg-fs-panel">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4">
         <Link href="/" className="flex items-center gap-2.5" aria-label="Beranda ZEROID ESPORTS">
-          <span className="flex h-10 w-10 items-center justify-center border-[3px] border-zb-black bg-zb-blue text-white bo-shadow-sm">
+          <span className="flex h-10 w-10 items-center justify-center border border-fs-edge bg-zb-blue text-white bo-shadow-sm">
             <Zap className="h-5 w-5" strokeWidth={2.75} />
           </span>
           <span className="leading-none">
             <span className="block font-display text-lg font-black tracking-tight">
               ZEROID <span className="text-zb-blue">ESPORTS</span>
             </span>
-            <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-zb-black/60">
+            <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-fs-text/60">
               {ORG.tournament} · {ORG.institution}
             </span>
           </span>
@@ -52,8 +52,8 @@ export function Navbar() {
                 className={cn(
                   "border-[3px] px-3 py-1.5 text-sm font-bold uppercase tracking-wide transition-all",
                   active
-                    ? "border-zb-black bg-zb-yellow text-zb-black bo-shadow-sm"
-                    : "border-transparent hover:border-zb-black hover:bg-zb-off",
+                    ? "border-fs-edge bg-zb-yellow text-fs-ink bo-shadow-sm"
+                    : "border-transparent hover:border-fs-edge hover:bg-fs-bg",
                 )}
               >
                 {item.label}
@@ -69,7 +69,7 @@ export function Navbar() {
         </nav>
 
         <button
-          className="flex h-11 w-11 items-center justify-center border-[3px] border-zb-black bg-white lg:hidden"
+          className="flex h-11 w-11 items-center justify-center border border-fs-edge bg-fs-panel lg:hidden"
           onClick={() => setOpen((v) => !v)}
           aria-label={open ? "Tutup menu" : "Buka menu"}
           aria-expanded={open}
@@ -80,7 +80,7 @@ export function Navbar() {
 
       {open ? (
         <nav
-          className="border-t-[3px] border-zb-black bg-white px-4 py-3 lg:hidden"
+          className="border-t border-fs-edge bg-fs-panel px-4 py-3 lg:hidden"
           aria-label="Navigasi seluler"
         >
           <div className="flex flex-col gap-1.5">
@@ -92,8 +92,8 @@ export function Navbar() {
                 className={cn(
                   "border-[3px] px-3 py-2.5 text-sm font-bold uppercase",
                   (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href))
-                    ? "border-zb-black bg-zb-yellow"
-                    : "border-zb-black/10 bg-white",
+                    ? "border-fs-edge bg-zb-yellow"
+                    : "border-fs-edge/10 bg-fs-panel",
                 )}
               >
                 {item.label}
@@ -115,7 +115,7 @@ export function Navbar() {
 
 export function Footer() {
   return (
-    <footer className="mt-auto border-t-[3px] border-zb-black bg-zb-black text-white">
+    <footer className="mt-auto border-t border-fs-edge bg-fs-head text-white">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-3">
         <div>
           <p className="font-display text-xl font-black tracking-tight">
@@ -141,7 +141,7 @@ export function Footer() {
           </ul>
         </div>
         <div className="text-sm">
-          <p className="bo-kicker mb-3 inline-block bg-zb-yellow text-zb-black">Kredit</p>
+          <p className="bo-kicker mb-3 inline-block bg-zb-yellow text-fs-ink">Kredit</p>
           <p className="mt-1 font-display text-lg font-black uppercase">
             Designed &amp; Developed by
           </p>

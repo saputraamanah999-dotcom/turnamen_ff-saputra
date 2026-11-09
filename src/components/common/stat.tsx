@@ -47,10 +47,10 @@ export function StatCounter({
 
 export function LiveDot({ label = "LIVE" }: { label?: string }) {
   return (
-    <span className="bo-badge inline-flex items-center gap-1.5 border-zb-black bg-[#e5484d] text-white">
+    <span className="bo-badge inline-flex items-center gap-1.5 border-fs-edge bg-[#e5484d] text-white">
       <span className="relative inline-flex h-2 w-2">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fs-panel opacity-75" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-fs-panel" />
       </span>
       {label}
     </span>
@@ -97,7 +97,7 @@ export function EmptyState({
     <div className={cn("bo-card flex flex-col items-center justify-center px-6 py-10 text-center", className)}>
       <div className="bo-stripe mb-4 h-2 w-16" />
       <p className="font-display text-lg font-bold uppercase">{title}</p>
-      {description ? <p className="mt-1 text-sm text-zb-black/60">{description}</p> : null}
+      {description ? <p className="mt-1 text-sm text-fs-text/60">{description}</p> : null}
     </div>
   );
 }

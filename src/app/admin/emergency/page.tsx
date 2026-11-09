@@ -69,7 +69,7 @@ export default function AdminEmergencyPage() {
     <div className="space-y-4">
       <div>
         <h1 className="font-display text-2xl font-black uppercase">Emergency Broadcast Mode</h1>
-        <p className="mt-1 text-sm font-semibold text-zb-black/60">
+        <p className="mt-1 text-sm font-semibold text-fs-text/60">
           Tampilkan layar darurat di seluruh penonton (overlay OBS + halaman /display + /live).
           Mode ini <strong>tidak pernah</strong> mengubah skor resmi atau hasil pertandingan.
         </p>
@@ -89,7 +89,7 @@ export default function AdminEmergencyPage() {
         </BoCard>
       ) : null}
 
-      <BoCardLg className="bg-white p-5">
+      <BoCardLg className="bg-fs-panel p-5">
         <p className="flex items-center gap-2 font-display text-sm font-black uppercase">
           <Radio className="h-4 w-4 text-zb-red text-red-600" /> Preset Darurat
         </p>
@@ -98,14 +98,14 @@ export default function AdminEmergencyPage() {
             <button
               key={p.preset}
               onClick={() => { setPreset(p.preset); setMessage(p.message); }}
-              className={`bo-badge ${preset === p.preset ? "bg-zb-black text-white" : "bg-white"}`}
+              className={`bo-badge ${preset === p.preset ? "bg-fs-head text-white" : "bg-fs-panel"}`}
             >
               {p.preset}
             </button>
           ))}
         </div>
 
-        <label className="mt-4 block text-xs font-black uppercase tracking-widest text-zb-black/60">Pesan (diedit bila perlu)</label>
+        <label className="mt-4 block text-xs font-black uppercase tracking-widest text-fs-text/60">Pesan (diedit bila perlu)</label>
         <textarea
           className="bo-input mt-1 min-h-20"
           value={message}
@@ -126,7 +126,7 @@ export default function AdminEmergencyPage() {
 
       {/* Preview */}
       <div>
-        <p className="mb-2 text-xs font-black uppercase tracking-widest text-zb-black/60">
+        <p className="mb-2 text-xs font-black uppercase tracking-widest text-fs-text/60">
           Pratinjau layar penonton (realtime — sama dengan yang terlihat penonton):
         </p>
         <div className="bo-grid-bg flex min-h-52 items-center justify-center rounded-sm bg-[#1a0000] p-6 text-center">
@@ -138,7 +138,7 @@ export default function AdminEmergencyPage() {
             </p>
           </div>
         </div>
-        <p className="mt-2 text-xs font-semibold text-zb-black/50">
+        <p className="mt-2 text-xs font-semibold text-fs-text/50">
           Overlay OBS: buka <code>/overlay/{tid}/emergency</code> sebagai Browser Source ·
           Display TV: <code>/display</code> otomatis menampilkan layar ini saat aktif.
         </p>

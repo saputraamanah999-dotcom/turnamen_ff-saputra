@@ -60,7 +60,7 @@ export default function AdminTeamsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-black uppercase">Tim</h1>
-          <p className="text-sm font-semibold text-zb-black/60">
+          <p className="text-sm font-semibold text-fs-text/60">
             {teams.data?.length ?? 0} tim · kapasitas {tournament?.teamCapacity ?? 12}
           </p>
         </div>
@@ -74,7 +74,7 @@ export default function AdminTeamsPage() {
 
       {/* Form edit */}
       {editing ? (
-        <BoCard className="mt-4 bg-white p-5">
+        <BoCard className="mt-4 bg-fs-panel p-5">
           <h2 className="font-display text-lg font-black uppercase">{editing.id ? "Edit Tim" : "Tim Baru"}</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Nama Tim">
@@ -122,11 +122,11 @@ export default function AdminTeamsPage() {
       {/* Daftar tim */}
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {(teams.data ?? []).map((team) => (
-          <BoCard key={team.id} className="flex items-center gap-3 bg-white p-4">
+          <BoCard key={team.id} className="flex items-center gap-3 bg-fs-panel p-4">
             <TeamInitials name={team.name} />
             <div className="min-w-0 flex-1">
               <p className="truncate font-display text-sm font-black uppercase">{team.name}</p>
-              <p className="text-[11px] font-bold uppercase text-zb-black/50">
+              <p className="text-[11px] font-bold uppercase text-fs-text/50">
                 #{team.number} · [{team.tag || "—"}] · {team.status}
               </p>
             </div>
@@ -151,7 +151,7 @@ export default function AdminTeamsPage() {
 function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={className}>
-      <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-zb-black/70">{label}</label>
+      <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-fs-text/70">{label}</label>
       {children}
     </div>
   );

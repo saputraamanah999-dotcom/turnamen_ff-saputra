@@ -50,7 +50,7 @@ export default function AdminTournamentsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-black uppercase">Tournaments</h1>
-          <p className="text-sm font-semibold text-zb-black/60">
+          <p className="text-sm font-semibold text-fs-text/60">
             {list.length} turnamen · hanya superadmin boleh mengubah konfigurasi penting
           </p>
         </div>
@@ -75,7 +75,7 @@ export default function AdminTournamentsPage() {
       </div>
 
       {editing ? (
-        <BoCard className="mt-4 bg-white p-5">
+        <BoCard className="mt-4 bg-fs-panel p-5">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <F label="Nama">
               <input className="bo-input" value={editing.name ?? ""} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
@@ -106,7 +106,7 @@ export default function AdminTournamentsPage() {
             </F>
           </div>
           {editing.teamCapacity && editing.teamCapacity > 12 ? (
-            <p className="mt-3 border-[3px] border-zb-black bg-zb-yellow px-3 py-2 text-xs font-bold">
+            <p className="mt-3 border border-fs-edge bg-zb-yellow px-3 py-2 text-xs font-bold">
               Kapasitas &gt; 12 tim: aturan placement tambahan (rank 13+) perlu dikonfigurasi
               sebelum turnamen diaktifkan — poin placement untuk rank di atas 12 adalah 0.
             </p>
@@ -120,14 +120,14 @@ export default function AdminTournamentsPage() {
 
       <div className="mt-6 space-y-3">
         {list.map((t) => (
-          <BoCard key={t.id} className="flex flex-wrap items-center gap-3 bg-white p-4">
+          <BoCard key={t.id} className="flex flex-wrap items-center gap-3 bg-fs-panel p-4">
             <div className="min-w-0 flex-1">
               <p className="font-display text-base font-black uppercase">{t.name}</p>
-              <p className="text-xs font-bold uppercase text-zb-black/50">
+              <p className="text-xs font-bold uppercase text-fs-text/50">
                 {t.institution} · {t.format} · {t.teamCapacity} tim · ID: {t.id}
               </p>
             </div>
-            <BoBadge className={t.status === "active" ? "bg-emerald-300" : t.status === "completed" ? "bg-zb-cyan" : "bg-white"}>
+            <BoBadge className={t.status === "active" ? "bg-emerald-300" : t.status === "completed" ? "bg-zb-cyan" : "bg-fs-panel"}>
               {t.status.toUpperCase()}
             </BoBadge>
             <BoButton variant="white" className="!px-3 !py-2 !text-xs" onClick={() => setEditing(t)}>Edit</BoButton>
@@ -141,7 +141,7 @@ export default function AdminTournamentsPage() {
 function F({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-zb-black/70">{label}</label>
+      <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-fs-text/70">{label}</label>
       {children}
     </div>
   );

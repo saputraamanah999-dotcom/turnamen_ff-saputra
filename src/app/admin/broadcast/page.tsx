@@ -68,14 +68,14 @@ export default function AdminBroadcastPage() {
   return (
     <div>
       <h1 className="font-display text-2xl font-black uppercase">Broadcast Control</h1>
-      <p className="mt-1 text-sm font-semibold text-zb-black/60">
+      <p className="mt-1 text-sm font-semibold text-fs-text/60">
         Pusat produksi siaran — OBS, overlay, dan streaming. Kontrol hanya aktif saat service
         benar-benar terhubung.
       </p>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         {/* Status OBS via bridge */}
-        <BoCard className="bg-white p-5">
+        <BoCard className="bg-fs-panel p-5">
           <h2 className="flex items-center gap-2 font-display text-base font-black uppercase">
             <MonitorPlay className="h-4 w-4" /> OBS (via Broadcast Bridge)
           </h2>
@@ -88,12 +88,15 @@ export default function AdminBroadcastPage() {
             </li>
             <li className="flex items-center gap-2">
               OBS Studio:
-              <BoBadge className={bridge.obsConnected ? "bg-emerald-300" : "bg-white"}>
+              <BoBadge className={bridge.obsConnected ? "bg-emerald-300" : "bg-fs-panel"}>
                 {bridge.obsConnected ? `TERHUBUNG ${bridge.obsVersion ?? ""}` : "TIDAK TERHUBUNG"}
               </BoBadge>
             </li>
-            <li>Scene aktif: <span className="text-zb-blue">{bridge.currentScene ?? "—"}</span></li>
-            <li>Stream output: <BoBadge className={bridge.streaming ? "bg-[#e5484d] text-white" : "bg-white"}>{bridge.streaming ? "ON AIR" : "OFF"}</BoBadge></li>
+            <li>Scene aktif: <span className="text-fs-fire">{bridge.currentScene ?? "—"}</span></li>
+            {typeof bridge.viewers === "number" ? (
+              <li>Perangkat gateway: <BoBadge className="bg-fs-cyan/15 text-fs-cyan">{bridge.viewers} NYATA</BoBadge></li>
+            ) : null}
+            <li>Stream output: <BoBadge className={bridge.streaming ? "bg-[#e5484d] text-white" : "bg-fs-panel"}>{bridge.streaming ? "ON AIR" : "OFF"}</BoBadge></li>
           </ul>
           {bridge.message ? <p className="mt-2 text-xs font-bold text-amber-700">{bridge.message}</p> : null}
 
@@ -133,7 +136,7 @@ export default function AdminBroadcastPage() {
               </div>
             </div>
           ) : (
-            <p className="mt-3 text-xs font-semibold text-zb-black/50">
+            <p className="mt-3 text-xs font-semibold text-fs-text/50">
               Kontrol scene belum tersedia — jalankan <code>broadcast-bridge/</code> di laptop
               produksi (localhost only) lalu tekan Hubungkan Ulang. Panduan: documentation/OBS_SETUP.md
             </p>
@@ -141,7 +144,7 @@ export default function AdminBroadcastPage() {
         </BoCard>
 
         {/* Pengaturan stream */}
-        <BoCard className="bg-white p-5">
+        <BoCard className="bg-fs-panel p-5">
           <h2 className="flex items-center gap-2 font-display text-base font-black uppercase">
             <Tv className="h-4 w-4" /> Sumber Video Publik
           </h2>
@@ -165,10 +168,24 @@ export default function AdminBroadcastPage() {
               </label>
             ) : null}
             {(settings.streamMode ?? "offline") === "mediamtx" ? (
-              <label className="block text-[11px] font-black uppercase tracking-wider">
-                URL HLS (LAN)
-                <input className="bo-input mt-1" value={settings.hlsUrl ?? ""} onChange={(e) => setSettings({ ...settings, hlsUrl: e.target.value })} placeholder="http://IP-LAPTOP:8888/stream/index.m3u8" />
-              </label>
+              <>
+                <label className="block text-[11px] font-black uppercase tracking-wider">
+                  URL HLS (LAN / publik)
+                  <input className="bo-input mt-1" value={settings.hlsUrl ?? ""} onChange={(e) => setSettings({ ...settings, hlsUrl: e.target.value })} placeholder="http://IP-LAPTOP:8080/hls/bof-main/index.m3u8" />
+                </label>
+                <label className="block text-[11px] font-black uppercase tracking-wider">
+                  URL WHE — WebRTC playback (latensi rendah)
+                  <input className="bo-input mt-1 font-mono" value={settings.wheUrl ?? ""} onChange={(e) => setSettings({ ...settings, wheUrl: e.target.value })} placeholder="http://IP-LAPTOP:8080/mediamtx/bof-main/whe" />
+                </label>
+                <label className="block text-[11px] font-black uppercase tracking-wider">
+                  URL WHIP — tujuan publish dari Live Control
+                  <input className="bo-input mt-1 font-mono" value={settings.whipUrl ?? ""} onChange={(e) => setSettings({ ...settings, whipUrl: e.target.value })} placeholder="http://127.0.0.1:8078/mediamtx/bof-main/whip" />
+                </label>
+                <p className="text-[11px] font-semibold text-fs-text/50">
+                  Alur resmi PHASE 2: capture browser (Live Control) → WHIP → MediaMTX → WHE/HLS ke TV & penonton.
+                  Gateway lokal (port 8078/8080) mem-proxy MediaMTX agar bebas masalah CORS.
+                </p>
+              </>
             ) : null}
             <label className="block text-[11px] font-black uppercase tracking-wider">
               Judul Stream
@@ -187,7 +204,7 @@ export default function AdminBroadcastPage() {
             <BoButton variant="primary" onClick={saveSettings} disabled={busy || !tid}>
               <Save className="h-4 w-4" /> {busy ? "Menyimpan…" : "Simpan Pengaturan"}
             </BoButton>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zb-black/40">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-fs-text/40">
               <Settings2 className="inline h-3.5 w-3.5" /> Kunci stream TIDAK disimpan di sini
             </span>
           </div>

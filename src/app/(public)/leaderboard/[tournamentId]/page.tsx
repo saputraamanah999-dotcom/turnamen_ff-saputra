@@ -21,7 +21,7 @@ export default function LeaderboardDetailPage() {
       <h1 className="bo-title mb-6">{tournament.data?.name ?? "Leaderboard"}</h1>
 
       {standings.data ? (
-        <BoCard className="overflow-hidden bg-white">
+        <BoCard className="overflow-hidden bg-fs-panel">
           <LeaderboardTable
             standings={standings.data.standings}
             status={standings.status}
@@ -35,8 +35,8 @@ export default function LeaderboardDetailPage() {
 
       <div className="mt-6 grid grid-cols-3 gap-2 sm:grid-cols-6">
         {OFFICIAL_PLACEMENT_POINTS.map((pts, i) => (
-          <div key={i} className="bo-card-flat bg-white px-3 py-2 text-center">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-zb-black/50">Rank {i + 1}</p>
+          <div key={i} className="bo-card-flat bg-fs-panel px-3 py-2 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-fs-text/50">Rank {i + 1}</p>
             <p className="font-display text-xl font-black tabular-nums">{pts}</p>
           </div>
         ))}

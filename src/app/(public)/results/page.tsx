@@ -34,7 +34,7 @@ export default function ResultsPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <DataStatusBanner status={matches.status} />
-      <span className="bo-kicker mb-2 inline-block bg-zb-yellow text-zb-black">Arsip</span>
+      <span className="bo-kicker mb-2 inline-block bg-zb-yellow text-fs-ink">Arsip</span>
       <h1 className="bo-title mb-6">Hasil Resmi</h1>
 
       {completed.length === 0 ? (
@@ -54,11 +54,11 @@ export default function ResultsPage() {
                   Detail →
                 </Link>
               </div>
-              <BoCard className="overflow-x-auto bg-white">
+              <BoCard className="overflow-x-auto bg-fs-panel">
                 <table className="w-full min-w-[480px] border-collapse text-sm">
                   <tbody>
                     {(data[m.id] ?? []).map((r) => (
-                      <tr key={r.teamId} className="border-b-2 border-zb-black/10 last:border-b-0">
+                      <tr key={r.teamId} className="border-b-2 border-fs-edge/10 last:border-b-0">
                         <td className="w-12 px-3 py-1.5 text-center font-black tabular-nums">#{r.placement}</td>
                         <td className="px-2 py-1.5 font-bold">{r.teamName}</td>
                         <td className="w-16 px-2 py-1.5 text-center tabular-nums">{r.kills} kill</td>
@@ -68,12 +68,12 @@ export default function ResultsPage() {
                       </tr>
                     ))}
                     {!data[m.id] ? (
-                      <tr><td className="px-3 py-2 text-xs font-bold text-zb-black/40">Memuat hasil…</td></tr>
+                      <tr><td className="px-3 py-2 text-xs font-bold text-fs-text/40">Memuat hasil…</td></tr>
                     ) : null}
                   </tbody>
                 </table>
               </BoCard>
-              <p className="mt-1 text-[11px] font-semibold text-zb-black/40">
+              <p className="mt-1 text-[11px] font-semibold text-fs-text/40">
                 Dipublikasikan · {formatDateTime(m.scheduledAt ?? undefined)} · versi {m.scoringVersion}
               </p>
             </div>

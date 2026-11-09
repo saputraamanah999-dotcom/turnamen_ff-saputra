@@ -37,9 +37,9 @@ export default function AdminAiResultsPage() {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    const kick = setTimeout(() => void refresh(), 0);
     const t = setInterval(() => void refresh(), 8000);
-    return () => clearInterval(t);
+    return () => { clearTimeout(kick); clearInterval(t); };
   }, [refresh]);
 
   async function mark(eventId: string, action: "confirm" | "false-positive") {
@@ -58,7 +58,7 @@ export default function AdminAiResultsPage() {
     <div className="space-y-4">
       <div>
         <h1 className="font-display text-2xl font-black uppercase">AI Results Analyzer</h1>
-        <p className="mt-1 text-sm font-semibold text-zb-black/60">
+        <p className="mt-1 text-sm font-semibold text-fs-text/60">
           Membaca scoreboard akhir via OCR di laptop produksi. AI <strong>tidak pernah</strong> menerbitkan
           hasil final — semua candidate diperiksa admin di sini, lalu hasil resmi dimasukkan lewat Entri Hasil.
         </p>
@@ -75,8 +75,8 @@ export default function AdminAiResultsPage() {
           </>
         ) : (
           <>
-            <BoBadge className="bg-zb-black text-white">SERVICE BELUM TERHUBUNG</BoBadge>
-            <span className="text-sm font-semibold text-zb-black/60">
+            <BoBadge className="bg-fs-head text-white">SERVICE BELUM TERHUBUNG</BoBadge>
+            <span className="text-sm font-semibold text-fs-text/60">
               Jalankan <code>observer-ai/</code> di laptop produksi (<code>python run.py</code>, port 8077)
               lalu cek ulang. URL: <code>{getObserverUrl()}</code>. Panduan: <Link className="underline" href="/guide/ai-observer">/guide/ai-observer</Link>.
             </span>
@@ -89,42 +89,42 @@ export default function AdminAiResultsPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Alur 9 langkah */}
-        <BoCardLg className="bg-white p-5">
+        <BoCardLg className="bg-fs-panel p-5">
           <p className="flex items-center gap-2 font-display text-sm font-black uppercase">
             <ListChecks className="h-4 w-4 text-zb-blue" /> Alur Validasi Hasil AI
           </p>
-          <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm font-semibold text-zb-black/70">
+          <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm font-semibold text-fs-text/70">
             {STEPS.map((s) => <li key={s}>{s}</li>)}
           </ol>
-          <p className="mt-3 text-xs font-semibold text-zb-black/50">
+          <p className="mt-3 text-xs font-semibold text-fs-text/50">
             Akurasi OCR tidak pernah dijanjikan 100%: nama tim yang tidak terbaca disimpan UNKNOWN,
             placement tidak jelas ditandai UNKNOWN, dan kill yang tidak cocok dengan scoreboard memunculkan warning.
           </p>
         </BoCardLg>
 
         {/* Candidate queue */}
-        <BoCardLg className="bg-white p-5">
+        <BoCardLg className="bg-fs-panel p-5">
           <p className="font-display text-sm font-black uppercase">Candidate Events (queue realtime)</p>
           {!status?.online ? (
-            <p className="mt-3 text-sm font-semibold text-zb-black/50">
+            <p className="mt-3 text-sm font-semibold text-fs-text/50">
               Queue terisi otomatis saat service AI online dan match berjalan.
             </p>
           ) : candidates.length === 0 ? (
-            <p className="mt-3 text-sm font-semibold text-zb-black/50">Belum ada candidate — menunggu aktivitas match.</p>
+            <p className="mt-3 text-sm font-semibold text-fs-text/50">Belum ada candidate — menunggu aktivitas match.</p>
           ) : (
             <ul className="mt-3 space-y-2">
               {candidates.slice(0, 8).map((e) => (
-                <li key={e.id} className="border-[3px] border-zb-black/15 bg-zb-off px-3 py-2">
+                <li key={e.id} className="border border-fs-edge/15 bg-fs-bg px-3 py-2">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-bold">
                       {e.type.replaceAll("_", " ")}
                       {e.playerName ? ` · ${e.playerName}` : ""}
                     </p>
-                    <BoBadge className={e.confidence >= 0.75 ? "bg-emerald-300" : e.confidence >= 0.5 ? "bg-zb-yellow" : "bg-zb-black/10"}>
+                    <BoBadge className={e.confidence >= 0.75 ? "bg-emerald-300" : e.confidence >= 0.5 ? "bg-zb-yellow" : "bg-fs-head/10"}>
                       conf {(e.confidence * 100).toFixed(0)}%
                     </BoBadge>
                   </div>
-                  {e.reason ? <p className="mt-1 text-xs font-semibold text-zb-black/50">{e.reason}</p> : null}
+                  {e.reason ? <p className="mt-1 text-xs font-semibold text-fs-text/50">{e.reason}</p> : null}
                   <div className="mt-2 flex gap-2">
                     <button className="bo-btn bo-btn-primary !px-2 !py-1 !text-xs" disabled={busy} onClick={() => void mark(e.id, "confirm")}>
                       <Check className="h-3 w-3" /> Confirm
@@ -137,7 +137,7 @@ export default function AdminAiResultsPage() {
               ))}
             </ul>
           )}
-          <p className="mt-3 flex items-start gap-1.5 text-xs font-semibold text-zb-black/50">
+          <p className="mt-3 flex items-start gap-1.5 text-xs font-semibold text-fs-text/50">
             <ShieldQuestion className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
             Confirm/False-positive dikirim ke service AI lokal (endpoint resmi /events/&#123;id&#125;/…). Klaim skor
             PROVISIONAL — tidak pernah mengubah klasemen resmi.

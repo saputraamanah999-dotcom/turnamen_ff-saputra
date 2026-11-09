@@ -28,9 +28,9 @@ const GUIDES = [
 export default function GuideIndexPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <span className="bo-kicker mb-2 inline-block bg-zb-cyan text-zb-black">Dokumentasi</span>
+      <span className="bo-kicker mb-2 inline-block bg-zb-cyan text-fs-ink">Dokumentasi</span>
       <h1 className="bo-title mb-6">Panduan Operator</h1>
-      <p className="mb-6 text-sm font-semibold text-zb-black/60">
+      <p className="mb-6 text-sm font-semibold text-fs-text/60">
         Semua panduan ditulis dalam Bahasa Indonesia untuk operator sekolah. Dokumen lengkap
         (dengan diagram) tersedia di folder <code>documentation/</code> pada repositori proyek.
       </p>
@@ -41,18 +41,18 @@ export default function GuideIndexPage() {
           <ul className="mt-3 space-y-1.5 text-sm font-bold">
             {GUIDES.slice(0, 5).map((g) => (
               <li key={g.n} className="flex gap-2">
-                <span className="text-zb-black/40">#{g.n}</span>
+                <span className="text-fs-text/40">#{g.n}</span>
                 <a href={g.href} className="hover:underline">{g.title}</a>
               </li>
             ))}
             {GUIDES.slice(11, 13).map((g) => (
               <li key={g.n} className="flex gap-2">
-                <span className="text-zb-black/40">#{g.n}</span>
+                <span className="text-fs-text/40">#{g.n}</span>
                 <a href={g.href} className="hover:underline">{g.title}</a>
               </li>
             ))}
             <li className="flex gap-2">
-              <span className="text-zb-black/40">#16</span>
+              <span className="text-fs-text/40">#16</span>
               <a href="#troubleshoot" className="hover:underline">{GUIDES[15].title}</a>
             </li>
           </ul>
@@ -63,20 +63,20 @@ export default function GuideIndexPage() {
           <ul className="mt-3 space-y-1.5 text-sm font-bold">
             {GUIDES.slice(5, 11).map((g) => (
               <li key={g.n} className="flex gap-2">
-                <span className="text-zb-black/40">#{g.n}</span>
+                <span className="text-fs-text/40">#{g.n}</span>
                 <Link href={g.href} className="hover:underline">{g.title}</Link>
               </li>
             ))}
             <li className="flex gap-2">
-              <span className="text-zb-black/40">#14</span>
+              <span className="text-fs-text/40">#14</span>
               <Link href="/guide/obs" className="hover:underline">{GUIDES[13].title}</Link>
             </li>
             <li className="flex gap-2">
-              <span className="text-zb-black/40">#15</span>
+              <span className="text-fs-text/40">#15</span>
               <Link href="/guide/streaming" className="hover:underline">{GUIDES[14].title}</Link>
             </li>
             <li className="flex gap-2">
-              <span className="text-zb-black/40">#17</span>
+              <span className="text-fs-text/40">#17</span>
               <Link href="/guide#ai" className="hover:underline">{GUIDES[16].title}</Link>
             </li>
           </ul>
@@ -85,7 +85,7 @@ export default function GuideIndexPage() {
 
       <section id="turnamen" className="mt-10 scroll-mt-20">
         <h2 className="bo-title mb-4">Membuat Turnamen, Tim &amp; Memasukkan Hasil</h2>
-        <BoCard className="bg-white p-6 text-sm leading-relaxed">
+        <BoCard className="bg-fs-panel p-6 text-sm leading-relaxed">
           <ol className="list-decimal space-y-2 pl-5 font-semibold">
             <li>Masuk <strong>Admin → Tournaments</strong>, buat turnamen dengan format BO3/BO5/BO7 dan kapasitas tim (default 12).</li>
             <li>Aktifkan turnamen (status <em>active</em>) agar halaman publik menampilkan data.</li>
@@ -100,7 +100,7 @@ export default function GuideIndexPage() {
 
       <section id="poin" className="mt-8 scroll-mt-20">
         <h2 className="bo-title mb-4">Sistem Poin BOF</h2>
-        <BoCard className="bg-white p-6 text-sm leading-relaxed">
+        <BoCard className="bg-fs-panel p-6 text-sm leading-relaxed">
           <p className="font-semibold">
             Placement: 1=20, 2=17, 3=15, 4=13, 5=12, 6=10, 7=6, 8=4, 9=3, 10=2, 11=1, 12=0.
             Kill: +2 poin per kill. Contoh: juara 1 dengan 8 kill = 20 + 16 = <strong>36 poin</strong>.
@@ -115,7 +115,7 @@ export default function GuideIndexPage() {
 
       <section id="ai" className="mt-8 scroll-mt-20">
         <h2 className="bo-title mb-4">AI Observer</h2>
-        <BoCard className="bg-white p-6 text-sm leading-relaxed">
+        <BoCard className="bg-fs-panel p-6 text-sm leading-relaxed">
           <p className="font-semibold">
             AI Observer berjalan di laptop produksi (bukan di website). Jalankan service Python
             di folder <code>observer-ai/</code> (port 127.0.0.1:8077), kalibrasi region HUD, lalu

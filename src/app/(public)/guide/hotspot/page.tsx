@@ -8,24 +8,24 @@ export default function HotspotGuidePage() {
     <div className="mx-auto max-w-4xl px-4 py-10">
       <span className="bo-kicker mb-2 inline-block bg-zb-purple">Panduan Broadcast</span>
       <h1 className="bo-title mb-4">Setup Wi-Fi / Hotspot Turnamen</h1>
-      <p className="mb-6 text-sm font-semibold text-zb-black/60">
+      <p className="mb-6 text-sm font-semibold text-fs-text/60">
         Tujuan: laptop produksi, TV, dan perangkat penonton berada di SATU jaringan lokal yang sama —
         tanpa bergantung pada internet.
       </p>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <BoCard className="bg-white p-5">
+        <BoCard className="bg-fs-panel p-5">
           <p className="font-display text-sm font-black uppercase">Opsi A — Router Wi-Fi</p>
-          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm font-semibold text-zb-black/70">
+          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm font-semibold text-fs-text/70">
             <li>Siapkan router; laptop &amp; TV connect ke SSID yang sama.</li>
             <li>Internet boleh ikut, tapi streaming LAN tidak membutuhkannya.</li>
             <li>Pastikan client isolation (AP isolation) NONAKTIF.</li>
             <li>Catat IP laptop dari Admin → Local Network.</li>
           </ol>
         </BoCard>
-        <BoCard className="bg-white p-5">
+        <BoCard className="bg-fs-panel p-5">
           <p className="font-display text-sm font-black uppercase">Opsi B — Hotspot HP/Laptop</p>
-          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm font-semibold text-zb-black/70">
+          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm font-semibold text-fs-text/70">
             <li>Laptop menyalakan hotspot (Windows: Mobile hotspot) atau HP sebagai hotspot.</li>
             <li>TV &amp; perangkat tambahan connect ke hotspot tersebut.</li>
             <li>Batasi jumlah client (biasanya 5–10) agar bandwidth aman.</li>
@@ -34,9 +34,9 @@ export default function HotspotGuidePage() {
         </BoCard>
       </div>
 
-      <BoCardLg className="mt-4 bg-white p-5">
+      <BoCardLg className="mt-4 bg-fs-panel p-5">
         <p className="font-display text-sm font-black uppercase">Urutan penyalaan yang benar</p>
-        <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm font-semibold text-zb-black/70">
+        <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm font-semibold text-fs-text/70">
           <li>Nyalakan jaringan (router/hotspot) → laptop connect → jalankan MediaMTX + OBS.</li>
           <li>Buka Admin → Local Network → cek alamat + QR.</li>
           <li>TV connect → buka alamat / scan QR → gambar muncul.</li>

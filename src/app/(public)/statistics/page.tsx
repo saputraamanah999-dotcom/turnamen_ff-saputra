@@ -101,16 +101,16 @@ export default function StatisticsPage() {
       <DataStatusBanner status={standings.status} />
       <span className="bo-kicker mb-2 inline-block bg-zb-purple">Analitik</span>
       <h1 className="bo-title mb-6">Statistik Turnamen</h1>
-      <p className="mb-6 text-sm font-semibold text-zb-black/60">
+      <p className="mb-6 text-sm font-semibold text-fs-text/60">
         Seluruh angka dihitung dari hasil match yang telah dipublikasikan — tanpa estimasi.
       </p>
 
       {/* Filter */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
-        <span className="text-xs font-black uppercase tracking-wider text-zb-black/50">Filter Tim:</span>
+        <span className="text-xs font-black uppercase tracking-wider text-fs-text/50">Filter Tim:</span>
         <button
           onClick={() => setTeamFilter("ALL")}
-          className={`bo-badge ${teamFilter === "ALL" ? "bg-zb-black text-white" : "bg-white"}`}
+          className={`bo-badge ${teamFilter === "ALL" ? "bg-fs-head text-white" : "bg-fs-panel"}`}
         >
           Semua
         </button>
@@ -118,7 +118,7 @@ export default function StatisticsPage() {
           <button
             key={t.id}
             onClick={() => setTeamFilter(t.id)}
-            className={`bo-badge ${teamFilter === t.id ? "bg-zb-black text-white" : "bg-white"}`}
+            className={`bo-badge ${teamFilter === t.id ? "bg-fs-head text-white" : "bg-fs-panel"}`}
           >
             {t.tag || t.name}
           </button>
@@ -128,22 +128,22 @@ export default function StatisticsPage() {
       {/* Highlight */}
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
         <BoCard className="bg-zb-yellow p-4">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zb-black/60">Total Kill Resmi</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-fs-text/60">Total Kill Resmi</p>
           <p className="font-display text-3xl font-black tabular-nums">{standings.data.totalKills}</p>
         </BoCard>
         <BoCard className="bg-zb-cyan p-4">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zb-black/60">Rata-rata Kill/Match</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-fs-text/60">Rata-rata Kill/Match</p>
           <p className="font-display text-3xl font-black tabular-nums">
             {standings.data.publishedMatchCount > 0
               ? Math.round((standings.data.totalKills / standings.data.publishedMatchCount) * 10) / 10
               : 0}
           </p>
         </BoCard>
-        <BoCard className="bg-white p-4">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zb-black/60">Poin Tertinggi Satu Match</p>
+        <BoCard className="bg-fs-panel p-4">
+          <p className="text-[10px] font-black uppercase tracking-widest text-fs-text/60">Poin Tertinggi Satu Match</p>
           {bestMatchPoints ? (
             <p className="font-display text-xl font-black">
-              {bestMatchPoints.points} <span className="text-xs text-zb-black/50">— {bestMatchPoints.team} ({bestMatchPoints.match})</span>
+              {bestMatchPoints.points} <span className="text-xs text-fs-text/50">— {bestMatchPoints.team} ({bestMatchPoints.match})</span>
             </p>
           ) : (
             <p className="font-display text-xl font-black">—</p>
@@ -227,7 +227,7 @@ export default function StatisticsPage() {
       </div>
 
       <p className="mt-6">
-        <BoBadge className="bg-zb-off">
+        <BoBadge className="bg-fs-bg">
           Sumber: {standings.data.publishedMatchCount} match resmi · {standings.data.scoringVersion}
         </BoBadge>
       </p>

@@ -8,16 +8,16 @@ export default function AdminScoringPage() {
   return (
     <div>
       <h1 className="font-display text-2xl font-black uppercase">Sistem Poin BOF</h1>
-      <p className="mt-1 text-sm font-semibold text-zb-black/60">
+      <p className="mt-1 text-sm font-semibold text-fs-text/60">
         Aturan resmi versi {SCORING_VERSION} — tidak dapat diubah dari aplikasi.
       </p>
 
-      <BoCard className="mt-4 bg-white p-5">
+      <BoCard className="mt-4 bg-fs-panel p-5">
         <h2 className="font-display text-lg font-black uppercase">Poin Placement</h2>
         <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
           {OFFICIAL_PLACEMENT_POINTS.map((pts, i) => (
-            <div key={i} className="bo-card-flat bg-zb-off px-3 py-2 text-center">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-zb-black/50">Rank {i + 1}</p>
+            <div key={i} className="bo-card-flat bg-fs-bg px-3 py-2 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-fs-text/50">Rank {i + 1}</p>
               <p className="font-display text-2xl font-black tabular-nums">{pts}</p>
             </div>
           ))}
@@ -27,7 +27,7 @@ export default function AdminScoringPage() {
         <p className="mt-2 text-sm font-bold">
           <span className="font-display text-3xl font-black tabular-nums">{OFFICIAL_KILL_POINT}</span> poin per kill
         </p>
-        <p className="mt-1 text-sm font-semibold text-zb-black/60">
+        <p className="mt-1 text-sm font-semibold text-fs-text/60">
           Formula: MATCH POINTS = PLACEMENT POINTS + (KILLS × {OFFICIAL_KILL_POINT})
         </p>
 
@@ -37,7 +37,7 @@ export default function AdminScoringPage() {
           <li>Placement points tertinggi.</li>
           <li>Placement lebih baik pada game terakhir sesuai format (BO7 → game 7, BO5 → game 5, BO3 → game 3).</li>
         </ol>
-        <p className="mt-2 text-sm font-semibold text-zb-black/60">
+        <p className="mt-2 text-sm font-semibold text-fs-text/60">
           Jika game terakhir belum selesai → klasemen bersifat sementara. Jika masih seri →
           ditandai <strong>perlu review manual panitia</strong> (ikon pada leaderboard publik) dan
           tidak diputuskan otomatis oleh sistem.
@@ -46,7 +46,7 @@ export default function AdminScoringPage() {
 
       <BoCard className="mt-4 bg-zb-yellow p-5">
         <p className="flex items-start gap-2 text-sm font-bold">
-          <BoBadge className="bg-zb-black text-white">Terkunci</BoBadge>
+          <BoBadge className="bg-fs-head text-white">Terkunci</BoBadge>
           Perubahan aturan skor resmi hanya boleh dilakukan super administrator secara manual
           (dokumen scoringConfigurations), dan setiap match menyimpan versi aturan yang dipakai
           agar hasil historis tetap dapat direproduksi.

@@ -16,7 +16,7 @@ export default function MatchesPage() {
       <DataStatusBanner status={matches.status} />
       <span className="bo-kicker mb-2 inline-block bg-zb-blue">Pertandingan</span>
       <h1 className="bo-title mb-6">Jadwal &amp; Riwayat Match</h1>
-      <p className="mb-6 text-sm font-semibold text-zb-black/60">
+      <p className="mb-6 text-sm font-semibold text-fs-text/60">
         Format {tournament?.format ?? "-"} · {tournament?.totalMatches ?? 0} match · hasil lama tetap tersimpan.
       </p>
 

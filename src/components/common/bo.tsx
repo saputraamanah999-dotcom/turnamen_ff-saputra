@@ -32,12 +32,16 @@ export function BoCardLg({
 
 type BoButtonVariant =
   | "primary"
+  | "fire"
   | "yellow"
+  | "gold"
   | "cyan"
   | "purple"
+  | "flame"
   | "white"
   | "black"
-  | "destructive";
+  | "destructive"
+  | "danger";
 
 interface BoButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: BoButtonVariant;
@@ -45,12 +49,16 @@ interface BoButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClass: Record<BoButtonVariant, string> = {
   primary: "bo-btn-primary",
+  fire: "bo-btn-primary",
   yellow: "bo-btn-yellow",
+  gold: "bo-btn-yellow",
   cyan: "bo-btn-cyan",
   purple: "bo-btn-purple",
+  flame: "bo-btn-purple",
   white: "bo-btn-white",
   black: "bo-btn-black",
-  destructive: "bg-[#e5484d] text-white",
+  destructive: "bo-btn-danger",
+  danger: "bo-btn-danger",
 };
 
 export const BoButton = forwardRef<HTMLButtonElement, BoButtonProps>(
@@ -71,7 +79,7 @@ export function BoBadge({
   ...props
 }: HTMLAttributes<HTMLSpanElement>) {
   return (
-    <span className={cn("bo-badge bg-white text-zb-black", className)} {...props}>
+    <span className={cn("bo-badge bg-fs-panel text-fs-text", className)} {...props}>
       {children}
     </span>
   );

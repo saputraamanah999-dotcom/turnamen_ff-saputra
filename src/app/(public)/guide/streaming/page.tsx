@@ -14,7 +14,7 @@ export default function GuideStreamingPage() {
       <h1 className="bo-title mb-6">Streaming Publik &amp; Lokal Sekolah</h1>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <BoCard className="bg-white p-6 text-sm leading-relaxed">
+        <BoCard className="bg-fs-panel p-6 text-sm leading-relaxed">
           <h2 className="font-display text-lg font-black uppercase">Mode A — YouTube Live</h2>
           <ol className="mt-3 list-decimal space-y-2 pl-5 font-semibold">
             <li>Aktifkan fitur live di akun YouTube (verifikasi bisa memakan waktu hingga 24 jam).</li>
@@ -23,12 +23,12 @@ export default function GuideStreamingPage() {
             <li>OBS mengirim video final ke YouTube; YouTube yang mendistribusikan.</li>
             <li>Salin ID video live ke <strong>Admin → Broadcast Control</strong> agar website menampilkan pemutar.</li>
           </ol>
-          <p className="mt-3 font-semibold text-zb-black/60">
+          <p className="mt-3 font-semibold text-fs-text/60">
             Kunci streaming tidak pernah tampil di kode publik website.
           </p>
         </BoCard>
 
-        <BoCard className="bg-white p-6 text-sm leading-relaxed">
+        <BoCard className="bg-fs-panel p-6 text-sm leading-relaxed">
           <h2 className="font-display text-lg font-black uppercase">Mode B — MediaMTX (LAN)</h2>
           <ol className="mt-3 list-decimal space-y-2 pl-5 font-semibold">
             <li>Install MediaMTX di laptop produksi (gratis, open source).</li>
@@ -36,7 +36,7 @@ export default function GuideStreamingPage() {
             <li>Perangkat di jaringan sekolah menonton via <code>http://IP-LAPTOP:8888/stream</code> (browser/VLC).</li>
             <li>Isi URL HLS di <strong>Admin → Broadcast Control</strong> (mode MediaMTX).</li>
           </ol>
-          <p className="mt-3 font-semibold text-zb-black/60">
+          <p className="mt-3 font-semibold text-fs-text/60">
             Streaming lokal hanya dapat diakses dari jaringan sekolah — bukan dari internet.
             Jangan buka port tanpa izin admin jaringan.
           </p>

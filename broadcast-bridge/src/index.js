@@ -15,6 +15,7 @@ import crypto from 'node:crypto';
 import { logger } from './logger.js';
 import { OBSClient } from './obs/client.js';
 import { BridgeServer } from './websocket/server.js';
+import { LocalGateway } from './gateway/http.js';
 import { getWhitelist, reloadConfig } from './security/whitelist.js';
 
 // Muat variabel .env: OBS_WS_URL, OBS_PASSWORD, BRIDGE_PORT, BRIDGE_TOKEN, dst.
@@ -29,6 +30,10 @@ const OBS_WS_URL = process.env.OBS_WS_URL || 'ws://127.0.0.1:4455';
 const OBS_PASSWORD = process.env.OBS_PASSWORD || ''; // rahasia — jangan pernah di-log
 const BRIDGE_HOST = process.env.BRIDGE_HOST || '127.0.0.1'; // default: localhost SAJA (aman)
 const BRIDGE_PORT = Number.parseInt(process.env.BRIDGE_PORT || '8078', 10) || 8078;
+// Local Broadcast Gateway (PHASE 2): melayani TV/HP di jaringan lokal.
+const GATEWAY_ENABLED = process.env.GATEWAY_ENABLED !== 'false';
+const GATEWAY_PORT = Number.parseInt(process.env.GATEWAY_PORT || '8080', 10) || 8080;
+const MEDIAMTX_PATH = process.env.MEDIAMTX_PATH || 'bof-main';
 
 let BRIDGE_TOKEN = process.env.BRIDGE_TOKEN || '';
 if (!BRIDGE_TOKEN) {
@@ -49,6 +54,12 @@ const obs = new OBSClient({ url: OBS_WS_URL, password: OBS_PASSWORD });
 
 // ---------- WebSocket server untuk website ----------
 const server = new BridgeServer({ port: BRIDGE_PORT, host: BRIDGE_HOST, token: BRIDGE_TOKEN, obs });
+
+// ---------- Local Broadcast Gateway (Mode A — TV & HP di LAN) ----------
+let gateway = null;
+if (GATEWAY_ENABLED) {
+  gateway = new LocalGateway({ port: GATEWAY_PORT, token: BRIDGE_TOKEN, bridge: server, defaultPath: MEDIAMTX_PATH });
+}
 
 // Ketahanan proses: jangan sampai bridge mati di tengah pertunjukan karena error tak terduga.
 // (Error OBS ditangani rapi di obs/client.js; ini lapisan tambahan.)
@@ -81,16 +92,25 @@ obs.on('changed', async (reason) => {
 // ---------- Start ----------
 await obs.start(); // aman walau OBS belum aktif (akan reconnect otomatis)
 server.start();
+if (gateway) gateway.start();
 
 logger.info(
   `Website konek ke ws://${BRIDGE_HOST}:${BRIDGE_PORT}?token=... (token dari BRIDGE_TOKEN di .env)`
 );
+if (gateway) {
+  logger.info(`Local Gateway aktif di port ${GATEWAY_PORT} — TV buka http://<ip-laptop>:${GATEWAY_PORT}/display/${MEDIAMTX_PATH}`);
+}
 
 // ---------- Graceful shutdown ----------
 async function shutdown(signal) {
   logger.warn(`Menerima sinyal ${signal} — mematikan bridge...`);
   try {
     await server.stop();
+  } catch {
+    /* abaikan */
+  }
+  try {
+    if (gateway) await gateway.stop();
   } catch {
     /* abaikan */
   }

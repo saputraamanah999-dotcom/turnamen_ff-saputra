@@ -54,7 +54,7 @@ export default function AdminLeaderboardPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-black uppercase">Klasemen Resmi</h1>
-          <p className="mt-1 text-sm font-semibold text-zb-black/60">
+          <p className="mt-1 text-sm font-semibold text-fs-text/60">
             {standings.data.publishedMatchCount} match dipublikasikan · {standings.data.scoringVersion}
             {updated ? ` · update ${updated}` : ""}
           </p>
@@ -71,11 +71,11 @@ export default function AdminLeaderboardPage() {
 
       {msg ? <BoCard className="bg-zb-yellow p-3 text-sm font-bold">{msg}</BoCard> : null}
 
-      <BoCardLg className="overflow-hidden bg-white">
+      <BoCardLg className="overflow-hidden bg-fs-panel">
         <div className="overflow-x-auto thin-scroll">
           <table className="w-full min-w-[760px] border-collapse text-sm">
             <thead>
-              <tr className="bg-zb-black text-white">
+              <tr className="bg-fs-head text-white">
                 {["Rank", "Δ", "Tim", "Main", "Kill", "Placement Pts", "Kill Pts", "Total", "Rank Sebelum", "Status"].map((h, i) => (
                   <th key={h} className={`border-r border-white/15 px-3 py-2 font-display text-xs font-black uppercase tracking-wider ${i === 2 ? "text-left" : "text-center"}`}>
                     {h}
@@ -85,10 +85,10 @@ export default function AdminLeaderboardPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.teamId} className="border-b-2 border-zb-black/10 bg-white">
+                <tr key={r.teamId} className="border-b-2 border-fs-edge/10 bg-fs-panel">
                   <td className="px-3 py-2 text-center"><RankBadge rank={r.rank} /></td>
                   <td className="px-3 py-2 text-center">
-                    <span className="inline-flex h-5 w-5 items-center justify-center border-[2px] border-zb-black/20 bg-white">
+                    <span className="inline-flex h-5 w-5 items-center justify-center border border-fs-edge/20 bg-fs-panel">
                       <MovementIcon movement={r.movement} />
                     </span>
                   </td>
@@ -99,19 +99,19 @@ export default function AdminLeaderboardPage() {
                         <ShieldQuestion className="ml-1 inline h-3.5 w-3.5 text-amber-600" aria-label="Perlu review manual" />
                       ) : null}
                     </p>
-                    <p className="text-[10px] font-bold uppercase text-zb-black/50">[{r.teamTag}]</p>
+                    <p className="text-[10px] font-bold uppercase text-fs-text/50">[{r.teamTag}]</p>
                   </td>
                   <td className="px-3 py-2 text-center font-bold tabular-nums">{r.matchesPlayed}</td>
                   <td className="px-3 py-2 text-center font-bold tabular-nums">{r.kills}</td>
-                  <td className="px-3 py-2 text-center tabular-nums text-zb-black/70">{r.placementPoints}</td>
-                  <td className="px-3 py-2 text-center tabular-nums text-zb-black/70">{r.killPoints}</td>
+                  <td className="px-3 py-2 text-center tabular-nums text-fs-text/70">{r.placementPoints}</td>
+                  <td className="px-3 py-2 text-center tabular-nums text-fs-text/70">{r.killPoints}</td>
                   <td className="px-3 py-2 text-center font-display text-base font-black tabular-nums">{r.totalPoints}</td>
-                  <td className="px-3 py-2 text-center font-bold tabular-nums text-zb-black/60">
+                  <td className="px-3 py-2 text-center font-bold tabular-nums text-fs-text/60">
                     {r.previousRank ?? "—"}
                   </td>
                   <td className="px-3 py-2 text-center">
                     {r.needsManualReview ? (
-                      <BoBadge className="bg-amber-300 text-zb-black">REVIEW MANUAL</BoBadge>
+                      <BoBadge className="bg-amber-300 text-fs-text">REVIEW MANUAL</BoBadge>
                     ) : (
                       <BoBadge className="bg-emerald-300">OFFICIAL</BoBadge>
                     )}
@@ -123,7 +123,7 @@ export default function AdminLeaderboardPage() {
         </div>
       </BoCardLg>
 
-      <p className="text-xs font-semibold text-zb-black/50">
+      <p className="text-xs font-semibold text-fs-text/50">
         Status PROVISIONAL hanya berlaku saat match berjalan sebelum publish — setelah publish, baris di atas
         adalah klasemen resmi. Baris REVIEW MANUAL = tie yang tidak selesai oleh 3 tiebreaker resmi.
       </p>

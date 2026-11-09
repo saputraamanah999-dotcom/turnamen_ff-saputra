@@ -13,7 +13,7 @@ export default function GuideMirroringPage() {
       <span className="bo-kicker mb-2 inline-block bg-zb-purple">Mirroring</span>
       <h1 className="bo-title mb-6">Hubungkan HP ke Laptop (scrcpy)</h1>
 
-      <BoCard className="bg-white p-6 text-sm leading-relaxed">
+      <BoCard className="bg-fs-panel p-6 text-sm leading-relaxed">
         <p className="font-semibold">
           Free Fire berjalan di Android, layarnya dipantulkan ke laptop produksi via{" "}
           <strong>scrcpy</strong> (gratis, open source). Laptop yang menangkap layar inilah yang
@@ -31,7 +31,7 @@ export default function GuideMirroringPage() {
           <li>Verifikasi audio (scrcpy 2.0+ mendukung audio forwarding bila didukung perangkat).</li>
           <li>Lanjut ke konfigurasi broadcast — lihat <Link href="/guide/obs" className="text-zb-blue underline">Panduan OBS</Link>.</li>
         </ol>
-        <p className="mt-4 font-semibold text-zb-black/70">
+        <p className="mt-4 font-semibold text-fs-text/70">
           Catatan: latency turun dengan kabel USB + <code>scrcpy --max-fps=60 --video-bit-rate=8M</code>.
           Diagram lengkap tersedia di <code>documentation/MIRRORING_SETUP.md</code>.
         </p>

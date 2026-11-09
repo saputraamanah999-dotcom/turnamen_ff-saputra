@@ -20,7 +20,7 @@ import type { ObserverEvent } from "@/lib/types";
 function confidenceStatus(c: number): { label: string; cls: string } {
   if (c >= 0.8) return { label: "CONFIRMED", cls: "bg-emerald-300" };
   if (c >= 0.5) return { label: "PROBABLE", cls: "bg-zb-yellow" };
-  return { label: "UNKNOWN", cls: "bg-zb-black/10" };
+  return { label: "UNKNOWN", cls: "bg-fs-head/10" };
 }
 
 export default function AdminMapHistoryPage() {
@@ -78,7 +78,7 @@ export default function AdminMapHistoryPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-black uppercase">Map History</h1>
-          <p className="mt-1 text-sm font-semibold text-zb-black/60">
+          <p className="mt-1 text-sm font-semibold text-fs-text/60">
             Pengenalan map oleh AI (label HUD + kalibrasi). Status CONFIRMED/PROBABLE/UNKNOWN
             dihitung dari confidence nyata — tidak pernah dikarang.
           </p>
@@ -102,11 +102,11 @@ export default function AdminMapHistoryPage() {
           description="Jalankan observer-ai di laptop produksi untuk mulai mendeteksi map. Riwayat muncul realtime dari endpoint /events."
         />
       ) : (
-        <BoCardLg className="overflow-hidden bg-white">
+        <BoCardLg className="overflow-hidden bg-fs-panel">
           <div className="overflow-x-auto thin-scroll">
             <table className="w-full min-w-[720px] border-collapse text-sm">
               <thead>
-                <tr className="bg-zb-black text-white">
+                <tr className="bg-fs-head text-white">
                   {["Waktu", "Map Terdeteksi", "Confidence", "Status", "Match Terkait", "Koreksi"].map((h) => (
                     <th key={h} className="px-3 py-2 text-left font-display text-xs font-black uppercase tracking-wider">{h}</th>
                   ))}
@@ -114,18 +114,18 @@ export default function AdminMapHistoryPage() {
               </thead>
               <tbody>
                 {mapEvents.length === 0 ? (
-                  <tr><td colSpan={6} className="px-3 py-6 text-center font-semibold text-zb-black/50">Belum ada event MAP_DETECTED.</td></tr>
+                  <tr><td colSpan={6} className="px-3 py-6 text-center font-semibold text-fs-text/50">Belum ada event MAP_DETECTED.</td></tr>
                 ) : null}
                 {mapEvents.slice(0, 12).map((e) => {
                   const st = confidenceStatus(e.confidence);
                   const detected = e.playerName ?? e.reason ?? "UNKNOWN";
                   return (
-                    <tr key={e.id} className="border-b-2 border-zb-black/10">
+                    <tr key={e.id} className="border-b-2 border-fs-edge/10">
                       <td className="px-3 py-2 font-bold tabular-nums">{new Date(e.timestamp).toLocaleTimeString("id-ID")}</td>
                       <td className="px-3 py-2 font-bold"><MapPin className="mr-1 inline h-3.5 w-3.5 text-zb-purple" />{detected}</td>
                       <td className="px-3 py-2 tabular-nums">{(e.confidence * 100).toFixed(0)}%</td>
                       <td className="px-3 py-2"><BoBadge className={st.cls}>{st.label}</BoBadge></td>
-                      <td className="px-3 py-2 font-semibold text-zb-black/60">{e.matchId ?? "—"}</td>
+                      <td className="px-3 py-2 font-semibold text-fs-text/60">{e.matchId ?? "—"}</td>
                       <td className="px-3 py-2">
                         <select
                           className="bo-input !py-1 !text-xs"
@@ -150,7 +150,7 @@ export default function AdminMapHistoryPage() {
         </BoCardLg>
       )}
 
-      <p className="text-xs font-semibold text-zb-black/50">
+      <p className="text-xs font-semibold text-fs-text/50">
         Riwayat map terhubung ke jadwal match — koreksi admin langsung memperbarui halaman publik
         (realtime listener). Jadwal &amp; map resmi dikelola di <Link className="underline" href="/admin/matches">Match</Link>.
       </p>

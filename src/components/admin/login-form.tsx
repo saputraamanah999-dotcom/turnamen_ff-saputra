@@ -41,14 +41,14 @@ export function AdminLoginForm({ roleLoaded }: { roleLoaded: boolean }) {
 
   return (
     <div className="flex min-h-screen items-center justify-center bo-grid-bg px-4">
-      <BoCard className="w-full max-w-md bg-white p-8">
+      <BoCard className="w-full max-w-md bg-fs-panel p-8">
         <div className="flex items-center gap-3">
-          <span className="flex h-12 w-12 items-center justify-center border-[3px] border-zb-black bg-zb-blue text-white bo-shadow-sm">
+          <span className="flex h-12 w-12 items-center justify-center border border-fs-edge bg-zb-blue text-white bo-shadow-sm">
             <KeyRound className="h-6 w-6" />
           </span>
           <div>
             <p className="font-display text-xl font-black uppercase leading-none">Panel Admin</p>
-            <p className="text-[11px] font-bold uppercase tracking-widest text-zb-black/50">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-fs-text/50">
               {ORG.tournament} · {ORG.institution}
             </p>
           </div>
@@ -83,7 +83,7 @@ export function AdminLoginForm({ roleLoaded }: { roleLoaded: boolean }) {
           </div>
 
           {error ? (
-            <p className="flex items-center gap-2 border-[3px] border-zb-black bg-zb-yellow px-3 py-2 text-xs font-bold">
+            <p className="flex items-center gap-2 border border-fs-edge bg-zb-yellow px-3 py-2 text-xs font-bold">
               <ShieldAlert className="h-4 w-4" /> {error}
             </p>
           ) : null}
@@ -94,10 +94,10 @@ export function AdminLoginForm({ roleLoaded }: { roleLoaded: boolean }) {
         </form>
 
         {!roleLoaded ? (
-          <p className="mt-3 text-xs font-bold text-zb-black/50">Memeriksa peran admin…</p>
+          <p className="mt-3 text-xs font-bold text-fs-text/50">Memeriksa peran admin…</p>
         ) : null}
 
-        <p className="mt-4 text-[11px] leading-relaxed font-semibold text-zb-black/50">
+        <p className="mt-4 text-[11px] leading-relaxed font-semibold text-fs-text/50">
           Akun pertama dibuat oleh script seeding (lihat <code>documentation/FIREBASE_SETUP.md</code>).
           Hanya akun dengan peran di koleksi <code>adminRoles</code> yang dapat mengakses panel ini.
         </p>

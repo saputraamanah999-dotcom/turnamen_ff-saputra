@@ -28,15 +28,15 @@ export default function AdminDocumentationPage() {
   return (
     <div>
       <h1 className="font-display text-2xl font-black uppercase">Dokumentasi</h1>
-      <p className="mt-1 text-sm font-semibold text-zb-black/60">
+      <p className="mt-1 text-sm font-semibold text-fs-text/60">
         Seluruh dokumen tersedia di folder <code>documentation/</code> repositori proyek dan di situs publik <a href="/guide" className="text-zb-blue underline">/guide</a>.
       </p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {DOCS.map((d) => (
-          <BoCard key={d.file} className="bg-white p-4">
+          <BoCard key={d.file} className="bg-fs-panel p-4">
             <p className="font-mono text-sm font-black">{d.file}</p>
-            <p className="mt-1 text-xs font-semibold text-zb-black/60">{d.desc}</p>
+            <p className="mt-1 text-xs font-semibold text-fs-text/60">{d.desc}</p>
           </BoCard>
         ))}
       </div>
@@ -45,7 +45,7 @@ export default function AdminDocumentationPage() {
         <p className="text-xs font-black uppercase tracking-wider">17 Guide Operator</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {GUIDES.map((g, i) => (
-            <span key={g} className="bo-badge bg-white">#{i + 1} {g}</span>
+            <span key={g} className="bo-badge bg-fs-panel">#{i + 1} {g}</span>
           ))}
         </div>
       </BoCard>

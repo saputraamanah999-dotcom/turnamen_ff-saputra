@@ -39,27 +39,27 @@ export function Top3Podium({
           >
             <div className="bo-halftone absolute inset-0" aria-hidden />
             <div className="relative flex items-start justify-between">
-              <span className="bo-badge border-zb-black bg-zb-black text-white">
+              <span className="bo-badge border-fs-edge bg-fs-head text-white">
                 {i === 0 ? <Crown className="h-3 w-3" /> : <Swords className="h-3 w-3" />} {style.label}
               </span>
-              <RankBadge rank={row.rank} className="border-white !bg-white" />
+              <RankBadge rank={row.rank} className="border-white !bg-fs-panel" />
             </div>
             <div className="relative mt-3 flex items-center gap-3">
-              <span className="border-[3px] border-zb-black bg-white bo-shadow-sm">
+              <span className="border border-fs-edge bg-fs-panel bo-shadow-sm">
                 <TeamInitials name={row.teamName} size="lg" />
               </span>
               <div className="min-w-0">
                 <p className="truncate font-display text-lg font-black uppercase leading-tight">
                   {row.teamName}
                 </p>
-                <p className="text-xs font-bold uppercase tracking-wider text-zb-black/70">
+                <p className="text-xs font-bold uppercase tracking-wider text-fs-text/70">
                   {row.kills} kill · {row.placementPoints} placement
                 </p>
               </div>
             </div>
             <p className="relative mt-3 font-display text-4xl font-black tabular-nums leading-none">
               {row.totalPoints}
-              <span className="ml-1 text-xs font-bold uppercase tracking-wider text-zb-black/60">poin</span>
+              <span className="ml-1 text-xs font-bold uppercase tracking-wider text-fs-text/60">poin</span>
             </p>
           </motion.div>
         );

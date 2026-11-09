@@ -32,6 +32,18 @@ export interface BridgeState {
   currentScene?: string;
   streaming?: boolean;
   recording?: boolean;
+  /** Jumlah viewer/perangkat nyata yang tersambung ke gateway lokal. */
+  viewers?: number;
+  /** Detail daftar viewer: label, jenis, sejak kapan. */
+  viewerList?: { id: string; label: string; type: string; since: number }[];
+  /** IP LAN aktif yang dilaporkan laptop (network interface asli). */
+  lanIp?: string;
+  /** Port gateway HTTP lokal. */
+  gatewayPort?: number;
+  /** Status MediaMTX di laptop. */
+  mediamtx?: boolean;
+  /** URL pairing aktif (jika ada). */
+  pairingCode?: string | null;
   message?: string;
 }
 
@@ -80,6 +92,12 @@ export function connectBridge(): void {
           currentScene: data.currentScene,
           streaming: data.streaming,
           recording: data.recording,
+          viewers: typeof data.viewers === "number" ? data.viewers : undefined,
+          viewerList: Array.isArray(data.viewerList) ? data.viewerList : undefined,
+          lanIp: typeof data.lanIp === "string" ? data.lanIp : undefined,
+          gatewayPort: typeof data.gatewayPort === "number" ? data.gatewayPort : undefined,
+          mediamtx: typeof data.mediamtx === "boolean" ? data.mediamtx : undefined,
+          pairingCode: data.pairingCode ?? undefined,
         });
       } catch {
         // abaikan pesan tidak valid

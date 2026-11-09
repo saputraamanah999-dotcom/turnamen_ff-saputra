@@ -5,7 +5,7 @@ import { Footer, Navbar } from "@/components/navigation/navbar";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-zb-off">
+    <div className="flex min-h-screen flex-col bg-fs-bg">
       <Navbar />
       <div className="flex-1">{children}</div>
       <Footer />

@@ -14,7 +14,7 @@ export default function GuideObsPage() {
       <span className="bo-kicker mb-2 inline-block bg-zb-purple">Broadcast</span>
       <h1 className="bo-title mb-6">Panduan OBS Studio &amp; Overlay</h1>
 
-      <BoCard className="bg-white p-6 text-sm leading-relaxed">
+      <BoCard className="bg-fs-panel p-6 text-sm leading-relaxed">
         <h2 className="font-display text-lg font-black uppercase">1. 9 Scene Produksi</h2>
         <p className="mt-2 font-semibold">Buat 9 scene berikut di OBS Studio (Scene list):</p>
         <ol className="mt-2 list-decimal space-y-1 pl-5 font-semibold">

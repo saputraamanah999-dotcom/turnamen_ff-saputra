@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter, Space_Grotesk, Rajdhani, Barlow_Condensed } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { initAnalytics } from "@/services/firebase/client";
 import { ORG } from "@/lib/constants";
+import { ThemeBoot } from "@/components/common/theme-boot";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -14,6 +15,22 @@ const inter = Inter({
 const grotesk = Space_Grotesk({
   variable: "--font-grotesk",
   subsets: ["latin"],
+  display: "swap",
+});
+
+/** Rajdhani — angka statistik & skor (FIRESTORM §3). */
+const rajdhani = Rajdhani({
+  variable: "--font-stat",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  display: "swap",
+});
+
+/** Barlow Condensed — judul broadcast (fallback Space Grotesk bila Google Fonts gagal). */
+const barlow = Barlow_Condensed({
+  variable: "--font-condensed",
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
   display: "swap",
 });
 
@@ -35,7 +52,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#182CFF",
+  themeColor: "#FF5A1F",
   width: "device-width",
   initialScale: 1,
 };
@@ -47,8 +64,9 @@ export default function RootLayout({
   return (
     <html lang="id" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${grotesk.variable} antialiased bg-zb-off text-zb-black min-h-screen flex flex-col`}
+        className={`${inter.variable} ${grotesk.variable} ${rajdhani.variable} ${barlow.variable} antialiased bg-fs-bg text-fs-text min-h-screen flex flex-col`}
       >
+        <ThemeBoot />
         {children}
         <Toaster />
       </body>

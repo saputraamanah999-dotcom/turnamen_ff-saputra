@@ -53,7 +53,6 @@ export default function AdminStatisticsPage() {
       if (!cancelled) setPerMatch(out);
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, tid]);
 
   const rows = standings.data?.standings ?? [];
@@ -136,13 +135,13 @@ export default function AdminStatisticsPage() {
           <h1 className="font-display text-2xl font-black uppercase leading-none">
             Statistik {tournament?.name ?? "Turnamen"}
           </h1>
-          <p className="mt-1 text-sm font-semibold text-zb-black/60">
+          <p className="mt-1 text-sm font-semibold text-fs-text/60">
             Semua angka realtime dari data resmi — {standings.data.scoringVersion}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {updated ? (
-            <BoBadge className="bg-white">
+            <BoBadge className="bg-fs-panel">
               <RefreshCw className="mr-1 inline h-3 w-3" /> Update {updated}
             </BoBadge>
           ) : null}
@@ -158,8 +157,8 @@ export default function AdminStatisticsPage() {
 
       {/* KPI utama */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
-        <BoCard className="bg-white p-4">
-          <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zb-black/60">
+        <BoCard className="bg-fs-panel p-4">
+          <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-fs-text/60">
             <Users className="h-3.5 w-3.5" /> Total Tim
           </p>
           <p className="font-display text-3xl font-black tabular-nums">
@@ -167,16 +166,16 @@ export default function AdminStatisticsPage() {
           </p>
         </BoCard>
         <BoCard className="bg-zb-cyan p-4">
-          <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zb-black/60">
+          <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-fs-text/60">
             <Timer className="h-3.5 w-3.5" /> Match Resmi
           </p>
           <p className="font-display text-3xl font-black tabular-nums">
             <StatCounter value={standings.data.publishedMatchCount} />
-            <span className="text-base text-zb-black/50">/{tournament?.totalMatches ?? "-"}</span>
+            <span className="text-base text-fs-text/50">/{tournament?.totalMatches ?? "-"}</span>
           </p>
         </BoCard>
         <BoCard className="bg-zb-yellow p-4">
-          <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zb-black/60">
+          <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-fs-text/60">
             <Crosshair className="h-3.5 w-3.5" /> Total Kill
           </p>
           <p className="font-display text-3xl font-black tabular-nums">
@@ -191,8 +190,8 @@ export default function AdminStatisticsPage() {
             <StatCounter value={totalPoints} />
           </p>
         </BoCard>
-        <BoCard className="bg-white p-4">
-          <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zb-black/60">
+        <BoCard className="bg-fs-panel p-4">
+          <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-fs-text/60">
             <Activity className="h-3.5 w-3.5" /> Rata Kill/Match
           </p>
           <p className="font-display text-3xl font-black tabular-nums">
@@ -201,14 +200,14 @@ export default function AdminStatisticsPage() {
               : 0}
           </p>
         </BoCard>
-        <BoCard className="bg-white p-4">
-          <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zb-black/60">
+        <BoCard className="bg-fs-panel p-4">
+          <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-fs-text/60">
             <Swords className="h-3.5 w-3.5" /> Poin Tertinggi
           </p>
           {bestMatchPoints ? (
             <p className="font-display text-xl font-black leading-tight">
               {bestMatchPoints.points}
-              <span className="ml-1 text-[10px] font-bold text-zb-black/50">
+              <span className="ml-1 text-[10px] font-bold text-fs-text/50">
                 {bestMatchPoints.team} · {bestMatchPoints.match}
               </span>
             </p>
@@ -220,13 +219,13 @@ export default function AdminStatisticsPage() {
 
       {/* Pergerakan terkini */}
       {movers.length ? (
-        <BoCard className="bg-white p-4">
+        <BoCard className="bg-fs-panel p-4">
           <p className="mb-3 flex items-center gap-2 font-display text-sm font-black uppercase tracking-wider">
             <Activity className="h-4 w-4 text-zb-blue" /> Pergerakan Peringkat Terkini
           </p>
           <div className="flex flex-wrap gap-2">
             {movers.map((m) => (
-              <span key={m.teamId} className="bo-badge inline-flex items-center gap-1.5 bg-zb-off">
+              <span key={m.teamId} className="bo-badge inline-flex items-center gap-1.5 bg-fs-bg">
                 <RankBadge rank={m.rank} className="h-6 w-6 !border-2 text-xs" />
                 {m.teamName}
                 <span className="inline-flex items-center gap-0.5 font-black">
@@ -313,7 +312,7 @@ export default function AdminStatisticsPage() {
 
       {/* Tabel detail lengkap */}
       <BoCardLg className="overflow-hidden">
-        <div className="flex items-center justify-between border-b-[3px] border-zb-black bg-zb-black px-4 py-2.5 text-white">
+        <div className="flex items-center justify-between border-b border-fs-edge bg-fs-head px-4 py-2.5 text-white">
           <p className="flex items-center gap-2 font-display text-sm font-black uppercase tracking-widest">
             <Trophy className="h-4 w-4 text-zb-yellow" /> Rincian Klasemen Lengkap
           </p>
@@ -324,11 +323,11 @@ export default function AdminStatisticsPage() {
         <div className="overflow-x-auto thin-scroll">
           <table className="w-full min-w-[640px] border-collapse text-sm">
             <thead>
-              <tr className="bg-zb-off">
+              <tr className="bg-fs-bg">
                 {["Rank", "Tim", "Main", "Kill", "Placement Pts", "Kill Pts", "Total", "Δ"].map((h, i) => (
                   <th
                     key={h}
-                    className={`border-b-[3px] border-zb-black px-3 py-2 font-display text-xs font-black uppercase tracking-wider ${i === 1 ? "text-left" : "text-center"}`}
+                    className={`border-b border-fs-edge px-3 py-2 font-display text-xs font-black uppercase tracking-wider ${i === 1 ? "text-left" : "text-center"}`}
                   >
                     {h}
                   </th>
@@ -340,20 +339,20 @@ export default function AdminStatisticsPage() {
                 <tr
                   key={r.teamId}
                   onClick={() => router.push(`/teams/${r.teamId}?tid=${tid}`)}
-                  className="cursor-pointer border-b-2 border-zb-black/10 bg-white transition-colors hover:bg-zb-yellow/25"
+                  className="cursor-pointer border-b-2 border-fs-edge/10 bg-fs-panel transition-colors hover:bg-zb-yellow/25"
                 >
                   <td className="px-3 py-2 text-center"><RankBadge rank={r.rank} /></td>
                   <td className="px-3 py-2">
                     <p className="font-display text-sm font-bold">{r.teamName}</p>
-                    {r.teamTag ? <p className="text-[10px] font-bold uppercase text-zb-black/50">[{r.teamTag}]</p> : null}
+                    {r.teamTag ? <p className="text-[10px] font-bold uppercase text-fs-text/50">[{r.teamTag}]</p> : null}
                   </td>
                   <td className="px-3 py-2 text-center font-bold tabular-nums">{r.matchesPlayed}</td>
                   <td className="px-3 py-2 text-center font-bold tabular-nums">{r.kills}</td>
-                  <td className="px-3 py-2 text-center font-semibold tabular-nums text-zb-black/70">{r.placementPoints}</td>
-                  <td className="px-3 py-2 text-center font-semibold tabular-nums text-zb-black/70">{r.killPoints}</td>
+                  <td className="px-3 py-2 text-center font-semibold tabular-nums text-fs-text/70">{r.placementPoints}</td>
+                  <td className="px-3 py-2 text-center font-semibold tabular-nums text-fs-text/70">{r.killPoints}</td>
                   <td className="px-3 py-2 text-center font-display text-base font-black tabular-nums">{r.totalPoints}</td>
                   <td className="px-3 py-2 text-center">
-                    <span className="inline-flex h-5 w-5 items-center justify-center border-[2px] border-zb-black/20 bg-white">
+                    <span className="inline-flex h-5 w-5 items-center justify-center border border-fs-edge/20 bg-fs-panel">
                       <MovementIcon movement={r.movement} />
                     </span>
                   </td>

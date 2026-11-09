@@ -21,18 +21,18 @@ export default function LeaderboardIndexPage() {
       <h1 className="bo-title mb-6">Leaderboard {tournament?.name ?? ""}</h1>
 
       {standings.data ? (
-        <BoCard className="overflow-hidden bg-white">
+        <BoCard className="overflow-hidden bg-fs-panel">
           <LeaderboardTable
             standings={standings.data.standings}
             status={standings.status}
             updatedAt={standings.data.updatedAt}
             onTeamClick={(row) => router.push(`/teams/${row.teamId}?tid=${tid ?? ""}`)}
           />
-          <div className="grid grid-cols-2 gap-px border-t-[3px] border-zb-black bg-zb-black sm:grid-cols-4">
-            <MiniStat label="Match Resmi" value={String(standings.data.publishedMatchCount)} bg="bg-white" />
+          <div className="grid grid-cols-2 gap-px border-t border-fs-edge bg-fs-head sm:grid-cols-4">
+            <MiniStat label="Match Resmi" value={String(standings.data.publishedMatchCount)} bg="bg-fs-panel" />
             <MiniStat label="Total Kill" value={String(standings.data.totalKills)} bg="bg-zb-cyan" />
             <MiniStat label="Poin Kill/Kill" value="2" bg="bg-zb-yellow" />
-            <MiniStat label="Versi Aturan" value={standings.data.scoringVersion ?? "-"} bg="bg-white" />
+            <MiniStat label="Versi Aturan" value={standings.data.scoringVersion ?? "-"} bg="bg-fs-panel" />
           </div>
         </BoCard>
       ) : (
@@ -44,17 +44,17 @@ export default function LeaderboardIndexPage() {
 
       <section className="mt-8">
         <h2 className="font-display text-xl font-black uppercase">Sistem Poin Resmi BOF</h2>
-        <p className="mt-2 text-sm font-semibold text-zb-black/60">
+        <p className="mt-2 text-sm font-semibold text-fs-text/60">
           Poin placement resmi + 2 poin per kill. Tiebreaker: total poin → placement points → placement game terakhir sesuai format.
         </p>
         <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
           {OFFICIAL_PLACEMENT_POINTS.map((pts, i) => (
-            <div key={i} className="bo-card-flat bg-white px-3 py-2 text-center">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-zb-black/50">Rank {i + 1}</p>
+            <div key={i} className="bo-card-flat bg-fs-panel px-3 py-2 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-fs-text/50">Rank {i + 1}</p>
               <p className="font-display text-xl font-black tabular-nums">{pts}</p>
             </div>
           ))}
-          <div className="bo-card-flat bg-zb-black px-3 py-2 text-center text-white">
+          <div className="bo-card-flat bg-fs-head px-3 py-2 text-center text-white">
             <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">Per Kill</p>
             <p className="font-display text-xl font-black tabular-nums">+2</p>
           </div>
@@ -62,7 +62,7 @@ export default function LeaderboardIndexPage() {
       </section>
 
       {status === "offline" ? (
-        <p className="mt-6 text-sm font-bold text-zb-black/60">
+        <p className="mt-6 text-sm font-bold text-fs-text/60">
           Sedang menampilkan mode demo. <Link className="underline" href="/guide">Lihat panduan setup Firebase</Link> untuk menghubungkan data resmi.
         </p>
       ) : null}
@@ -73,7 +73,7 @@ export default function LeaderboardIndexPage() {
 function MiniStat({ label, value, bg }: { label: string; value: string; bg: string }) {
   return (
     <div className={`${bg} px-4 py-3`}>
-      <p className="text-[10px] font-bold uppercase tracking-widest text-zb-black/50">{label}</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-fs-text/50">{label}</p>
       <p className="font-display text-lg font-black tabular-nums">{value}</p>
     </div>
   );

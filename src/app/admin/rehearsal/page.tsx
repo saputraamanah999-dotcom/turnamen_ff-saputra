@@ -27,21 +27,21 @@ export default function AdminRehearsalPage() {
   // Simulasi countdown 10 detik — lokal, tidak menyentuh database.
   useEffect(() => {
     if (!busy) return;
-    setCountdown(10);
+    const kick = setTimeout(() => setCountdown(10), 0);
     const t = setInterval(() => {
       setCountdown((v) => {
         if (v == null || v <= 1) { clearInterval(t); setBusy(false); return 0; }
         return v - 1;
       });
     }, 1000);
-    return () => clearInterval(t);
+    return () => { clearTimeout(kick); clearInterval(t); };
   }, [busy]);
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="font-display text-2xl font-black uppercase">Broadcast Rehearsal Mode</h1>
-        <p className="mt-1 text-sm font-semibold text-zb-black/60">
+        <p className="mt-1 text-sm font-semibold text-fs-text/60">
           Simulasi scene, countdown, overlay, dan leaderboard dengan data terpisah. Tidak pernah
           menimpa hasil pertandingan resmi — tidak ada tulisan ke Firestore dari halaman ini.
         </p>
@@ -52,7 +52,7 @@ export default function AdminRehearsalPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <BoCard className="bg-white p-5">
+        <BoCard className="bg-fs-panel p-5">
           <p className="flex items-center gap-2 font-display text-sm font-black uppercase">
             <Clapperboard className="h-4 w-4 text-zb-purple" /> Simulasi Scene OBS
           </p>
@@ -61,19 +61,19 @@ export default function AdminRehearsalPage() {
               <button
                 key={s}
                 onClick={() => setScene(s)}
-                className={`bo-badge ${scene === s ? "bg-zb-black text-white" : "bg-white"}`}
+                className={`bo-badge ${scene === s ? "bg-fs-head text-white" : "bg-fs-panel"}`}
               >
                 {s}
               </button>
             ))}
           </div>
-          <p className="mt-3 text-xs font-semibold text-zb-black/50">
+          <p className="mt-3 text-xs font-semibold text-fs-text/50">
             Scene aktif (simulasi): <strong>{scene}</strong>. Saat OBS bridge terhubung (Broadcast Control),
             scene asli diganti dari sana — rehearsal tidak mengirim perintah ke OBS.
           </p>
         </BoCard>
 
-        <BoCard className="bg-white p-5">
+        <BoCard className="bg-fs-panel p-5">
           <p className="font-display text-sm font-black uppercase">Simulasi Countdown</p>
           <p className="mt-2 font-display text-6xl font-black tabular-nums text-zb-blue">
             {countdown != null ? String(countdown).padStart(2, "0") : "—"}
@@ -85,11 +85,11 @@ export default function AdminRehearsalPage() {
       </div>
 
       <div>
-        <p className="mb-2 text-xs font-black uppercase tracking-widest text-zb-black/60">
+        <p className="mb-2 text-xs font-black uppercase tracking-widest text-fs-text/60">
           Preview overlay (iframe — pakai data simulasi bila database kosong):
         </p>
-        <BoCardLg className="overflow-hidden bg-zb-black p-4">
-          <div className="bo-grid-bg flex min-h-64 items-center justify-center rounded-sm bg-zb-black">
+        <BoCardLg className="overflow-hidden bg-fs-head p-4">
+          <div className="bo-grid-bg flex min-h-64 items-center justify-center rounded-sm bg-fs-head">
             {tid ? (
               <iframe
                 title="Preview overlay rehearsal"
@@ -104,14 +104,14 @@ export default function AdminRehearsalPage() {
       </div>
 
       <div>
-        <p className="mb-2 text-xs font-black uppercase tracking-widest text-zb-black/60">
+        <p className="mb-2 text-xs font-black uppercase tracking-widest text-fs-text/60">
           Simulasi leaderboard (data memori):
         </p>
-        <BoCardLg className="overflow-hidden bg-white">
+        <BoCardLg className="overflow-hidden bg-fs-panel">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[480px] border-collapse text-sm">
               <thead>
-                <tr className="bg-zb-black text-white">
+                <tr className="bg-fs-head text-white">
                   {["Rank", "Tim", "Kill", "Poin", "Δ"].map((h) => (
                     <th key={h} className="px-3 py-2 text-center font-display text-xs font-black uppercase tracking-wider">{h}</th>
                   ))}
@@ -119,7 +119,7 @@ export default function AdminRehearsalPage() {
               </thead>
               <tbody>
                 {SIM_ROWS.map((r) => (
-                  <tr key={r.teamId} className="border-b-2 border-zb-black/10">
+                  <tr key={r.teamId} className="border-b-2 border-fs-edge/10">
                     <td className="px-3 py-2 text-center font-black tabular-nums">{r.rank}</td>
                     <td className="px-3 py-2 font-bold">{r.teamName}</td>
                     <td className="px-3 py-2 text-center tabular-nums">{r.kills}</td>

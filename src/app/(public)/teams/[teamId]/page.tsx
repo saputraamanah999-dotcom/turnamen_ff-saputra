@@ -72,21 +72,21 @@ export default function TeamDetailPage() {
         <ArrowLeft className="h-4 w-4" /> Semua Tim
       </Link>
 
-      <BoCard className="bg-white p-6">
+      <BoCard className="bg-fs-panel p-6">
         <div className="flex flex-wrap items-center gap-4">
-          <span className="border-[3px] border-zb-black bo-shadow">
+          <span className="border border-fs-edge bo-shadow">
             <TeamInitials name={team.name} size="lg" />
           </span>
           <div className="min-w-0 flex-1">
             <h1 className="font-display text-3xl font-black uppercase leading-none">{team.name}</h1>
-            <p className="mt-1 text-sm font-bold uppercase tracking-wider text-zb-black/50">
+            <p className="mt-1 text-sm font-bold uppercase tracking-wider text-fs-text/50">
               [{team.tag || "—"}] · Tim #{team.number} · {tournament.data?.name ?? ""}
             </p>
           </div>
           {row ? <RankBadge rank={row.rank} className="!h-12 !w-12 !text-lg" /> : null}
         </div>
         {team.description ? (
-          <p className="mt-4 border-l-4 border-zb-purple pl-3 text-sm italic text-zb-black/70">
+          <p className="mt-4 border-l-4 border-zb-purple pl-3 text-sm italic text-fs-text/70">
             {team.description}
           </p>
         ) : null}
@@ -105,12 +105,12 @@ export default function TeamDetailPage() {
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
           <StatCell label="Total Poin" value={row.totalPoints} bg="bg-zb-yellow" />
           <StatCell label="Kill" value={row.kills} bg="bg-zb-cyan" />
-          <StatCell label="Kill Points" value={row.killPoints} bg="bg-white" />
-          <StatCell label="Placement Pts" value={row.placementPoints} bg="bg-white" />
+          <StatCell label="Kill Points" value={row.killPoints} bg="bg-fs-panel" />
+          <StatCell label="Placement Pts" value={row.placementPoints} bg="bg-fs-panel" />
           <StatCell label="Match Main" value={row.matchesPlayed} bg="bg-zb-purple text-white" />
         </div>
       ) : (
-        <p className="mt-6 text-sm font-bold text-zb-black/60">
+        <p className="mt-6 text-sm font-bold text-fs-text/60">
           Tim ini belum memiliki hasil yang dipublikasikan.
         </p>
       )}
@@ -124,12 +124,12 @@ export default function TeamDetailPage() {
             {completedMatches.map((m) => {
               const r = results[m.id];
               return (
-                <BoCard key={m.id} className="flex items-center justify-between gap-3 bg-white px-4 py-3">
+                <BoCard key={m.id} className="flex items-center justify-between gap-3 bg-fs-panel px-4 py-3">
                   <div>
                     <p className="font-display text-sm font-black uppercase">
                       Match {m.matchNumber} · {m.map}
                     </p>
-                    <p className="text-xs font-semibold text-zb-black/50">
+                    <p className="text-xs font-semibold text-fs-text/50">
                       {formatDateTime(m.scheduledAt ?? undefined)} · {m.format}
                     </p>
                   </div>
@@ -137,10 +137,10 @@ export default function TeamDetailPage() {
                     <div className="flex items-center gap-2 text-sm font-black tabular-nums">
                       <BoBadge className="bg-zb-yellow">#{r.placement}</BoBadge>
                       <BoBadge>{r.kills} kill</BoBadge>
-                      <BoBadge className="bg-zb-black text-white">{r.totalPoints} poin</BoBadge>
+                      <BoBadge className="bg-fs-head text-white">{r.totalPoints} poin</BoBadge>
                     </div>
                   ) : (
-                    <span className="text-xs font-bold text-zb-black/40">—</span>
+                    <span className="text-xs font-bold text-fs-text/40">—</span>
                   )}
                 </BoCard>
               );
@@ -156,7 +156,7 @@ function StatCell({ label, value, bg }: { label: string; value: number; bg: stri
   return (
     <div className={`bo-card-flat px-3 py-3 text-center ${bg}`}>
       <p className="font-display text-2xl font-black tabular-nums">{value}</p>
-      <p className="text-[10px] font-bold uppercase tracking-widest text-zb-black/60">{label}</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-fs-text/60">{label}</p>
     </div>
   );
 }

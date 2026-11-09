@@ -8,6 +8,96 @@ export type MatchFormat = "BO3" | "BO5" | "BO7" | "CUSTOM";
 export type MatchStatus = "scheduled" | "live" | "completed" | "cancelled";
 export type TeamStatus = "active" | "inactive" | "banned";
 export type StreamMode = "youtube" | "mediamtx" | "offline";
+
+/** Mesin status siaran Live Control (§5 prompt PHASE 2). */
+export type BroadcastState =
+  | "offline"
+  | "preparing"
+  | "ready"
+  | "connecting"
+  | "starting"
+  | "live"
+  | "paused"
+  | "reconnecting"
+  | "error"
+  | "stopping";
+
+export type BroadcastDestination = "local" | "public" | "local+public";
+
+export interface BroadcastLiveState {
+  state: BroadcastState;
+  source?: string; // deskripsi sumber: "window:FreeFire" / "screen:1" / "OBS" / "external"
+  destination?: BroadcastDestination;
+  startedAt?: number | null;
+  endedAt?: number | null;
+  attempts?: number;
+  message?: string;
+}
+
+/** Jenis pengumuman broadcast (§11 prompt PHASE 2). */
+export type BroadcastEventType =
+  | "LIVE_STARTING"
+  | "LIVE_NOW"
+  | "MATCH_STARTED"
+  | "MATCH_PAUSED"
+  | "MATCH_RESUMED"
+  | "MATCH_COMPLETED"
+  | "RESULT_PUBLISHED"
+  | "NEXT_ROUND"
+  | "STREAM_RECONNECTING"
+  | "TECHNICAL_DIFFICULTIES"
+  | "BROADCAST_ENDED"
+  | "OVERLAY_PUSHED"
+  | "MATCH_INFO_UPDATED";
+
+/** Event broadcast realtime → memicu animasi/notice di TV Display & /live. */
+export interface BroadcastEvent {
+  id: string;
+  type: BroadcastEventType;
+  message?: string;
+  matchNumber?: number | null;
+  map?: string | null;
+  at: number; // epoch ms
+}
+
+/** Konfigurasi satu layer overlay (§13 prompt PHASE 2). */
+export interface OverlayLayerState {
+  enabled: boolean;
+  opacity?: number; // 0–1
+  scale?: number; // 0.5–2
+  position?: "tl" | "tc" | "tr" | "ml" | "mc" | "mr" | "bl" | "bc" | "br";
+  animation?: "none" | "fade" | "slide" | "rise";
+  duration?: number; // detik tampil (0 = terus)
+  z?: number;
+  theme?: string;
+}
+
+/** Konfigurasi scene overlay: preset + state seluruh layer. */
+export interface OverlaySceneConfig {
+  preset: string;
+  layers: Record<string, OverlayLayerState>;
+  note?: string;
+}
+
+/** Dokumen overlayConfigs/{tid} — dipisah draft (preview) vs on-air (§21). */
+export interface OverlayConfigDoc {
+  tournamentId: string;
+  draft: OverlaySceneConfig;
+  onAir: OverlaySceneConfig | null;
+  /** Konfigurasi per-scene (masing-masing tak saling merusak — §13). */
+  scenes?: Record<string, OverlaySceneConfig>;
+  pushedAt?: number | null;
+  updatedAt?: number;
+}
+
+/** State presentasi TV (§17) — TV mengikuti perintah admin realtime. */
+export interface PresentationState {
+  scene: string;
+  playing: boolean;
+  auto: boolean;
+  updatedAt?: number;
+}
+
 export type AdminRoleName = "superadmin" | "admin" | "operator";
 export type ObserverEventStatus =
   | "pending"
@@ -138,6 +228,14 @@ export interface BroadcastSettings {
   hlsUrl?: string;
   streamTitle?: string;
   streamUrl?: string; // untuk MediaMTX (LAN)
+  /** URL WHIP untuk mempublikasikan capture browser → MediaMTX (WHIP/WHE). */
+  whipUrl?: string;
+  /** URL WHE (WebRTC playback endpoint) untuk pemirsa/LAN. */
+  wheUrl?: string;
+  /** Mesin status siaran (Live Control). */
+  live?: BroadcastLiveState;
+  /** Event broadcast terakhir (LIVE NOW, dst.) untuk TV & /live. */
+  event?: BroadcastEvent | null;
   showPublicTimeline: boolean;
   announcements?: string[];
   emergency?: BroadcastEmergency;

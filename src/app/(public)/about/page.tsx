@@ -9,7 +9,7 @@ export default function AboutPage() {
       <span className="bo-kicker mb-2 inline-block bg-zb-purple">Tentang</span>
       <h1 className="bo-title mb-6">ZEROID ESPORTS</h1>
 
-      <BoCard className="bg-white p-6 leading-relaxed">
+      <BoCard className="bg-fs-panel p-6 leading-relaxed">
         <p className="text-base font-semibold">
           ZEROID ESPORTS adalah platform manajemen turnamen esports Free Fire, leaderboard
           realtime, dan sistem broadcast profesional yang dirancang khusus untuk panggung
@@ -24,26 +24,26 @@ export default function AboutPage() {
           streaming lokal sekolah — tanpa API berbayar dan tanpa kartu kredit.
         </p>
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <div className="bo-card-flat bg-zb-off p-4">
+          <div className="bo-card-flat bg-fs-bg p-4">
             <p className="font-display text-sm font-black uppercase">Turnamen</p>
-            <p className="mt-1 text-sm font-semibold text-zb-black/70">{ORG.tournament}</p>
+            <p className="mt-1 text-sm font-semibold text-fs-text/70">{ORG.tournament}</p>
           </div>
-          <div className="bo-card-flat bg-zb-off p-4">
+          <div className="bo-card-flat bg-fs-bg p-4">
             <p className="font-display text-sm font-black uppercase">Institusi</p>
-            <p className="mt-1 text-sm font-semibold text-zb-black/70">{ORG.institution}</p>
+            <p className="mt-1 text-sm font-semibold text-fs-text/70">{ORG.institution}</p>
           </div>
-          <div className="bo-card-flat bg-zb-off p-4">
+          <div className="bo-card-flat bg-fs-bg p-4">
             <p className="font-display text-sm font-black uppercase">Developer</p>
-            <p className="mt-1 text-sm font-semibold text-zb-black/70">{ORG.developer}</p>
+            <p className="mt-1 text-sm font-semibold text-fs-text/70">{ORG.developer}</p>
           </div>
-          <div className="bo-card-flat bg-zb-off p-4">
+          <div className="bo-card-flat bg-fs-bg p-4">
             <p className="font-display text-sm font-black uppercase">Sistem Poin</p>
-            <p className="mt-1 text-sm font-semibold text-zb-black/70">
+            <p className="mt-1 text-sm font-semibold text-fs-text/70">
               Resmi BOF: placement 20/17/15/…/0 + 2 poin per kill, dengan tiebreaker resmi.
             </p>
           </div>
         </div>
-        <p className="mt-6 text-sm font-semibold text-zb-black/60">
+        <p className="mt-6 text-sm font-semibold text-fs-text/60">
           Prinsip kejujuran data: seluruh statistik publik dihitung hanya dari hasil resmi yang
           dipublikasikan panitia. Event AI hanya merupakan indikasi berbobot confidence dan
           tidak pernah mengubah skor resmi secara otomatis.

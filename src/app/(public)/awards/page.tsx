@@ -43,7 +43,6 @@ export default function AwardsPage() {
       if (!cancelled) setPerMatch(out);
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, tid]);
 
   const rows = standings.data?.standings ?? [];
@@ -103,9 +102,9 @@ export default function AwardsPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <DataStatusBanner status={standings.status} />
-      <span className="bo-kicker mb-2 inline-block bg-[#d9b45b] !text-zb-black">Penghargaan Resmi</span>
+      <span className="bo-kicker mb-2 inline-block bg-[#d9b45b] !text-fs-text">Penghargaan Resmi</span>
       <h1 className="bo-title mb-2">Awards BATTLE OFF FRIENDS</h1>
-      <p className="mb-8 text-sm font-semibold text-zb-black/60">
+      <p className="mb-8 text-sm font-semibold text-fs-text/60">
         Dihitung otomatis dari {published} match resmi ({standings.data.scoringVersion}) — tanpa estimasi, tanpa data karangan.
       </p>
 
@@ -116,7 +115,7 @@ export default function AwardsPage() {
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         {rows.slice(0, 3).map((r, i) => (
           <BoCard key={r.teamId} className={`p-5 ${i === 0 ? "bg-zb-yellow" : i === 1 ? "bg-zb-cyan" : "bg-zb-purple text-white"}`}>
-            <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zb-black/60">
+            <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-fs-text/60">
               {i === 0 ? <Crown className="h-4 w-4" /> : <Medal className="h-4 w-4" />}
               {i === 0 ? "Champion" : i === 1 ? "Runner-Up" : "Third Place"}
             </p>
@@ -128,7 +127,7 @@ export default function AwardsPage() {
 
       {/* Award lainnya */}
       <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <BoCardLg className="bg-white p-5">
+        <BoCardLg className="bg-fs-panel p-5">
           <p className="flex items-center gap-2 font-display text-sm font-black uppercase tracking-wider">
             <Crosshair className="h-4 w-4 text-zb-blue" /> Most Kills
           </p>
@@ -137,52 +136,52 @@ export default function AwardsPage() {
               <RankBadge rank={mostKills.rank} />
               <div>
                 <p className="font-display text-lg font-black">{mostKills.teamName}</p>
-                <p className="text-xs font-bold text-zb-black/60">{mostKills.kills} kill total · {mostKills.matchesPlayed} match</p>
+                <p className="text-xs font-bold text-fs-text/60">{mostKills.kills} kill total · {mostKills.matchesPlayed} match</p>
               </div>
             </div>
-          ) : <p className="mt-3 text-sm font-semibold text-zb-black/50">Belum ada data.</p>}
+          ) : <p className="mt-3 text-sm font-semibold text-fs-text/50">Belum ada data.</p>}
         </BoCardLg>
 
-        <BoCardLg className="bg-white p-5">
+        <BoCardLg className="bg-fs-panel p-5">
           <p className="flex items-center gap-2 font-display text-sm font-black uppercase tracking-wider">
             <Target className="h-4 w-4 text-zb-purple" /> Highest Kill Match
           </p>
           {highestKillMatch ? (
             <p className="mt-3 font-display text-lg font-black">
               {highestKillMatch.kills} kill
-              <span className="ml-2 text-xs font-bold text-zb-black/50">{highestKillMatch.team} · {highestKillMatch.match}</span>
+              <span className="ml-2 text-xs font-bold text-fs-text/50">{highestKillMatch.team} · {highestKillMatch.match}</span>
             </p>
-          ) : <p className="mt-3 text-sm font-semibold text-zb-black/50">Belum ada data.</p>}
+          ) : <p className="mt-3 text-sm font-semibold text-fs-text/50">Belum ada data.</p>}
         </BoCardLg>
 
-        <BoCardLg className="bg-white p-5">
+        <BoCardLg className="bg-fs-panel p-5">
           <p className="flex items-center gap-2 font-display text-sm font-black uppercase tracking-wider">
             <ShieldCheck className="h-4 w-4 text-emerald-600" /> Most Consistent Team
           </p>
           {mostConsistent ? (
             <p className="mt-3 font-display text-lg font-black">
               {mostConsistent.team}
-              <span className="ml-2 text-xs font-bold text-zb-black/50">
+              <span className="ml-2 text-xs font-bold text-fs-text/50">
                 varians placement {mostConsistent.variance.toFixed(2)} · {mostConsistent.n} match
               </span>
             </p>
-          ) : <p className="mt-3 text-sm font-semibold text-zb-black/50">Butuh minimal 2 match resmi.</p>}
+          ) : <p className="mt-3 text-sm font-semibold text-fs-text/50">Butuh minimal 2 match resmi.</p>}
         </BoCardLg>
 
-        <BoCardLg className="bg-zb-off p-5">
+        <BoCardLg className="bg-fs-bg p-5">
           <p className="flex items-center gap-2 font-display text-sm font-black uppercase tracking-wider">
             <Star className="h-4 w-4 text-[#d9b45b]" /> MVP Pemain
           </p>
-          <p className="mt-3 text-sm font-semibold text-zb-black/60">
+          <p className="mt-3 text-sm font-semibold text-fs-text/60">
             Statistik pemain individu (kill per pemain) belum tersedia dari sumber resmi. Sesuai aturan platform,
             MVP <strong>tidak dikarang dari total kill tim</strong> — award ini muncul otomatis bila data individu
             terverifikasi tersedia.
           </p>
-          <BoBadge className="mt-3 bg-zb-yellow text-zb-black">Menunggu data individu terverifikasi</BoBadge>
+          <BoBadge className="mt-3 bg-zb-yellow text-fs-ink">Menunggu data individu terverifikasi</BoBadge>
         </BoCardLg>
       </div>
 
-      <p className="mt-8 text-xs font-semibold text-zb-black/50">
+      <p className="mt-8 text-xs font-semibold text-fs-text/50">
         Sumber: klasemen resmi {standings.data.scoringVersion} · {teams.data?.length ?? 0} tim terdaftar ·
         diperbarui otomatis realtime oleh sistem ZEROID ESPORTS.
       </p>

@@ -3,11 +3,17 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================
+   FIRESTORM ARENA — Design tokens
+   Tema default: Firestorm Orange (§3 prompt PHASE 2)
+   Tema lain via html[data-theme="…"] di bagian THEMES bawah.
+   ============================================================ */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
-  --font-display: var(--font-grotesk);
+  --font-display: var(--font-condensed);
+  --font-stat: var(--font-stat);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -43,56 +49,119 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* ==== ZEROID PALETTE ==== */
-  --color-zb-blue: #182cff;
-  --color-zb-blue-deep: #0f1eab;
-  --color-zb-purple: #8150f5;
-  --color-zb-cyan: #66f0e6;
-  --color-zb-yellow: #ffe600;
-  --color-zb-black: #111111;
-  --color-zb-white: #ffffff;
-  --color-zb-off: #f8f8f5;
+  /* ==== FIRESTORM ARENA CORE ==== */
+  --color-fs-bg: #080B10;      /* Deep Black */
+  --color-fs-char: #111821;    /* Charcoal */
+  --color-fs-panel: #18212C;   /* Dark Panel */
+  --color-fs-head: #111821;    /* Panel header */
+  --color-fs-edge: #26303C;    /* Border baja tipis */
+  --color-fs-edge-strong: #3A4655;
+  --color-fs-text: #F7F9FC;    /* White */
+  --color-fs-muted: #98A2B3;   /* Muted Gray */
+  --color-fs-fire: #FF5A1F;    /* Fire Orange */
+  --color-fs-flame: #FF8A00;   /* Flame Orange */
+  --color-fs-gold: #FFC247;    /* Gold Yellow */
+  --color-fs-cyan: #35D6FF;    /* Electric Cyan */
+  --color-fs-ok: #22C55E;      /* Green — status berhasil */
+  --color-fs-err: #EF4444;     /* Red — error/emergency */
+  --color-fs-ink: #0B0E14;     /* Ink gelap untuk teks di atas emas/sian */
+
+  /* ==== LEGACY ZEROID PALETTE → dipetakan ke FIRESTORM ====
+     Kelas lama (bg-zb-blue, bg-zb-yellow, dsb.) tetap berfungsi
+     dan otomatis mengikuti tema baru. zb-black = tinta gelap yang
+     dipakai DI ATAS permukaan emas/sian (kontras). */
+  --color-zb-blue: #FF5A1F;
+  --color-zb-blue-deep: #C23B0E;
+  --color-zb-purple: #FF8A00;
+  --color-zb-cyan: #35D6FF;
+  --color-zb-yellow: #FFC247;
+  --color-zb-black: #0B0E14;
+  --color-zb-white: #F7F9FC;
+  --color-zb-off: #080B10;
   /* Broadcast BOF */
-  --color-bo-gold: #d9b45b;
-  --color-bo-gold-bright: #f4d374;
-  --color-bo-black: #0b0b0f;
-  --color-bo-purple: #6c2bd9;
+  --color-bo-gold: #FFC247;
+  --color-bo-gold-bright: #FFD97A;
+  --color-bo-black: #080B10;
+  --color-bo-purple: #FF8A00;
 }
 
+/* ---- Token runtime (dirujuk komponen & tema) ---- */
 :root {
-  --radius: 0rem;
-  --background: #f8f8f5;
-  --foreground: #111111;
-  --card: #ffffff;
-  --card-foreground: #111111;
-  --popover: #ffffff;
-  --popover-foreground: #111111;
-  --primary: #182cff;
-  --primary-foreground: #ffffff;
-  --secondary: #f8f8f5;
-  --secondary-foreground: #111111;
-  --muted: #f1f1ec;
-  --muted-foreground: #55555a;
-  --accent: #ffe600;
-  --accent-foreground: #111111;
-  --destructive: #e5484d;
-  --border: #111111;
-  --input: #111111;
-  --ring: #182cff;
-  --chart-1: #182cff;
-  --chart-2: #8150f5;
-  --chart-3: #66f0e6;
-  --chart-4: #ffe600;
-  --chart-5: #d9b45b;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #111111;
-  --sidebar-primary: #182cff;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ffe600;
-  --sidebar-accent-foreground: #111111;
-  --sidebar-border: #111111;
-  --sidebar-ring: #182cff;
+  --radius: 0.125rem;
+  --fs-bg: #080B10;
+  --fs-char: #111821;
+  --fs-panel: #18212C;
+  --fs-head: #111821;
+  --fs-edge: #26303C;
+  --fs-edge-strong: #3A4655;
+  --fs-text: #F7F9FC;
+  --fs-muted: #98A2B3;
+  --fs-fire: #FF5A1F;
+  --fs-flame: #FF8A00;
+  --fs-gold: #FFC247;
+  --fs-cyan: #35D6FF;
+  --fs-ok: #22C55E;
+  --fs-err: #EF4444;
+  --fs-ink: #0B0E14; /* teks gelap di atas emas/sian */
+
+  --background: var(--fs-bg);
+  --foreground: var(--fs-text);
+  --card: var(--fs-panel);
+  --card-foreground: var(--fs-text);
+  --popover: #1B2530;
+  --popover-foreground: var(--fs-text);
+  --primary: var(--fs-fire);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--fs-char);
+  --secondary-foreground: var(--fs-text);
+  --muted: #1A222D;
+  --muted-foreground: var(--fs-muted);
+  --accent: var(--fs-flame);
+  --accent-foreground: #FFFFFF;
+  --destructive: var(--fs-err);
+  --border: var(--fs-edge);
+  --input: var(--fs-edge);
+  --ring: var(--fs-fire);
+  --chart-1: #FF5A1F;
+  --chart-2: #FFC247;
+  --chart-3: #35D6FF;
+  --chart-4: #22C55E;
+  --chart-5: #FF8A00;
+  --sidebar: var(--fs-char);
+  --sidebar-foreground: var(--fs-text);
+  --sidebar-primary: var(--fs-fire);
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(255, 90, 31, 0.14);
+  --sidebar-accent-foreground: var(--fs-text);
+  --sidebar-border: var(--fs-edge);
+  --sidebar-ring: var(--fs-fire);
 }
+
+/* ============================================================
+   THEMES — 5 varian resmi (§24 prompt PHASE 2)
+   ============================================================ */
+html[data-theme="obsidian-gold"] {
+  --fs-fire: #E7B84C; --fs-flame: #F4D374; --fs-gold: #FFE296; --fs-cyan: #8FA8C0;
+  --primary: #E7B84C; --accent: #F4D374; --ring: #E7B84C;
+  --chart-1: #E7B84C; --chart-2: #FFE296; --chart-3: #8FA8C0; --chart-5: #F4D374;
+}
+html[data-theme="cyber-blue"] {
+  --fs-fire: #35D6FF; --fs-flame: #19B8E8; --fs-gold: #7BE8FF; --fs-cyan: #19E3B2;
+  --primary: #35D6FF; --accent: #19B8E8; --ring: #35D6FF;
+  --chart-1: #35D6FF; --chart-2: #19E3B2; --chart-3: #7BE8FF; --chart-5: #19B8E8;
+}
+html[data-theme="purple-arena"] {
+  --fs-fire: #A855F7; --fs-flame: #7C3AED; --fs-gold: #F0ABFC; --fs-cyan: #22D3EE;
+  --primary: #A855F7; --accent: #7C3AED; --ring: #A855F7;
+  --chart-1: #A855F7; --chart-2: #F0ABFC; --chart-3: #22D3EE; --chart-5: #7C3AED;
+}
+html[data-theme="black-championship"] {
+  --fs-fire: #F7F9FC; --fs-flame: #C0C8D4; --fs-gold: #FFC247; --fs-cyan: #8FA3B8;
+  --primary: #F7F9FC; --primary-foreground: #0B0E14; --accent: #C0C8D4; --ring: #F7F9FC;
+  --chart-1: #F7F9FC; --chart-2: #FFC247; --chart-3: #8FA3B8; --chart-5: #C0C8D4;
+}
+/* Kelas warna legacy ikut tema */
+html[data-theme] .theme-accent { color: var(--fs-fire); }
 
 @layer base {
   * {
@@ -102,143 +171,177 @@
     scroll-behavior: smooth;
   }
   body {
-    @apply bg-zb-off text-zb-black;
+    @apply bg-fs-bg text-fs-text;
     font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   }
   h1, h2, h3, h4, .font-display {
-    font-family: var(--font-grotesk), var(--font-inter), ui-sans-serif, sans-serif;
-    letter-spacing: -0.02em;
+    font-family: var(--font-condensed), var(--font-grotesk), ui-sans-serif, sans-serif;
+    letter-spacing: 0.01em;
   }
+  ::selection { background: rgba(255, 90, 31, 0.35); }
 }
 
 /* ============================================================
-   NE OBRUTALISM KOMPONEN — ZEROID ESPORTS
+   FIRESTORM ARENA KOMPONEN
+   Didefinisikan TANPA @layer agar menang atas utility bg-white
+   dari halaman lama (re-skin menyeluruh tanpa rombak fungsi).
    ============================================================ */
-@layer components {
-  .bo-card {
-    @apply relative border-[3px] border-zb-black bg-white;
-    box-shadow: 5px 5px 0 0 #111111;
-  }
-  .bo-card-flat {
-    @apply relative border-[3px] border-zb-black bg-white;
-  }
-  .bo-card-lg {
-    @apply relative border-4 border-zb-black bg-white;
-    box-shadow: 8px 8px 0 0 #111111;
-  }
-  .bo-shadow {
-    box-shadow: 5px 5px 0 0 #111111;
-  }
-  .bo-shadow-sm {
-    box-shadow: 3px 3px 0 0 #111111;
-  }
-  .bo-shadow-lg {
-    box-shadow: 8px 8px 0 0 #111111;
-  }
-  .bo-press {
-    @apply transition-transform duration-150;
-  }
-  .bo-press:hover {
-    transform: translate(-2px, -2px);
-    box-shadow: 7px 7px 0 0 #111111;
-  }
-  .bo-press:active {
-    transform: translate(2px, 2px);
-    box-shadow: 1px 1px 0 0 #111111;
-  }
-  .bo-btn {
-    @apply inline-flex items-center justify-center gap-2 border-[3px] border-zb-black px-4 py-2.5
-      text-sm font-extrabold uppercase tracking-wide text-zb-black select-none
-      transition-transform duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed;
-    box-shadow: 4px 4px 0 0 #111111;
-  }
-  .bo-btn:hover:not(:disabled) {
-    transform: translate(-2px, -2px);
-    box-shadow: 6px 6px 0 0 #111111;
-  }
-  .bo-btn:active:not(:disabled) {
-    transform: translate(2px, 2px);
-    box-shadow: 0px 0px 0 0 #111111;
-  }
-  .bo-btn-primary { @apply bg-zb-blue text-white; }
-  .bo-btn-yellow { @apply bg-zb-yellow text-zb-black; }
-  .bo-btn-cyan { @apply bg-zb-cyan text-zb-black; }
-  .bo-btn-purple { @apply bg-zb-purple text-white; }
-  .bo-btn-white { @apply bg-white text-zb-black; }
-  .bo-btn-black { @apply bg-zb-black text-white; }
-  .bo-badge {
-    @apply inline-flex items-center gap-1 border-2 border-zb-black px-2 py-0.5
-      text-[11px] font-extrabold uppercase tracking-wider;
-    box-shadow: 2px 2px 0 0 #111111;
-  }
-  .bo-input {
-    @apply h-10 w-full border-[3px] border-zb-black bg-white px-3 text-sm font-semibold
-      placeholder:font-normal placeholder:text-zb-black/40 focus:outline-none focus:ring-2 focus:ring-zb-blue;
-  }
-  .bo-kicker {
-    @apply inline-block bg-zb-black px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-white;
-  }
-  .bo-title {
-    @apply font-display text-3xl font-black uppercase leading-none sm:text-4xl lg:text-5xl;
-  }
-  .bo-halftone {
-    background-image: radial-gradient(#111111 1.2px, transparent 1.2px);
-    background-size: 10px 10px;
-    opacity: 0.12;
-  }
-  .bo-grid-bg {
-    background-color: #f8f8f5;
-    background-image:
-      linear-gradient(rgba(17,17,17,0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(17,17,17,0.05) 1px, transparent 1px);
-    background-size: 28px 28px;
-  }
-  .bo-stripe {
-    background-image: repeating-linear-gradient(
-      -45deg,
-      #111111 0px, #111111 10px,
-      #ffe600 10px, #ffe600 20px
-    );
-  }
+
+/* ---- Panel dasar ---- */
+.bo-card, .bo-card-flat, .bo-card-lg {
+  position: relative;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0) 42%), var(--fs-panel);
+  border: 1px solid var(--fs-edge);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 10px 24px rgba(0,0,0,0.35);
+}
+.bo-card-lg { border-width: 1px; }
+.bo-card-flat { box-shadow: none; }
+/* Sudut miring khas arena — hanya bila elemen tidak menolak */
+.fs-cut { clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px)); }
+.fs-cut-sm { clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px)); }
+
+.bo-shadow { box-shadow: 0 10px 24px rgba(0,0,0,0.4); }
+.bo-shadow-sm { box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+.bo-shadow-lg { box-shadow: 0 14px 34px rgba(0,0,0,0.5); }
+.bo-press { transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.bo-press:hover { transform: translateY(-1px); border-color: var(--fs-edge-strong); box-shadow: 0 12px 26px rgba(0,0,0,0.45); }
+.bo-press:active { transform: translateY(1px); box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
+
+/* ---- Tombol ---- */
+.bo-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  border: 1px solid var(--fs-edge-strong);
+  padding: .55rem 1rem; font-size: .8rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--fs-text); background: var(--fs-char);
+  cursor: pointer; user-select: none;
+  transition: transform .15s ease, box-shadow .15s ease, filter .15s ease, border-color .15s;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+}
+.bo-btn:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
+.bo-btn:active:not(:disabled) { transform: translateY(1px); filter: brightness(.92); }
+.bo-btn:disabled { opacity: .45; cursor: not-allowed; }
+.bo-btn-primary, .bo-btn-fire {
+  background: linear-gradient(135deg, var(--fs-fire), var(--fs-flame));
+  border-color: rgba(255, 138, 0, 0.6);
+  box-shadow: 0 4px 18px rgba(255, 90, 31, 0.28);
+}
+.bo-btn-yellow, .bo-btn-gold {
+  background: linear-gradient(135deg, var(--fs-gold), #FFD97A);
+  color: var(--fs-ink); border-color: rgba(255, 217, 122, 0.7);
+  box-shadow: 0 4px 16px rgba(255, 194, 71, 0.25);
+}
+.bo-btn-cyan {
+  background: linear-gradient(135deg, rgba(53,214,255,0.22), rgba(53,214,255,0.08));
+  color: var(--fs-cyan); border-color: rgba(53, 214, 255, 0.5);
+  box-shadow: 0 4px 16px rgba(53, 214, 255, 0.15);
+}
+.bo-btn-purple, .bo-btn-flame {
+  background: linear-gradient(135deg, rgba(255,138,0,0.2), rgba(255,138,0,0.06));
+  color: var(--fs-flame); border-color: rgba(255, 138, 0, 0.5);
+}
+.bo-btn-white { background: var(--fs-panel); color: var(--fs-text); }
+.bo-btn-black { background: #0B0E14; color: var(--fs-text); border-color: var(--fs-edge-strong); }
+.bo-btn-danger { background: linear-gradient(135deg, #DC2626, #B91C1C); border-color: rgba(239,68,68,.6); color: #fff; box-shadow: 0 4px 16px rgba(239,68,68,.25); }
+
+/* ---- Badge / chip ---- */
+.bo-badge {
+  display: inline-flex; align-items: center; gap: .3rem;
+  border: 1px solid var(--fs-edge-strong);
+  padding: .15rem .5rem; font-size: 10.5px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .1em;
+  background: var(--fs-char); color: var(--fs-text);
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+.bo-input {
+  height: 2.5rem; width: 100%;
+  border: 1px solid var(--fs-edge-strong);
+  background: rgba(8, 11, 16, 0.7);
+  padding: 0 .7rem; font-size: .85rem; font-weight: 600;
+  color: var(--fs-text);
+}
+.bo-input::placeholder { color: rgba(152, 162, 179, 0.6); font-weight: 500; }
+.bo-input:focus { outline: none; border-color: var(--fs-fire); box-shadow: 0 0 0 3px rgba(255, 90, 31, 0.18); }
+
+.bo-kicker {
+  display: inline-block;
+  padding: .25rem .6rem;
+  background: linear-gradient(135deg, var(--fs-fire), var(--fs-flame));
+  color: #fff; font-size: 10.5px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .18em;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
+}
+.bo-title {
+  font-family: var(--font-condensed), var(--font-grotesk), sans-serif;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-weight: 800; text-transform: uppercase; line-height: .95;
+  letter-spacing: .01em;
+}
+
+/* ---- Latar arena ---- */
+.bo-halftone {
+  background-image: radial-gradient(rgba(255,138,0,0.22) 1.2px, transparent 1.2px);
+  background-size: 12px 12px; opacity: .1;
+}
+.bo-grid-bg {
+  background-color: var(--fs-bg);
+  background-image:
+    linear-gradient(rgba(53, 214, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(53, 214, 255, 0.045) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+.fs-arena-bg {
+  background:
+    radial-gradient(1100px 500px at 85% -10%, rgba(255, 90, 31, 0.13), transparent 60%),
+    radial-gradient(900px 420px at -10% 110%, rgba(53, 214, 255, 0.08), transparent 55%),
+    var(--fs-bg);
+}
+/* Bar diagonal api untuk strip dekoratif */
+.bo-stripe {
+  background-image: repeating-linear-gradient(-45deg,
+    var(--fs-fire) 0px, var(--fs-fire) 10px,
+    rgba(8,11,16,0.9) 10px, rgba(8,11,16,0.9) 20px);
 }
 
 /* ============================================================
-   BROADCAST THEME (overlay OBS) — hitam + emas + ungu
+   OVERLAY THEME (OBS Browser Source) — FIRESTORM broadcast
    ============================================================ */
 @layer components {
   .ov-root {
     background: transparent;
-    font-family: var(--font-grotesk), sans-serif;
-    color: #ffffff;
+    font-family: var(--font-condensed), sans-serif;
+    color: var(--fs-text);
     overflow: hidden;
   }
   .ov-frame {
-    @apply relative border-2;
-    border-color: rgba(217, 180, 91, 0.55);
-    background: linear-gradient(160deg, rgba(11,11,15,0.92) 0%, rgba(22,16,40,0.88) 100%);
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.45);
-    backdrop-filter: blur(6px);
+    position: relative; border: 1px solid rgba(255, 138, 0, 0.45);
+    background: linear-gradient(160deg, rgba(8,11,16,0.94) 0%, rgba(24,33,44,0.9) 100%);
+    box-shadow: 0 0 0 1px rgba(0,0,0,.65), 0 10px 30px rgba(0,0,0,.5), 0 0 22px rgba(255,90,31,.1);
+    backdrop-filter: blur(8px);
   }
-  .ov-gold {
-    color: #f4d374;
-  }
+  .ov-gold { color: var(--fs-gold); }
+  .ov-fire { color: var(--fs-fire); }
   .ov-chip {
-    @apply inline-flex items-center gap-1.5 border border-[rgba(217,180,91,0.6)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em];
-    color: #f4d374;
-    background: rgba(0,0,0,0.55);
+    display: inline-flex; align-items: center; gap: .35rem;
+    border: 1px solid rgba(255, 138, 0, 0.55);
+    padding: .15rem .45rem; font-size: 10px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .14em;
+    color: var(--fs-gold); background: rgba(8, 11, 16, 0.72);
+    clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
   }
   .ov-row {
-    @apply flex items-center gap-2 border-b px-3 py-1.5 text-sm transition-colors duration-200;
-    border-color: rgba(217,180,91,0.18);
+    display: flex; align-items: center; gap: .5rem;
+    border-bottom: 1px solid rgba(255, 138, 0, 0.14);
+    padding: .4rem .75rem; font-size: .85rem;
+    transition: background-color .2s ease;
   }
-  .ov-row:hover {
-    background: rgba(217,180,91,0.08);
-  }
+  .ov-row:hover { background: rgba(255, 138, 0, 0.07); }
   .ov-cut {
     clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
   }
   .ov-live-dot {
-    @apply inline-block h-2 w-2 rounded-full bg-red-500;
+    display: inline-block; height: .5rem; width: .5rem; border-radius: 9999px;
+    background: #EF4444;
     animation: ov-pulse 1.2s ease-in-out infinite;
   }
 }
@@ -248,75 +351,118 @@
   50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(239,68,68,0); }
 }
 
-/* Angka tabular untuk leaderboard */
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
-}
+/* Angka tabular untuk leaderboard + Rajdhani untuk statistik */
+.tabular-nums { font-variant-numeric: tabular-nums; }
+.font-stat { font-family: var(--font-stat), var(--font-inter), sans-serif; font-variant-numeric: tabular-nums; }
 
-/* Scrollbar tipis untuk panel */
-.thin-scroll::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.thin-scroll::-webkit-scrollbar-thumb {
-  background: #111111;
-  border: 2px solid #f8f8f5;
-}
-.thin-scroll::-webkit-scrollbar-track {
-  background: #f1f1ec;
-}
+/* Scrollbar gelap */
+.thin-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.thin-scroll::-webkit-scrollbar-thumb { background: #313E4D; border-radius: 4px; }
+.thin-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
 
 /* ============================================================
-   ANIMASI ZEROID — leaderboard broadcast & micro-interaction
+   ANIMASI FIRESTORM — broadcast & micro-interaction
    ============================================================ */
-
 @keyframes zb-shimmer {
   0% { background-position: -480px 0; }
   100% { background-position: 480px 0; }
 }
-
 /* Baris skeleton leaderboard saat menghubungkan database realtime */
 .bo-skel {
-  background: linear-gradient(90deg, #ececea 25%, #f8f8f5 50%, #ececea 75%);
+  background: linear-gradient(90deg, #1A222D 25%, #232E3B 50%, #1A222D 75%);
   background-size: 960px 100%;
   animation: zb-shimmer 1.4s linear infinite;
 }
 
-/* Kilatan emas saat poin tim berubah (dipicu kelas .flash) */
+/* Kilatan emas saat poin tim berubah */
 @keyframes zb-flash-gold {
-  0% { background-color: rgba(255, 230, 0, 0.45); }
+  0% { background-color: rgba(255, 194, 71, 0.38); }
   100% { background-color: transparent; }
 }
-.flash-up {
-  animation: zb-flash-gold 0.9s ease-out 1;
-}
+.flash-up { animation: zb-flash-gold 0.9s ease-out 1; }
 
 /* Glow podium juara */
 @keyframes zb-glow-gold {
-  0%, 100% { box-shadow: 4px 4px 0 #111111, 0 0 18px rgba(217, 180, 91, 0.35); }
-  50% { box-shadow: 4px 4px 0 #111111, 0 0 30px rgba(255, 230, 0, 0.55); }
+  0%, 100% { box-shadow: 0 0 16px rgba(255, 194, 71, 0.3); }
+  50% { box-shadow: 0 0 30px rgba(255, 194, 71, 0.55); }
 }
-.rank-champion {
-  animation: zb-glow-gold 2.2s ease-in-out infinite;
-}
+.rank-champion { animation: zb-glow-gold 2.2s ease-in-out infinite; }
 
 /* Ticker informasi broadcast */
 @keyframes zb-ticker {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
+.fs-ticker-track { animation: zb-ticker 28s linear infinite; }
 
 /* Muncul halus untuk section baru */
 @keyframes zb-rise {
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.zb-rise {
-  animation: zb-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+.zb-rise { animation: zb-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* LIVE badge bernafas */
+@keyframes fs-live {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,.55); opacity: 1; }
+  50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); opacity: .82; }
+}
+.fs-live-badge { animation: fs-live 1.5s ease-in-out infinite; }
+
+/* Garis pemindai pada panel control room */
+@keyframes fs-scan {
+  0% { transform: translateY(-100%); opacity: 0; }
+  35% { opacity: .55; }
+  100% { transform: translateY(2200%); opacity: 0; }
+}
+.fs-scanline { position: relative; overflow: hidden; }
+.fs-scanline::after {
+  content: ""; position: absolute; inset-inline: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(53,214,255,.5), transparent);
+  animation: fs-scan 5.5s linear infinite; pointer-events: none;
+}
+
+/* Tepi broadcast bernafas (panel ON AIR) */
+@keyframes fs-edge-fire {
+  0%, 100% { border-color: rgba(255, 90, 31, 0.55); box-shadow: 0 0 14px rgba(255,90,31,.22); }
+  50% { border-color: rgba(255, 138, 0, 0.95); box-shadow: 0 0 26px rgba(255,138,0,.4); }
+}
+.fs-onair { animation: fs-edge-fire 2.4s ease-in-out infinite; }
+
+/* Koneksi mencari sinyal */
+@keyframes fs-connect {
+  0%, 100% { opacity: .45; }
+  50% { opacity: 1; }
+}
+.fs-connecting { animation: fs-connect 1.1s ease-in-out infinite; }
+
+/* Detak angka poin (pop) */
+@keyframes fs-pop {
+  0% { transform: scale(1.28); color: var(--fs-gold); }
+  100% { transform: scale(1); }
+}
+.fs-pop { animation: fs-pop .5s cubic-bezier(.22,1,.36,1) 1; }
+
+/* Intro LIVE NOW (dipakai TV display) */
+@keyframes fs-live-in {
+  0% { opacity: 0; transform: scale(1.25); letter-spacing: .4em; }
+  100% { opacity: 1; transform: scale(1); letter-spacing: .1em; }
+}
+.fs-live-in { animation: fs-live-in .6s cubic-bezier(.22,1,.36,1) both; }
+
+/* Bar progres siaran */
+@keyframes fs-progress-fire {
+  0% { background-position: 0 0; }
+  100% { background-position: 48px 0; }
+}
+.fs-progress-fire {
+  background-image: repeating-linear-gradient(-45deg,
+    rgba(255,255,255,.22) 0 8px, transparent 8px 16px);
+  animation: fs-progress-fire .8s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bo-skel, .flash-up, .rank-champion, .zb-rise {
-    animation: none !important;
-  }
+  .bo-skel, .flash-up, .rank-champion, .zb-rise, .fs-live-badge,
+  .fs-scanline::after, .fs-onair, .fs-connecting, .fs-ticker-track,
+  .fs-progress-fire, .fs-live-in { animation: none !important; }
 }

@@ -41,20 +41,20 @@ export default function AdminObserverPage() {
   return (
     <div>
       <h1 className="font-display text-2xl font-black uppercase">AI Observer Assistant</h1>
-      <p className="mt-1 text-sm font-semibold text-zb-black/60">
+      <p className="mt-1 text-sm font-semibold text-fs-text/60">
         Asisten observasi lokal — hanya menganalisis frame yang terlihat. Event AI adalah
         indikasi berbobot confidence dan TIDAK pernah mengubah skor resmi.
       </p>
 
       {/* Status */}
-      <BoCard className="mt-4 bg-white p-5">
+      <BoCard className="mt-4 bg-fs-panel p-5">
         <div className="flex flex-wrap items-center gap-3">
           <Cpu className="h-6 w-6 text-zb-purple" />
           <div className="min-w-0 flex-1">
             <p className="font-display text-base font-black uppercase">
               Service Lokal (127.0.0.1:8077 default)
             </p>
-            <p className="text-xs font-bold text-zb-black/50">
+            <p className="text-xs font-bold text-fs-text/50">
               Jalankan di laptop produksi: <code>observer-ai/</code> → venv → <code>python run.py</code>
             </p>
           </div>
@@ -93,23 +93,23 @@ export default function AdminObserverPage() {
 
       {/* Rekomendasi + Timeline */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <BoCard className="bg-white p-5">
+        <BoCard className="bg-fs-panel p-5">
           <h2 className="font-display text-base font-black uppercase">Event Timeline</h2>
           {!status?.online ? (
-            <p className="mt-3 text-sm font-semibold text-zb-black/50">
+            <p className="mt-3 text-sm font-semibold text-fs-text/50">
               Service offline — turnamen tetap berjalan normal tanpa AI. Entri hasil manual tetap tersedia.
             </p>
           ) : events.length === 0 ? (
-            <p className="mt-3 text-sm font-semibold text-zb-black/50">Belum ada event terdeteksi.</p>
+            <p className="mt-3 text-sm font-semibold text-fs-text/50">Belum ada event terdeteksi.</p>
           ) : (
             <ul className="thin-scroll mt-3 max-h-96 space-y-2 overflow-y-auto pr-1">
               {events.slice().reverse().map((ev) => (
-                <li key={ev.id} className="bo-card-flat flex flex-wrap items-center gap-2 bg-zb-off px-3 py-2 text-xs">
-                  <span className="font-mono font-bold text-zb-black/50">{formatTime(ev.timestamp)}</span>
+                <li key={ev.id} className="bo-card-flat flex flex-wrap items-center gap-2 bg-fs-bg px-3 py-2 text-xs">
+                  <span className="font-mono font-bold text-fs-text/50">{formatTime(ev.timestamp)}</span>
                   <BoBadge className={confidenceColor(ev.confidence)}>{(ev.confidence * 100).toFixed(0)}%</BoBadge>
                   <span className="font-black">{ev.type}</span>
-                  {ev.playerName ? <span className="text-zb-black/60">{ev.playerName}</span> : null}
-                  <span className="ml-auto text-zb-black/40">{ev.reason?.slice(0, 60) ?? ""}</span>
+                  {ev.playerName ? <span className="text-fs-text/60">{ev.playerName}</span> : null}
+                  <span className="ml-auto text-fs-text/40">{ev.reason?.slice(0, 60) ?? ""}</span>
                   <span className="flex gap-1.5">
                     <button
                       className="bo-btn bo-btn-cyan !px-2 !py-1 !text-[10px]"
@@ -119,7 +119,7 @@ export default function AdminObserverPage() {
                       <Check className="h-3 w-3" />
                     </button>
                     <button
-                      className="bo-btn !px-2 !py-1 !text-[10px] !bg-white"
+                      className="bo-btn !px-2 !py-1 !text-[10px] !bg-fs-panel"
                       title="Tandai false positive"
                       onClick={async () => { await postObserverAction(`/events/${ev.id}/false-positive`); void refresh(); }}
                     >
@@ -132,18 +132,18 @@ export default function AdminObserverPage() {
           )}
         </BoCard>
 
-        <BoCard className="bg-white p-5">
+        <BoCard className="bg-fs-panel p-5">
           <h2 className="font-display text-base font-black uppercase">Rekomendasi Target Observasi</h2>
           {!status?.online ? (
-            <p className="mt-3 text-sm font-semibold text-zb-black/50">Menunggu service lokal online.</p>
+            <p className="mt-3 text-sm font-semibold text-fs-text/50">Menunggu service lokal online.</p>
           ) : (
-            <p className="mt-3 text-sm font-semibold text-zb-black/50">
+            <p className="mt-3 text-sm font-semibold text-fs-text/50">
               Rekomendasi dihitung dari event HIGH/MEDIUM/LOW (aktivitas kill feed, indikasi
               elimination, genggaman spectator). Operator tetap yang memindahkan kamera spectator
               di dalam game — AI tidak mengendalikan input game.
             </p>
           )}
-          <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-zb-black/40">
+          <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-fs-text/40">
             <Eye className="h-3.5 w-3.5" /> PRIVASI: frame dianalisis lokal; tidak diunggah ke internet.
           </p>
         </BoCard>
@@ -154,8 +154,8 @@ export default function AdminObserverPage() {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bo-card-flat bg-zb-off px-3 py-2 text-center">
-      <p className="text-[10px] font-black uppercase tracking-widest text-zb-black/50">{label}</p>
+    <div className="bo-card-flat bg-fs-bg px-3 py-2 text-center">
+      <p className="text-[10px] font-black uppercase tracking-widest text-fs-text/50">{label}</p>
       <p className="font-display text-sm font-black">{value}</p>
     </div>
   );
@@ -164,5 +164,5 @@ function Metric({ label, value }: { label: string; value: string }) {
 function confidenceColor(c: number) {
   if (c >= 0.7) return "bg-emerald-300";
   if (c >= 0.4) return "bg-zb-yellow";
-  return "bg-zb-off";
+  return "bg-fs-bg";
 }

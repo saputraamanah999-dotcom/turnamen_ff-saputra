@@ -62,32 +62,32 @@ export default function AdminPlayersPage() {
     <div className="space-y-4">
       <div>
         <h1 className="font-display text-2xl font-black uppercase">Pemain &amp; Roster</h1>
-        <p className="mt-1 text-sm font-semibold text-zb-black/60">
+        <p className="mt-1 text-sm font-semibold text-fs-text/60">
           Roster dipakai untuk identifikasi pemain pada pertandingan dan pencocokan AI Observer
           (nickname yang tidak dikenal selalu ditandai UNKNOWN — tidak pernah ditebak).
         </p>
       </div>
 
-      <BoCard className="bg-white p-4">
-        <label className="text-xs font-black uppercase tracking-widest text-zb-black/60">Pilih Tim</label>
+      <BoCard className="bg-fs-panel p-4">
+        <label className="text-xs font-black uppercase tracking-widest text-fs-text/60">Pilih Tim</label>
         <div className="mt-2 flex flex-wrap gap-2">
           {(teams.data ?? []).map((t) => (
             <button
               key={t.id}
               onClick={() => setTeamId(t.id)}
-              className={`bo-badge ${teamId === t.id ? "bg-zb-black text-white" : "bg-white"}`}
+              className={`bo-badge ${teamId === t.id ? "bg-fs-head text-white" : "bg-fs-panel"}`}
             >
               [{t.tag}] {t.name}
             </button>
           ))}
           {(teams.data ?? []).length === 0 ? (
-            <p className="text-sm font-semibold text-zb-black/50">Belum ada tim — tambahkan dulu di menu Tim.</p>
+            <p className="text-sm font-semibold text-fs-text/50">Belum ada tim — tambahkan dulu di menu Tim.</p>
           ) : null}
         </div>
       </BoCard>
 
       {team ? (
-        <BoCardLg className="bg-white p-5">
+        <BoCardLg className="bg-fs-panel p-5">
           <p className="flex items-center gap-2 font-display text-base font-black uppercase">
             <UserRound className="h-4 w-4 text-zb-blue" /> Roster {team.name} <BoBadge className="bg-zb-cyan">[{team.tag}]</BoBadge>
           </p>
@@ -124,7 +124,7 @@ export default function AdminPlayersPage() {
 
           <ul className="mt-4 space-y-2">
             {roster.map((r, i) => (
-              <li key={`${r.nickname}-${i}`} className="flex items-center justify-between gap-2 border-[3px] border-zb-black/15 bg-zb-off px-3 py-2">
+              <li key={`${r.nickname}-${i}`} className="flex items-center justify-between gap-2 border border-fs-edge/15 bg-fs-bg px-3 py-2">
                 <span className="text-sm font-bold">
                   {r.nickname}
                   {r.role ? <BoBadge className="ml-2 bg-zb-purple text-white">{r.role}</BoBadge> : null}
@@ -139,7 +139,7 @@ export default function AdminPlayersPage() {
               </li>
             ))}
             {roster.length === 0 ? (
-              <li className="text-sm font-semibold text-zb-black/50">Roster kosong — tambahkan pemain di atas.</li>
+              <li className="text-sm font-semibold text-fs-text/50">Roster kosong — tambahkan pemain di atas.</li>
             ) : null}
           </ul>
 

@@ -51,17 +51,17 @@ export default function MatchDetailPage() {
         <EmptyState title="Match tidak ditemukan" />
       ) : (
         <>
-          <BoCard className="bg-white p-6">
+          <BoCard className="bg-fs-panel p-6">
             <div className="flex flex-wrap items-center gap-2">
               <span className="bo-kicker bg-zb-purple">Match {match.matchNumber}</span>
               <MatchStatusBadge status={match.status} />
               {published ? <BoBadge className="bg-zb-yellow">Hasil Resmi</BoBadge> : null}
-              <span className="ml-auto text-xs font-bold uppercase tracking-wider text-zb-black/40">
+              <span className="ml-auto text-xs font-bold uppercase tracking-wider text-fs-text/40">
                 {match.format} · {formatDateTime(match.scheduledAt ?? undefined)}
               </span>
             </div>
             <h1 className="mt-3 font-display text-3xl font-black uppercase">{match.map}</h1>
-            <p className="mt-1 text-sm font-semibold text-zb-black/60">
+            <p className="mt-1 text-sm font-semibold text-fs-text/60">
               Turnamen {tournament.data?.name ?? ""} · versi aturan {match.scoringVersion}
             </p>
           </BoCard>
@@ -76,10 +76,10 @@ export default function MatchDetailPage() {
             ) : loaded && results.length === 0 ? (
               <EmptyState title="Belum ada entri hasil" />
             ) : (
-              <BoCard className="overflow-hidden bg-white">
+              <BoCard className="overflow-hidden bg-fs-panel">
                 <table className="w-full border-collapse text-sm">
                   <thead>
-                    <tr className="bg-zb-black text-white">
+                    <tr className="bg-fs-head text-white">
                       <th className="px-2 py-2 text-center font-display text-xs uppercase tracking-wider w-14">Rank</th>
                       <th className="px-3 py-2 text-left font-display text-xs uppercase tracking-wider">Tim</th>
                       <th className="px-2 py-2 text-center font-display text-xs uppercase tracking-wider w-16">Kill</th>
@@ -90,11 +90,11 @@ export default function MatchDetailPage() {
                   </thead>
                   <tbody>
                     {results.map((r) => (
-                      <tr key={r.teamId} className="border-b-[3px] border-zb-black/15 bg-white">
+                      <tr key={r.teamId} className="border-b border-fs-edge/15 bg-fs-panel">
                         <td className="px-2 py-2 text-center font-black tabular-nums">#{r.placement}</td>
                         <td className="px-3 py-2 font-bold">
                           {r.teamName}
-                          {r.teamTag ? <span className="ml-1 text-xs text-zb-black/50">[{r.teamTag}]</span> : null}
+                          {r.teamTag ? <span className="ml-1 text-xs text-fs-text/50">[{r.teamTag}]</span> : null}
                         </td>
                         <td className="px-2 py-2 text-center tabular-nums">{r.kills}</td>
                         <td className="px-2 py-2 text-center tabular-nums">{r.placementPoints}</td>

@@ -34,12 +34,12 @@ export function ChampionBanner({
         initial={{ scale: 0.96, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         className={cn(
-          "relative overflow-hidden border-[3px] border-zb-black bg-zb-black px-6 py-8 text-center text-white bo-shadow",
+          "relative overflow-hidden border border-fs-edge bg-fs-head px-6 py-8 text-center text-white bo-shadow",
           className,
         )}
       >
         <div className="bo-stripe absolute inset-x-0 top-0 h-2" aria-hidden />
-        <p className="inline-flex items-center gap-2 bo-kicker bg-[#d9b45b] !text-zb-black">
+        <p className="inline-flex items-center gap-2 bo-kicker bg-[#d9b45b] !text-fs-text">
           <Crown className="h-4 w-4" /> CHAMPION CONFIRMED
         </p>
         <motion.p
@@ -61,14 +61,14 @@ export function ChampionBanner({
   }
 
   return (
-    <div className={cn("border-[3px] border-dashed border-zb-black/40 bg-white px-6 py-6 text-center bo-card-flat", className)}>
-      <p className="inline-flex items-center gap-2 bo-kicker bg-zb-off !text-zb-black/70">
+    <div className={cn("border-[3px] border-dashed border-fs-edge/40 bg-fs-panel px-6 py-6 text-center bo-card-flat", className)}>
+      <p className="inline-flex items-center gap-2 bo-kicker bg-fs-bg !text-fs-text/70">
         <Lock className="h-3.5 w-3.5" /> CHAMPION NOT CONFIRMED
       </p>
       <p className="mt-3 font-display text-2xl font-black uppercase leading-tight">
         Kandidat Juara: <span className="text-zb-blue">{candidate.teamName}</span>
       </p>
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-sm font-bold text-zb-black/70">
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-sm font-bold text-fs-text/70">
         <span className="inline-flex items-center gap-1.5">
           <TrendingUp className="h-4 w-4 text-zb-purple" /> Selisih #{2}: {gap} poin
         </span>
@@ -80,7 +80,7 @@ export function ChampionBanner({
           ⚠ Poin puncak masih seri — keputusan akhir menunggu review panitia.
         </p>
       ) : (
-        <p className="mt-3 text-xs font-semibold text-zb-black/50">
+        <p className="mt-3 text-xs font-semibold text-fs-text/50">
           Juara akan dikonfirmasi otomatis setelah semua {totalMatches} match resmi selesai &amp; dipublikasikan.
         </p>
       )}

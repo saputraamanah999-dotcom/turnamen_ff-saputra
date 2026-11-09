@@ -10,10 +10,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Crown, Hourglass, MapPin, Radio, Swords, Trophy } from "lucide-react";
-import { useBroadcast, useMatches, useStandings, useTournament } from "@/services/firestore/hooks";
+import { AlertTriangle, Crown, Hourglass, MapPin, Megaphone, Radio, Swords, Trophy } from "lucide-react";
+import { useBroadcast, useDoc, useMatches, useStandings, useTournament } from "@/services/firestore/hooks";
 import { formatTime } from "@/lib/constants";
 import type { OverlayLayout } from "@/lib/constants";
+import type { OverlayConfigDoc, OverlayLayerState } from "@/lib/types";
 
 export default function OverlayPage() {
   const params = useParams<{ tournamentId: string; layout: string }>();
@@ -34,6 +35,13 @@ export default function OverlayPage() {
   const standings = useStandings(tid);
   const matches = useMatches(tid);
   const broadcast = useBroadcast(tid);
+  // Konfigurasi ON AIR dari Overlay Manager (PUSH TO BROADCAST) — §13/§21.
+  const overlayCfg = useDoc<OverlayConfigDoc>(tid ? `overlayConfigs/${tid}` : null, { disableFallback: true });
+  const onAir = overlayCfg.data?.onAir ?? null;
+  const layerOn = (id: string): OverlayLayerState | null => {
+    const st = onAir?.layers[id];
+    return st && st.enabled ? st : null;
+  };
 
   const currentMatch =
     matches.data?.find((m) => m.isCurrent) ??
@@ -70,7 +78,10 @@ export default function OverlayPage() {
           />
         ) : null}
         {layout === "lower-third" ? (
-          <LowerThird key="lower" announcements={broadcast.data?.announcements ?? []} />
+          <LowerThird key="lower" announcements={broadcast.data?.announcements ?? []} layer={layerOn("lower-third")} />
+        ) : null}
+        {layout === "announcement" ? (
+          <AnnouncementBanner key="announce" announcements={broadcast.data?.announcements ?? []} layer={layerOn("announcement-banner")} />
         ) : null}
         {layout === "score-bug" ? (
           <ScoreBug key="bug" rows={rows} matchLabel={currentMatch ? `M${currentMatch.matchNumber}` : ""} map={currentMatch?.map} />
@@ -208,20 +219,40 @@ function MatchInfoOverlay({
 }
 
 /* ---------- LOWER THIRD ---------- */
-function LowerThird({ announcements }: { announcements?: string[] }) {
+function LowerThird({ announcements, layer }: { announcements?: string[]; layer?: OverlayLayerState | null }) {
   const text = announcements?.[0];
-  if (!text) return null;
+  if (!text || !layer) return null; // layer OFF di Overlay Manager → tidak tampil
   return (
     <motion.div
       key={text}
       initial={{ y: 40, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
+      style={{ opacity: layer.opacity ?? 1, zIndex: layer.z ?? 10 }}
       className="ov-frame ov-cut mx-auto flex max-w-[720px] items-center gap-3 px-5 py-3"
     >
-      <span className="bg-[#6c2bd9] px-2.5 py-1 font-display text-[11px] font-black uppercase tracking-[0.18em] text-white">
+      <span className="bg-gradient-to-r from-fs-fire to-fs-flame px-2.5 py-1 font-display text-[11px] font-black uppercase tracking-[0.18em] text-white">
         Pengumuman
       </span>
       <p className="truncate font-display text-lg font-bold">{text}</p>
+    </motion.div>
+  );
+}
+
+/* ---------- ANNOUNCEMENT BANNER (atas layar) ---------- */
+function AnnouncementBanner({ announcements, layer }: { announcements?: string[]; layer?: OverlayLayerState | null }) {
+  const text = announcements?.[0];
+  if (!text || !layer) return null;
+  return (
+    <motion.div
+      key={text}
+      initial={{ y: -40, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      style={{ opacity: layer.opacity ?? 1, zIndex: layer.z ?? 20 }}
+      className="ov-frame ov-cut mx-auto flex max-w-[860px] items-center gap-3 border-[rgba(53,214,255,.5)] px-6 py-4"
+    >
+      <Megaphone className="h-5 w-5 shrink-0 text-fs-cyan" />
+      <p className="truncate font-display text-xl font-bold uppercase tracking-wide">{text}</p>
+      <span className="ov-chip ml-auto">ZEROID ESPORTS</span>
     </motion.div>
   );
 }

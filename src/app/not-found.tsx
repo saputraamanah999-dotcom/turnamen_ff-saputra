@@ -6,10 +6,10 @@ import { Home, ShieldQuestion, Zap } from "lucide-react";
 export default function NotFound() {
   return (
     <div className="bo-grid-bg flex min-h-[70vh] flex-col items-center justify-center px-4 py-16">
-      <div className="bo-card-lg zb-rise w-full max-w-md bg-white p-8 text-center">
+      <div className="bo-card-lg zb-rise w-full max-w-md bg-fs-panel p-8 text-center">
         <span className="bo-kicker inline-block bg-zb-purple">Error 404</span>
         <div className="mt-4 flex items-center justify-center gap-3">
-          <span className="flex h-14 w-14 items-center justify-center border-[3px] border-zb-black bg-zb-blue text-white bo-shadow">
+          <span className="flex h-14 w-14 items-center justify-center border border-fs-edge bg-zb-blue text-white bo-shadow">
             <ShieldQuestion className="h-7 w-7" />
           </span>
           <p className="font-display text-5xl font-black tracking-tight">404</p>
@@ -17,7 +17,7 @@ export default function NotFound() {
         <h1 className="mt-4 font-display text-xl font-black uppercase">
           Halaman Tidak Ditemukan
         </h1>
-        <p className="mt-2 text-sm font-semibold text-zb-black/60">
+        <p className="mt-2 text-sm font-semibold text-fs-text/60">
           Alamat yang kamu buka tidak ada di platform ZEROID ESPORTS. Mungkin salah ketik
           atau halamannya sudah dipindahkan.
         </p>

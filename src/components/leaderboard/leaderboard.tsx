@@ -17,12 +17,12 @@ import type { StandingsRow } from "@/lib/types";
 export function MovementIcon({ movement }: { movement: StandingsRow["movement"] }) {
   if (movement === "up") return <ChevronUp className="h-4 w-4 text-emerald-600" strokeWidth={3} />;
   if (movement === "down") return <ChevronDown className="h-4 w-4 text-red-500" strokeWidth={3} />;
-  return <Minus className="h-3.5 w-3.5 text-zb-black/40" strokeWidth={3} />;
+  return <Minus className="h-3.5 w-3.5 text-fs-text/40" strokeWidth={3} />;
 }
 
 const RANK_STYLES: Record<number, string> = {
-  1: "bg-zb-yellow text-zb-black rank-champion",
-  2: "bg-zb-cyan text-zb-black",
+  1: "bg-zb-yellow text-fs-ink rank-champion",
+  2: "bg-zb-cyan text-fs-ink",
   3: "bg-zb-purple text-white",
 };
 
@@ -30,8 +30,8 @@ export function RankBadge({ rank, className }: { rank: number; className?: strin
   return (
     <span
       className={cn(
-        "inline-flex h-8 w-8 items-center justify-center border-[3px] border-zb-black font-display text-sm font-black tabular-nums bo-shadow-sm",
-        RANK_STYLES[rank] ?? "bg-white text-zb-black",
+        "inline-flex h-8 w-8 items-center justify-center border border-fs-edge font-display text-sm font-black tabular-nums bo-shadow-sm",
+        RANK_STYLES[rank] ?? "bg-fs-panel text-fs-text",
         className,
       )}
     >
@@ -50,7 +50,7 @@ export function TeamInitials({ name, size = "md" }: { name: string; size?: "sm" 
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center border-[3px] border-zb-black font-display font-black bo-shadow-sm",
+        "inline-flex shrink-0 items-center justify-center border border-fs-edge font-display font-black bo-shadow-sm",
         sizeCls,
       )}
       style={{ backgroundColor: "#66F0E6" }}
@@ -67,16 +67,18 @@ export function TeamInitials({ name, size = "md" }: { name: string; size?: "sm" 
  */
 function FlashNumber({ value, className }: { value: number; className?: string }) {
   const prev = useRef(value);
-  const [flash, setFlash] = useState(false);
-
+  const [flashAt, setFlashAt] = useState(0);
+  // Pola resmi React "adjusting state during render" — tanpa setState di effect.
+  if (prev.current !== value) {
+    prev.current = value;
+    setFlashAt(Date.now());
+  }
+  const flash = flashAt > 0 && Date.now() - flashAt < 900;
   useEffect(() => {
-    if (prev.current !== value) {
-      prev.current = value;
-      setFlash(true);
-      const t = setTimeout(() => setFlash(false), 900);
-      return () => clearTimeout(t);
-    }
-  }, [value]);
+    if (!flashAt) return;
+    const t = setTimeout(() => setFlashAt(0), 900);
+    return () => clearTimeout(t);
+  }, [flashAt]);
 
   return (
     <motion.span
@@ -96,21 +98,21 @@ function SkeletonRows({ rows = 6 }: { rows?: number }) {
   return (
     <>
       {Array.from({ length: rows }).map((_, i) => (
-        <tr key={i} className="border-b-[3px] border-zb-black/10 bg-white">
+        <tr key={i} className="border-b border-fs-edge/10 bg-fs-panel">
           <td className="px-2 py-2.5 text-center">
-            <div className="bo-skel mx-auto h-8 w-8 border-[3px] border-zb-black/10" />
+            <div className="bo-skel mx-auto h-8 w-8 border border-fs-edge/10" />
           </td>
           <td className="px-3 py-2.5">
             <div className="flex items-center gap-2">
-              <div className="bo-skel h-4 w-10 border-[2px] border-zb-black/10" />
-              <div className="bo-skel h-4 w-28 border-[2px] border-zb-black/10" />
+              <div className="bo-skel h-4 w-10 border border-fs-edge/10" />
+              <div className="bo-skel h-4 w-28 border border-fs-edge/10" />
             </div>
           </td>
           <td className="px-2 py-2.5 text-center">
-            <div className="bo-skel mx-auto h-4 w-8 border-[2px] border-zb-black/10" />
+            <div className="bo-skel mx-auto h-4 w-8 border border-fs-edge/10" />
           </td>
           <td className="px-2 py-2.5 text-center">
-            <div className="bo-skel mx-auto h-5 w-10 border-[2px] border-zb-black/10" />
+            <div className="bo-skel mx-auto h-5 w-10 border border-fs-edge/10" />
           </td>
         </tr>
       ))}
@@ -155,7 +157,7 @@ export function LeaderboardTable({
     <div className="overflow-x-auto">
       <table className="w-full min-w-[420px] border-collapse text-sm">
         <thead>
-          <tr className="bg-zb-black text-white">
+          <tr className="bg-fs-head text-white">
             <th className="border-r border-white/20 px-2 py-2 text-center font-display text-xs font-black uppercase tracking-wider w-14">
               Rank
             </th>
@@ -184,7 +186,7 @@ export function LeaderboardTable({
                   transition={{ type: "spring", stiffness: 320, damping: 30 }}
                   onClick={() => onTeamClick?.(row)}
                   className={cn(
-                    "border-b-[3px] border-zb-black/15 bg-white transition-colors",
+                    "border-b border-fs-edge/15 bg-fs-panel transition-colors",
                     onTeamClick ? "cursor-pointer" : "",
                     selectedTeamId === row.teamId ? "bg-zb-cyan/40" : "hover:bg-zb-yellow/25",
                   )}
@@ -203,7 +205,7 @@ export function LeaderboardTable({
                     <div className="flex items-center gap-2">
                       <span
                         className={cn(
-                          "flex h-5 w-5 shrink-0 items-center justify-center border-[2px] border-zb-black/20 bg-white",
+                          "flex h-5 w-5 shrink-0 items-center justify-center border border-fs-edge/20 bg-fs-panel",
                           row.movement === "up" && "border-emerald-600 bg-emerald-100",
                           row.movement === "down" && "border-red-500 bg-red-100",
                         )}
@@ -227,7 +229,7 @@ export function LeaderboardTable({
                           ) : null}
                         </p>
                         {row.teamTag ? (
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-zb-black/50">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-fs-text/50">
                             [{row.teamTag}] · Main {row.matchesPlayed}x
                           </p>
                         ) : null}
@@ -252,7 +254,7 @@ export function LeaderboardTable({
 
       {/* Ticker status broadcast — hanya bila waktu update tersedia */}
       {updated ? (
-        <div className="flex items-center gap-2 border-t-[3px] border-zb-black bg-zb-black px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white/80">
+        <div className="flex items-center gap-2 border-t border-fs-edge bg-fs-head px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white/80">
           <RefreshCw className="h-3.5 w-3.5 text-zb-cyan" />
           Realtime · terakhir diperbarui {updated}
         </div>

@@ -57,7 +57,7 @@ export default function AdminMatchesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-black uppercase">Match</h1>
-          <p className="text-sm font-semibold text-zb-black/60">
+          <p className="text-sm font-semibold text-fs-text/60">
             {matches.data?.length ?? 0} match · format {tournament?.format ?? "-"}
           </p>
         </div>
@@ -79,7 +79,7 @@ export default function AdminMatchesPage() {
       </div>
 
       {editing ? (
-        <BoCard className="mt-4 bg-white p-5">
+        <BoCard className="mt-4 bg-fs-panel p-5">
           <h2 className="font-display text-lg font-black uppercase">{editing.id ? "Edit Match" : "Match Baru"}</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Field label="Nomor Match">
@@ -116,7 +116,7 @@ export default function AdminMatchesPage() {
             <BoButton variant="primary" onClick={save} disabled={busy}>{busy ? "Menyimpan…" : "Simpan"}</BoButton>
             <BoButton variant="white" onClick={() => setEditing(null)}>Batal</BoButton>
           </div>
-          <p className="mt-3 text-xs font-semibold text-zb-black/50">
+          <p className="mt-3 text-xs font-semibold text-fs-text/50">
             Rekomendasi: setiap match diikuti {expectedTeams} tim (setengah kapasitas) — panitia bebas menyesuaikan.
           </p>
         </BoCard>
@@ -124,13 +124,13 @@ export default function AdminMatchesPage() {
 
       <div className="mt-6 space-y-3">
         {[...(matches.data ?? [])].sort((a, b) => a.matchNumber - b.matchNumber).map((m) => (
-          <BoCard key={m.id} className={`flex flex-wrap items-center gap-3 bg-white p-4 ${m.isCurrent ? "!border-zb-purple" : ""}`}>
-            <span className="flex h-12 w-12 items-center justify-center border-[3px] border-zb-black bg-zb-purple font-display text-lg font-black text-white bo-shadow-sm tabular-nums">
+          <BoCard key={m.id} className={`flex flex-wrap items-center gap-3 bg-fs-panel p-4 ${m.isCurrent ? "!border-zb-purple" : ""}`}>
+            <span className="flex h-12 w-12 items-center justify-center border border-fs-edge bg-zb-purple font-display text-lg font-black text-white bo-shadow-sm tabular-nums">
               {m.matchNumber}
             </span>
             <div className="min-w-0 flex-1">
               <p className="font-display text-sm font-black uppercase">{m.map} · {m.format}</p>
-              <p className="text-[11px] font-bold uppercase text-zb-black/50">
+              <p className="text-[11px] font-bold uppercase text-fs-text/50">
                 {formatDateTime(m.scheduledAt ?? undefined)}
               </p>
               <div className="mt-1 flex flex-wrap gap-1.5">
@@ -168,7 +168,7 @@ export default function AdminMatchesPage() {
           <EmptyState title="Belum ada match" description="Buat match pertama dengan tombol Buat Match." />
         ) : null}
       </div>
-      <p className="mt-4 text-xs font-semibold text-zb-black/50">
+      <p className="mt-4 text-xs font-semibold text-fs-text/50">
         Terdaftar {teams.data?.length ?? 0} tim pada turnamen ini. Entri hasil wajib memakai
         placement unik — sistem menolak duplikat otomatis.
       </p>
@@ -179,7 +179,7 @@ export default function AdminMatchesPage() {
 function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={className}>
-      <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-zb-black/70">{label}</label>
+      <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-fs-text/70">{label}</label>
       {children}
     </div>
   );

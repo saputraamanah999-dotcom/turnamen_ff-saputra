@@ -20,7 +20,18 @@ import {
 import { db } from "@/services/firebase/client";
 import { SCORING_VERSION } from "@/lib/constants";
 import { applyMovement, calcMatchResult, computeStandings, validateResultEntries } from "@/lib/scoring";
-import type { BroadcastEmergency, Match, MatchResult, StandingsRow, Team } from "@/lib/types";
+import type {
+  BroadcastEvent,
+  BroadcastEventType,
+  BroadcastLiveState,
+  BroadcastEmergency,
+  Match,
+  MatchResult,
+  OverlaySceneConfig,
+  PresentationState,
+  StandingsRow,
+  Team,
+} from "@/lib/types";
 
 export interface ResultEntryInput {
   teamId: string;
@@ -373,6 +384,77 @@ export async function setCurrentMatch(
     targetType: "match",
     targetId: matchId ?? "(kosong)",
   });
+}
+
+// ============================================================
+// Broadcast realtime helpers (PHASE 2 — §5, §11, §13, §17, §21)
+// ============================================================
+
+/** Simpan mesin status siaran ke broadcastSettings/{tid} (realtime ke semua viewer). */
+export async function setLiveState(
+  tournamentId: string,
+  live: BroadcastLiveState,
+): Promise<void> {
+  if (!db) throw new Error("Firebase tidak terkonfigurasi.");
+  await setDoc(
+    doc(db, `broadcastSettings/${tournamentId}`),
+    { live: { ...live }, tournamentId, updatedAt: serverTimestamp() },
+    { merge: true },
+  );
+}
+
+/** Terbitkan event broadcast (LIVE NOW, MATCH PAUSED, dst.) — memicu animasi di TV. */
+export async function publishBroadcastEvent(
+  tournamentId: string,
+  type: BroadcastEventType,
+  opts?: { message?: string; matchNumber?: number | null; map?: string | null },
+): Promise<void> {
+  if (!db) throw new Error("Firebase tidak terkonfigurasi.");
+  const event: BroadcastEvent = {
+    id: crypto.randomUUID(),
+    type,
+    message: opts?.message ?? "",
+    matchNumber: opts?.matchNumber ?? null,
+    map: opts?.map ?? null,
+    at: Date.now(),
+  };
+  await setDoc(
+    doc(db, `broadcastSettings/${tournamentId}`),
+    { event, tournamentId, updatedAt: serverTimestamp() },
+    { merge: true },
+  );
+  await writeAuditLog({
+    action: "BROADCAST_EVENT",
+    targetType: "broadcast",
+    targetId: type,
+    details: { message: event.message ?? "" },
+  });
+}
+
+/** Simpan konfigurasi overlay (draft atau on-air). */
+export async function saveOverlayConfig(
+  tournamentId: string,
+  patch: { draft?: OverlaySceneConfig; onAir?: OverlaySceneConfig | null; pushedAt?: number | null },
+): Promise<void> {
+  if (!db) throw new Error("Firebase tidak terkonfigurasi.");
+  await setDoc(
+    doc(db, `overlayConfigs/${tournamentId}`),
+    { ...patch, tournamentId, updatedAt: serverTimestamp() },
+    { merge: true },
+  );
+}
+
+/** Setel state presentasi TV — halaman TV mengikuti secara realtime. */
+export async function setPresentationState(
+  tournamentId: string,
+  state: Partial<PresentationState>,
+): Promise<void> {
+  if (!db) throw new Error("Firebase tidak terkonfigurasi.");
+  await setDoc(
+    doc(db, `presentationState/${tournamentId}`),
+    { ...state, updatedAt: serverTimestamp() },
+    { merge: true },
+  );
 }
 
 export async function writeAuditLog(payload: {

@@ -17,16 +17,16 @@ export default function LocalNetworkGuidePage() {
     <div className="mx-auto max-w-4xl px-4 py-10">
       <span className="bo-kicker mb-2 inline-block bg-zb-blue">Panduan Broadcast</span>
       <h1 className="bo-title mb-4">Streaming Jaringan Lokal (LAN)</h1>
-      <p className="mb-6 text-sm font-semibold text-zb-black/60">
+      <p className="mb-6 text-sm font-semibold text-fs-text/60">
         Alur resmi: <strong>Laptop capture → OBS → MediaMTX → Wi-Fi/Hotspot lokal → TV &amp; perangkat tambahan</strong>.
         Streaming LAN tetap berjalan tanpa internet.
       </p>
 
       <div className="space-y-3">
         {STEPS.map(([title, body]) => (
-          <BoCard key={title} className="bg-white p-5">
+          <BoCard key={title} className="bg-fs-panel p-5">
             <p className="font-display text-sm font-black uppercase">{title}</p>
-            <p className="mt-1.5 text-sm font-semibold leading-relaxed text-zb-black/70">{body}</p>
+            <p className="mt-1.5 text-sm font-semibold leading-relaxed text-fs-text/70">{body}</p>
           </BoCard>
         ))}
       </div>
@@ -40,9 +40,9 @@ export default function LocalNetworkGuidePage() {
         </p>
       </BoCard>
 
-      <BoCardLg className="mt-4 bg-white p-5">
+      <BoCardLg className="mt-4 bg-fs-panel p-5">
         <p className="font-display text-sm font-black uppercase">Keamanan</p>
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm font-semibold text-zb-black/70">
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm font-semibold text-fs-text/70">
           <li>Endpoint admin lokal dilindungi token — jangan bagikan token bridge ke penonton.</li>
           <li>Yang dibagikan ke penonton hanya alamat halaman live (HLS/WebRTC), bukan port admin/OBS.</li>
           <li>Jangan buka port 1935/8078 ke internet publik — port itu hanya untuk jaringan lokal.</li>

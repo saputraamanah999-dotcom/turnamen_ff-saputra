@@ -147,11 +147,11 @@ export default function MatchEntryPage() {
         </BoBadge>
         <BoBadge>{match.map}</BoBadge>
         <BoBadge>{match.format}</BoBadge>
-        <span className="text-xs font-bold text-zb-black/40">{formatDateTime(match.scheduledAt ?? undefined)}</span>
+        <span className="text-xs font-bold text-fs-text/40">{formatDateTime(match.scheduledAt ?? undefined)}</span>
       </div>
 
       {isPublished ? (
-        <p className="mt-3 flex items-start gap-2 border-[3px] border-zb-black bg-zb-yellow px-3 py-2 text-xs font-bold">
+        <p className="mt-3 flex items-start gap-2 border border-fs-edge bg-zb-yellow px-3 py-2 text-xs font-bold">
           <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
           Hasil match ini sudah dipublikasikan ({publishedList.length} tim). Setiap perubahan
           memerlukan konfirmasi dan akan dicatat pada audit history.
@@ -159,10 +159,10 @@ export default function MatchEntryPage() {
       ) : null}
 
       {/* Tabel entri */}
-      <BoCard className="mt-4 overflow-x-auto bg-white">
+      <BoCard className="mt-4 overflow-x-auto bg-fs-panel">
         <table className="w-full min-w-[680px] border-collapse text-sm">
           <thead>
-            <tr className="bg-zb-black text-white">
+            <tr className="bg-fs-head text-white">
               <th className="px-3 py-2 text-left font-display text-xs uppercase tracking-wider">Team</th>
               <th className="px-2 py-2 text-center font-display text-xs uppercase tracking-wider w-28">Placement</th>
               <th className="px-2 py-2 text-center font-display text-xs uppercase tracking-wider w-24">Kills</th>
@@ -173,10 +173,10 @@ export default function MatchEntryPage() {
           </thead>
           <tbody>
             {liveCalculated.map((r, idx) => (
-              <tr key={r.teamId} className="border-b-[3px] border-zb-black/10 bg-white">
+              <tr key={r.teamId} className="border-b border-fs-edge/10 bg-fs-panel">
                 <td className="px-3 py-1.5">
                   <p className="font-bold">{r.teamName}</p>
-                  {r.teamTag ? <p className="text-[10px] font-bold uppercase text-zb-black/40">[{r.teamTag}]</p> : null}
+                  {r.teamTag ? <p className="text-[10px] font-bold uppercase text-fs-text/40">[{r.teamTag}]</p> : null}
                 </td>
                 <td className="px-2 py-1.5 text-center">
                   <input
@@ -220,7 +220,7 @@ export default function MatchEntryPage() {
 
       {/* Validasi */}
       {errors.length ? (
-        <div className="mt-3 border-[3px] border-zb-black bg-zb-yellow px-3 py-2">
+        <div className="mt-3 border border-fs-edge bg-zb-yellow px-3 py-2">
           <p className="text-xs font-black uppercase tracking-wider">Validasi menemukan masalah:</p>
           <ul className="mt-1 list-disc pl-5 text-xs font-bold">
             {errors.map((e, i) => <li key={i}>{e.message}</li>)}
@@ -244,7 +244,7 @@ export default function MatchEntryPage() {
           <Send className="h-4 w-4" /> Publish
         </BoButton>
       </div>
-      <p className="mt-2 text-xs font-semibold text-zb-black/50">
+      <p className="mt-2 text-xs font-semibold text-fs-text/50">
         Alur resmi: Simpan Draft → Preview → Publish. Publish menghitung ulang seluruh klasemen
         (akumulasi semua match resmi), menerapkan tiebreaker, dan mencatat audit log.
       </p>
