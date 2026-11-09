@@ -1,0 +1,40 @@
+{
+  "httpPort": 8082,
+  "adminToken": "",
+  "viewerToken": "",
+  "gameTitles": ["Free Fire", "FreeFire", "FF", "Google Play Games"],
+  "ffmpegPath": "ffmpeg",
+  "mediaMtxPath": "mediamtx",
+  "encoder": "libx264",
+  "rtspPort": 8554,
+  "hlsPort": 8888,
+  "webrtcPort": 8889,
+  "streamPath": "bof-game",
+  "quality": "high",
+  "inputEnabled": false,
+  "controllerLock": true,
+  "joystickKeys": {
+    "up": "KeyW",
+    "down": "KeyS",
+    "left": "KeyA",
+    "right": "KeyD"
+  },
+  "buttonMap": {
+    "fire": "MouseLeft",
+    "aim": "MouseRight",
+    "jump": "Space",
+    "crouch": "KeyC",
+    "prone": "KeyZ",
+    "reload": "KeyR",
+    "weapon1": "Digit1",
+    "weapon2": "Digit2",
+    "weapon3": "Digit3",
+    "weapon4": "Digit4",
+    "grenade": "KeyG",
+    "medkit": "KeyH",
+    "pickup": "KeyF",
+    "map": "KeyM"
+  },
+  "maxTouchPerSec": 120,
+  "logFile": "agent.log"
+}

@@ -1,0 +1,18 @@
+# === STIKAR BROADCAST AGENT — jangan commit file runtime/rahasia ===
+
+# Config lokal (BERISI TOKEN — jangan pernah di-commit!)
+config.json
+
+# Log runtime
+agent.log
+*.log
+
+# Binary lokal (ffmpeg / mediamtx yang di-drop operator di folder bin/)
+bin/*
+!bin/.gitkeep
+
+# File yang dibuat otomatis saat runtime
+mediamtx-generated.yml
+
+# Dependencies
+node_modules/

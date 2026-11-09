@@ -23,6 +23,8 @@ const GUIDES = [
   { n: 17, title: "Cara mengatasi AI Observer gagal membaca HUD", href: "/guide#ai" },
   { n: 18, title: "Cara setup Wi-Fi / hotspot turnamen", href: "/guide/hotspot" },
   { n: 19, title: "Cara menghubungkan TV ke streaming lokal", href: "/guide/local-network" },
+  { n: 20, title: "Cara memakai Interactive Game Stream", href: "/guide/interactive-stream" },
+  { n: 21, title: "Cara memainkan Free Fire di komputer (Google Play Games)", href: "/guide/google-play-games" },
 ];
 
 export default function GuideIndexPage() {
@@ -80,6 +82,33 @@ export default function GuideIndexPage() {
               <Link href="/guide#ai" className="hover:underline">{GUIDES[16].title}</Link>
             </li>
           </ul>
+        </BoCard>
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <BoCard className="fs-cut bg-fs-panel p-5">
+          <h2 className="font-display text-lg font-black uppercase">Interactive Game Stream</h2>
+          <p className="mt-2 text-sm font-semibold text-fs-text/70">
+            Siarkan gameplay Free Fire dari komputer (Google Play Games on PC) ke HP &amp; TV di venue,
+            lengkap dengan joystick virtual + tombol aksi dan izin kontrol per pemirsa.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href="/guide/interactive-stream" className="bo-btn bo-btn-cyan !px-3 !py-1.5 !text-[11px]">Buka panduan →</Link>
+            <Link href="/guide/interactive-stream#troubleshooting" className="bo-btn bo-btn-white !px-3 !py-1.5 !text-[11px]">Troubleshooting</Link>
+          </div>
+          <p className="mt-3 text-[10px] font-black uppercase tracking-[0.2em] text-fs-muted">Panduan #20 · #21</p>
+        </BoCard>
+
+        <BoCard className="fs-cut bg-fs-panel p-5">
+          <h2 className="font-display text-lg font-black uppercase">Google Play Games on PC</h2>
+          <p className="mt-2 text-sm font-semibold text-fs-text/70">
+            Persiapan komputer, instalasi resmi, login Google DI APLIKASI PC (bukan di website!), dan
+            checklist GAME NOT FOUND → STREAM READY sebelum Free Fire disiarkan lewat Agent.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href="/guide/google-play-games" className="bo-btn bo-btn-fire !px-3 !py-1.5 !text-[11px]">Buka panduan →</Link>
+          </div>
+          <p className="mt-3 text-[10px] font-black uppercase tracking-[0.2em] text-fs-muted">Panduan #21 · wajib sebelum match</p>
         </BoCard>
       </div>
 

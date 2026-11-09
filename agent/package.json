@@ -1,0 +1,19 @@
+{
+  "name": "stikar-broadcast-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "STIKAR BROADCAST AGENT — capture Free Fire (Google Play Games on PC) via ffmpeg/gdigrab → MediaMTX (WebRTC WHEP + HLS) + forwarding input OS (SendInput) untuk siaran interaktif STIKAR ESPORTS / Battle Off Friends.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.17.1"
+  },
+  "optionalDependencies": {
+    "koffi": "^2.9.0"
+  }
+}

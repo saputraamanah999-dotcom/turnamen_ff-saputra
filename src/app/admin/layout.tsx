@@ -11,7 +11,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BarChart3, Boxes, CalendarRange, ChevronLeft, Clapperboard, ClipboardList, Cpu, ExternalLink,
-  Gauge, LayoutDashboard, ListOrdered, ListVideo, LogOut, Map, Menu, MonitorPlay,
+  Gamepad2, Gauge, LayoutDashboard, ListOrdered, ListVideo, LogOut, Map, Menu, MonitorPlay,
   Radio, ScrollText, Settings, ShieldCheck, Siren, Sparkles, Trophy, Users, Wifi, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -49,6 +49,7 @@ const NAV_GROUPS: { label: string; items: { href: string; label: string; icon: t
       { href: "/admin/rehearsal", label: "Rehearsal", icon: Clapperboard },
       { href: "/admin/emergency", label: "Emergency", icon: Siren },
       { href: "/admin/local-network", label: "Local Network", icon: Wifi },
+      { href: "/admin/interactive-stream", label: "Interactive Stream", icon: Gamepad2 },
     ],
   },
   {
