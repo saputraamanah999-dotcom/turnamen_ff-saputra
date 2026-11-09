@@ -60,6 +60,14 @@
   .done-card b { display: block; margin-bottom: 6px; }
   .done-card code { background: #fff; border: 1px solid var(--ink); padding: 2px 6px; font-size: 12px; }
   .details summary { font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+  .grant {
+    display: block; padding: 10px 12px; margin: 8px 0; border: 2px solid var(--ink);
+    background: #EAF7FF; color: var(--ink); font-weight: 700; font-size: 13px;
+    text-decoration: none; box-shadow: 3px 3px 0 var(--ink);
+  }
+  .grant:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+  .grant small { font-weight: 400; display: block; margin-top: 2px; }
+  .grant a, .hint a { color: var(--blue); }
 </style>
 </head>
 <body>
@@ -101,7 +109,9 @@
   <p class="hint">Satu tombol ini akan otomatis:
   ① aktifkan login Email/Password → ② buat akun super admin → ③ tulis adminRoles →
   ④ seed data turnamen (12 tim, 7 match, hasil 3 match, klasemen) →
-  ⑤ pasang security rules → ⑥ buat composite indexes.</p>
+  ⑤ pasang security rules → ⑥ buat composite indexes → ⑦ cek status database.
+  Composite index sifatnya <b>optional</b> — kalau tahap ⑥ kena 403 (izin IAM), tombol ini tetap selesai
+  dan panel <b>Perbaiki Izin IAM</b> muncul dengan tautan perbaikan 1 klik.</p>
   <div class="progress-wrap"><div class="progress-bar" id="pbar"></div></div>
 
   <details class="details">
@@ -122,7 +132,20 @@
       <button class="btn-secondary" id="btnResetPw">🔑 Reset Password Admin</button>
       <button class="btn-secondary" id="btnEnablePw">🔓 Aktifkan Login Email</button>
     </div>
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn-secondary" id="btnIam">🛡 Cek Izin IAM (fix 403)</button>
+    </div>
   </details>
+</div>
+
+<div class="box" id="iamPanel" style="display:none">
+  <h2>🔧 Perbaiki Izin IAM <span class="step-tag">fix 403 tahap ⑥</span></h2>
+  <p class="hint" id="iamSummary"></p>
+  <div id="iamBody"></div>
+  <p class="hint" style="margin-top:8px">Setelah peran diberikan, tunggu ±1–2 menit lalu tekan
+  <b>6·Buat Indexes</b> atau <b>🛡 Cek Izin IAM</b> lagi. Catatan: composite index itu <b>optional</b> —
+  semua query di website memakai single-field orderBy yang otomatis ter-index, jadi website tetap
+  berjalan normal walau tahap ini dilewati.</p>
 </div>
 
 <div class="done-card" id="doneCard">
@@ -290,6 +313,31 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ---------- interactiveSettings ----------
+    // Konfigurasi Interactive Game Stream (STIKAR Broadcast Agent, izin kontrol,
+    // kualitas video). Website membaca publik; hanya admin yang mengubah.
+    match /interactiveSettings/{tournamentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------- interactiveDevices ----------
+    // Registrasi perangkat yang ter-pairing (HP operator/penonton, TV, laptop).
+    // HANYA metadata perangkat — video dan input real-time TIDAK PERNAH
+    // melewati Firestore (jalurnya WebRTC/WebSocket ke Agent di jaringan lokal).
+    match /interactiveDevices/{deviceId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---------- interactiveSessions ----------
+    // Metadata sesi kontrol: controller lock, grant/revoke izin operator,
+    // waktu mulai/selesai. Juga hanya metadata.
+    match /interactiveSessions/{sessionId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
     // ---------- users ----------
     match /users/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
@@ -443,7 +491,7 @@ async function gfetch(url, body, method) {
     let hint = "";
     const s = res.status + " " + detail;
     if (res.status === 403 || /PERMISSION_DENIED|permission/i.test(detail)) {
-      hint = " | PANDUAN: beri peran ke service account di IAM — 'Owner' atau 'Firebase Rules Admin' + 'Cloud Datastore User'";
+      hint = " | PANDUAN: buka panel 'Perbaiki Izin IAM' di halaman ini — beri peran 'Cloud Datastore Index Admin' (untuk index) / 'Firebase Rules Admin' (untuk rules) / 'Owner' lewat tautan 1 klik";
     } else if (/SERVICE_DISABLED|has not been used/i.test(detail)) {
       hint = " | PANDUAN: aktifkan API-nya dulu di console.developers.google.com (Firestore/Identity Toolkit/Firebase Rules API)";
     } else if (/UNAUTHENTICATED|invalid_grant/i.test(detail)) {
@@ -622,6 +670,11 @@ async function seedData() {
   writes.push(updateWrite(projectId, "presentationState/" + TOURNAMENT_ID, {
     tournamentId: S(TOURNAMENT_ID), scene: S("Starting Soon"), playing: B(false), auto: B(false) }));
 
+  // Interactive Game Stream settings (Phase 3 — agent, izin kontrol, kualitas)
+  writes.push(updateWrite(projectId, "interactiveSettings/" + TOURNAMENT_ID, {
+    tournamentId: S(TOURNAMENT_ID), agentUrl: NUL, inputEnabled: B(false),
+    defaultQuality: S("high"), controllerLock: B(true), showPublicInteractive: B(true) }));
+
   // Audit log seed (ID acak)
   writes.push(updateWrite(projectId, "auditLogs/" + (crypto.randomUUID ? crypto.randomUUID() : "seed-" + Date.now()), {
     action: S("SEED_DATABASE"), actorUid: S("system"), actorEmail: S("system@stikar"),
@@ -639,7 +692,7 @@ async function seedData() {
     if (errs.length) throw new Error(errs.length + " write gagal: " + JSON.stringify(errs[0]));
     log("📦 Commit " + chunk.length + " dokumen OK", "ok");
   }
-  log("🏆 Seed selesai: turnamen, 12 tim, 7 match, 3 hasil resmi, klasemen " + standings.length + " tim, overlay + TV state (total " +
+  log("🏆 Seed selesai: turnamen, 12 tim, 7 match, 3 hasil resmi, klasemen " + standings.length + " tim, overlay + TV state + interactive settings (total " +
     standings.reduce((a, r) => a + r.kills, 0) + " kill)", "ok");
 }
 
@@ -679,6 +732,88 @@ async function deployRules() {
   }
 }
 
+// ---------- Langkah: cek & perbaiki izin IAM (root cause 403 tahap ⑥) ----------
+// testIamPermissions balikin SUBSET izin yang benar-benar dimiliki caller —
+// jadi kita bisa ketahuan peran mana yang kurang SEBELUM menjalankan tahap.
+const IAM_ROLES = {
+  "datastore.indexes.create": { role: "roles/datastore.indexAdmin", label: "Cloud Datastore Index Admin", why: "membuat composite index (tahap ⑥)" },
+  "datastore.indexes.list": { role: "roles/datastore.indexAdmin", label: "Cloud Datastore Index Admin", why: "membuat composite index (tahap ⑥)" },
+  "datastore.documents.create": { role: "roles/datastore.user", label: "Cloud Datastore User", why: "menulis data Firestore (tahap ③④)" },
+  "firebaserules.rulesets.create": { role: "roles/firebaserules.admin", label: "Firebase Rules Admin", why: "memasang security rules (tahap ⑤)" },
+  "firebaserules.releases.update": { role: "roles/firebaserules.admin", label: "Firebase Rules Admin", why: "memasang security rules (tahap ⑤)" },
+};
+function grantUrl(projectId, email, role) {
+  return "https://console.cloud.google.com/iam-admin/grant?project=" + encodeURIComponent(projectId) +
+    "&principal=" + encodeURIComponent("serviceAccount:" + email) +
+    "&role=" + encodeURIComponent(role);
+}
+function showIamPanel(missing, probeFailed) {
+  const { projectId } = cfg();
+  const sa = getSA();
+  const email = (sa && sa.client_email) ? sa.client_email : "(email service account)";
+  const body = $("iamBody");
+  if (probeFailed) {
+    $("iamSummary").textContent = "Izin tidak bisa dites otomatis dari perangkat ini. Kalau ada tahap yang gagal 403, beri peran lewat tautan di bawah (login Google sebagai OWNER project).";
+  } else if (!missing.length) {
+    $("iamSummary").textContent = "✅ Semua izin yang dibutuhkan setup sudah cukup. Tidak perlu mengubah apa pun di IAM.";
+  } else {
+    $("iamSummary").textContent = "Service account belum punya izin berikut. Klik tautan untuk memberi peran (1 klik; login Google sebagai Owner project):";
+  }
+  const uniq = [];
+  for (const p of missing) { const r = IAM_ROLES[p]; if (r && !uniq.some((x) => x.role === r.role)) uniq.push(r); }
+  let html = "";
+  const addGrant = (role, label, why) => {
+    html += '<a class="grant" target="_blank" rel="noopener" href="' + grantUrl(projectId, email, role) + '">➕ ' + label + ' — ' + role + '<br><small>untuk: ' + why + '</small></a>';
+  };
+  if (probeFailed) {
+    addGrant("roles/datastore.indexAdmin", "Cloud Datastore Index Admin", "membuat composite index (tahap ⑥)");
+    addGrant("roles/firebaserules.admin", "Firebase Rules Admin", "memasang security rules (tahap ⑤)");
+  } else {
+    for (const r of uniq) addGrant(r.role, r.label, r.why);
+  }
+  addGrant("roles/owner", "Owner (paling cepat)", "semua izin setup sekaligus");
+  html += '<p class="hint" style="margin-top:8px">Tautan tidak terbuka di HP? Manual: <b>IAM &amp; Admin → IAM</b> → pilih service account <code>' + email + '</code> → Grant Access.<br>' +
+    '<a target="_blank" rel="noopener" href="https://console.cloud.google.com/iam-admin/iam?project=' + encodeURIComponent(projectId) + '">Buka halaman IAM →</a><br>' +
+    'Alternatif tanpa IAM: buat index manual di Firebase Console → Firestore → Indexes: ' +
+    '<a target="_blank" rel="noopener" href="https://console.firebase.google.com/project/' + encodeURIComponent(projectId) + '/firestore/indexes">buka console →</a></p>';
+  body.innerHTML = html;
+  $("iamPanel").style.display = "block";
+}
+async function checkIam() {
+  const { projectId } = cfg();
+  log("🛡 Menguji izin service account (testIamPermissions)…", "big");
+  const missing = [];
+  let probed = true;
+  try {
+    const fs = await gfetch("https://firestore.googleapis.com/v1/projects/" + projectId +
+      "/databases/(default):testIamPermissions",
+      { permissions: ["datastore.indexes.create", "datastore.indexes.list", "datastore.documents.create"] });
+    const granted = fs.permissions || [];
+    log("ℹ Firestore: punya " + granted.length + "/3 izin yang diuji", granted.length === 3 ? "ok" : "warn");
+    for (const p of ["datastore.indexes.create", "datastore.indexes.list", "datastore.documents.create"]) {
+      if (!granted.includes(p)) missing.push(p);
+    }
+  } catch (e) {
+    probed = false;
+    log("⚠ Uji izin Firestore gagal: " + emsg(e).slice(0, 140), "warn");
+  }
+  try {
+    const fr = await gfetch("https://firebaserules.googleapis.com/v1/projects/" + projectId +
+      ":testIamPermissions",
+      { permissions: ["firebaserules.rulesets.create", "firebaserules.releases.update"] });
+    const granted = fr.permissions || [];
+    log("ℹ Rules: punya " + granted.length + "/2 izin yang diuji", granted.length === 2 ? "ok" : "warn");
+    for (const p of ["firebaserules.rulesets.create", "firebaserules.releases.update"]) {
+      if (!granted.includes(p)) missing.push(p);
+    }
+  } catch (e) {
+    probed = false;
+    log("⚠ Uji izin Rules gagal: " + emsg(e).slice(0, 140), "warn");
+  }
+  showIamPanel(missing, !probed);
+  if (probed && !missing.length) log("✅ Izin lengkap — semua tahap seharusnya bisa jalan", "ok");
+}
+
 // ---------- Langkah: buat composite indexes ----------
 async function createIndexes() {
   const { projectId } = cfg();
@@ -688,7 +823,7 @@ async function createIndexes() {
   // Body Index = { queryScope, fields: [{ fieldPath, order }] } tanpa collectionGroup.
   const base = "https://firestore.googleapis.com/v1/projects/" + projectId +
     "/databases/(default)/collectionGroups/";
-  let made = 0, have = 0;
+  let made = 0, have = 0, skipped = 0;
   for (const ix of INDEXES) {
     const label = ix.collectionGroup + " (" + ix.fields.map((f) => f.fieldPath).join("+") + ")";
     const body = { queryScope: ix.queryScope || "COLLECTION", fields: ix.fields };
@@ -697,14 +832,26 @@ async function createIndexes() {
       made++;
       log("🧱 Index dibuat: " + label, "ok");
     } catch (e) {
-      if (/409|ALREADY_EXISTS/i.test(String(e.message))) {
+      const msg = String(e.message);
+      if (/409|ALREADY_EXISTS/i.test(msg)) {
         have++;
         log("ℹ Index " + label + " sudah ada", "warn");
+      } else if (/403|PERMISSION/i.test(msg)) {
+        // 403 = izin IAM kurang — JANGAN bikin seluruh setup gagal.
+        skipped++;
+        log("⚠ Index " + label + " DILEWATI — service account belum punya izin membuat index (403)", "warn");
       } else throw e;
     }
   }
-  log(made ? "⏳ " + made + " index baru sedang dibangun Google (2–5 menit, otomatis)" :
-    "✔ Semua composite index sudah siap", made ? "warn" : "ok");
+  if (skipped) {
+    showIamPanel(["datastore.indexes.create"], false);
+    log("ℹ Composite index itu OPTIONAL: semua query website memakai single-field orderBy yang otomatis ter-index — website tetap normal tanpa ini.", "warn");
+    log("→ Beri peran 'Cloud Datastore Index Admin' lewat panel di atas, lalu tekan '6·Buat Indexes' lagi.", "warn");
+  } else {
+    log(made ? "⏳ " + made + " index baru sedang dibangun Google (2–5 menit, otomatis)" :
+      "✔ Semua composite index sudah siap", made ? "warn" : "ok");
+  }
+  return { made, have, skipped };
 }
 
 // ---------- Langkah: cek status database ----------
@@ -751,13 +898,14 @@ async function runAll() {
   busy(btn, true, "⏳ Sedang membuat… jangan tutup halaman");
   logEl.innerHTML = "";
   setProgress(5);
+  let ixSkipped = 0;
   const steps = [
     ["① Token & service account", async () => { await getToken(true); }],
     ["② Aktifkan login Email/Password", async () => { await enablePasswordSignIn(); }],
     ["③ Buat super admin + adminRoles", async () => { await ensureAdmin(); }],
     ["④ Seed data turnamen BOF", async () => { await seedData(); }],
     ["⑤ Pasang security rules", async () => { await deployRules(); }],
-    ["⑥ Buat composite indexes", async () => { await createIndexes(); }],
+    ["⑥ Buat composite indexes", async () => { const r = await createIndexes(); ixSkipped = (r && r.skipped) || 0; }],
     ["⑦ Cek status database", async () => { await checkStatus(); }],
   ];
   try {
@@ -766,7 +914,11 @@ async function runAll() {
       await steps[i][1]();
       setProgress(Math.round(((i + 1) / steps.length) * 100));
     }
-    log("🎉 SEMUA BERHASIL DIBUAT! Website siap dipakai.", "big");
+    if (ixSkipped) {
+      log("🎉 SETUP SELESAI — website siap dipakai! (catatan: " + ixSkipped + " composite index dilewati karena 403 — sifatnya OPTIONAL, perbaiki lewat panel 'Perbaiki Izin IAM' bila mau)", "big");
+    } else {
+      log("🎉 SEMUA BERHASIL DIBUAT! Website siap dipakai.", "big");
+    }
     $("doneEmail").textContent = cfg().adminEmail;
     $("doneCard").style.display = "block";
   } catch (e) {
@@ -779,7 +931,7 @@ async function runAll() {
 async function runStep(name, fn) {
   const map = { btnToken: "1·Uji Kunci SA", btnAdmin: "2·Buat Admin", btnSeed: "4·Seed Data",
     btnRules: "5·Pasang Rules", btnIndexes: "6·Buat Indexes", btnStatus: "✔ Cek Status DB",
-    btnResetPw: "🔑 Reset Password", btnEnablePw: "🔓 Aktifkan Login" };
+    btnResetPw: "🔑 Reset Password", btnEnablePw: "🔓 Aktifkan Login", btnIam: "🛡 Cek Izin IAM" };
   const btn = $(name);
   busy(btn, true);
   try {
@@ -801,8 +953,9 @@ $("btnIndexes").onclick = () => runStep("btnIndexes", createIndexes);
 $("btnStatus").onclick = () => runStep("btnStatus", checkStatus);
 $("btnResetPw").onclick = () => runStep("btnResetPw", resetAdminPassword);
 $("btnEnablePw").onclick = () => runStep("btnEnablePw", enablePasswordSignIn);
+$("btnIam").onclick = () => runStep("btnIam", checkIam);
 
-log("SETUP v1.5 ✔ (rules overlayConfigs+presentationState — fix 'Push gagal: Missing or insufficient permissions' + koleksi baru di seed) — Isi Langkah 2 lalu tekan tombol BIRU BESAR.", "big");
+log("SETUP v1.6 ✔ (fix 403 tahap ⑥: preflight izin IAM + tautan grant 1-klik + index non-blokir + koleksi interactiveSettings — Interactive Game Stream) — Isi Langkah 2 lalu tekan tombol BIRU BESAR.", "big");
 refreshSaStatus();
 </script>
 </body>

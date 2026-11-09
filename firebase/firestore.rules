@@ -124,6 +124,31 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ---------- interactiveSettings ----------
+    // Konfigurasi Interactive Game Stream (STIKAR Broadcast Agent, izin kontrol,
+    // kualitas video). Website membaca publik; hanya admin yang mengubah.
+    match /interactiveSettings/{tournamentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------- interactiveDevices ----------
+    // Registrasi perangkat yang ter-pairing (HP operator/penonton, TV, laptop).
+    // HANYA metadata perangkat — video dan input real-time TIDAK PERNAH
+    // melewati Firestore (jalurnya WebRTC/WebSocket ke Agent di jaringan lokal).
+    match /interactiveDevices/{deviceId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---------- interactiveSessions ----------
+    // Metadata sesi kontrol: controller lock, grant/revoke izin operator,
+    // waktu mulai/selesai. Juga hanya metadata.
+    match /interactiveSessions/{sessionId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
     // ---------- users ----------
     match /users/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
