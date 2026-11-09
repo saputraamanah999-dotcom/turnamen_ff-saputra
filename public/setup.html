@@ -413,9 +413,6 @@ async function getToken(force = false) {
 }
 
 // ---------- REST helpers ----------
-function apiError(prefix, data) {
-  return prefix + ": " + ((data && data.error && data.error.message) || JSON.stringify(data).slice(0, 300));
-}
 async function gfetch(url, body, method) {
   const token = await getToken();
   const res = await fetch(url, {
@@ -424,7 +421,12 @@ async function gfetch(url, body, method) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(apiError("API " + res.status, data));
+  if (!res.ok) {
+    const where = (url.split("googleapis.com")[1] || url).slice(0, 90);
+    const detail = (data && data.error && data.error.message) ||
+      (typeof data === "string" ? "respons bukan JSON" : "(tanpa detail)");
+    throw new Error("API " + res.status + " @" + where + " → " + detail);
+  }
   return data;
 }
 function docName(proj, path) {
@@ -644,19 +646,29 @@ async function deployRules() {
 // ---------- Langkah: buat composite indexes ----------
 async function createIndexes() {
   const { projectId } = cfg();
-  const url = "https://firestore.googleapis.com/v1/projects/" + projectId + "/databases/(default)/indexes?pageSize=100";
-  const existing = await gfetch(url);
-  const have = (existing.indexes || []).map((ix) => JSON.stringify({
-    c: ix.collectionGroup, f: (ix.fields || []).map((f) => [f.fieldPath, f.order]) }));
-  let made = 0;
+  // Kontrak resmi (proto google/firestore/admin/v1): composite index dibuat di
+  // POST v1/projects/{p}/databases/(default)/collectionGroups/{collectionId}/indexes
+  // — BUKAN di level database (itu yang selama ini menyebabkan API 404).
+  // Body Index = { queryScope, fields: [{ fieldPath, order }] } tanpa collectionGroup.
+  const base = "https://firestore.googleapis.com/v1/projects/" + projectId +
+    "/databases/(default)/collectionGroups/";
+  let made = 0, have = 0;
   for (const ix of INDEXES) {
-    const key = JSON.stringify({ c: ix.collectionGroup, f: ix.fields.map((f) => [f.fieldPath, f.order]) });
-    if (have.includes(key)) { log("ℹ Index " + ix.collectionGroup + " (" + ix.fields.map((f) => f.fieldPath).join("+") + ") sudah ada", "warn"); continue; }
-    await gfetch(url, ix);
-    made++;
-    log("🧱 Index dibuat: " + ix.collectionGroup + " (" + ix.fields.map((f) => f.fieldPath).join("+") + ")", "ok");
+    const label = ix.collectionGroup + " (" + ix.fields.map((f) => f.fieldPath).join("+") + ")";
+    const body = { queryScope: ix.queryScope || "COLLECTION", fields: ix.fields };
+    try {
+      await gfetch(base + ix.collectionGroup + "/indexes", body);
+      made++;
+      log("🧱 Index dibuat: " + label, "ok");
+    } catch (e) {
+      if (/409|ALREADY_EXISTS/i.test(String(e.message))) {
+        have++;
+        log("ℹ Index " + label + " sudah ada", "warn");
+      } else throw e;
+    }
   }
-  log(made ? "⏳ " + made + " index baru sedang dibangun Google (2–5 menit, otomatis)" : "✔ Semua composite index sudah siap", made ? "warn" : "ok");
+  log(made ? "⏳ " + made + " index baru sedang dibangun Google (2–5 menit, otomatis)" :
+    "✔ Semua composite index sudah siap", made ? "warn" : "ok");
 }
 
 // ---------- Langkah: cek status database ----------
@@ -753,7 +765,7 @@ $("btnStatus").onclick = () => runStep("btnStatus", checkStatus);
 $("btnResetPw").onclick = () => runStep("btnResetPw", resetAdminPassword);
 $("btnEnablePw").onclick = () => runStep("btnEnablePw", enablePasswordSignIn);
 
-log("SETUP v1.2 ✔ (payload Firestore + API Rules diperbaiki) — Isi Langkah 2 (service account) lalu tekan tombol BIRU BESAR.", "big");
+log("SETUP v1.3 ✔ (payload Firestore + Rules + endpoint Index diperbaiki) — Isi Langkah 2 (service account) lalu tekan tombol BIRU BESAR.", "big");
 refreshSaStatus();
 </script>
 </body>
