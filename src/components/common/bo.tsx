@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Komponen dasar neobrutalism
+// STIKAR ESPORTS — Komponen dasar neobrutalism
 // ============================================================
 
 import { forwardRef, type ButtonHTMLAttributes, type HTMLAttributes } from "react";

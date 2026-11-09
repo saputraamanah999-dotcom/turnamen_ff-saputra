@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ============================================================
-// ZEROID ESPORTS — Battle Off Friends (BOF)
+// STIKAR ESPORTS — Battle Off Friends (BOF)
 // Firestore Security Rules
 // Publik: hanya BACA data yang sudah dipublikasikan.
 // Admin: tulis sesuai peran di koleksi adminRoles.
@@ -107,6 +107,21 @@ service cloud.firestore {
       // Log hanya dibuat oleh aplikasi admin terautentikasi; tidak bisa diedit/dihapus.
       allow create: if isAdmin();
       allow update, delete: if false;
+    }
+
+    // ---------- overlayConfigs ----------
+    // Konfigurasi grafis siaran (Overlay Manager §13). OBS/TV Display
+    // membaca konfigurasi ON AIR secara publik; hanya admin yang menulis.
+    match /overlayConfigs/{tournamentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------- presentationState ----------
+    // State layar TV (scene, playing, auto). TV membaca publik; admin tulis.
+    match /presentationState/{tournamentId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // ---------- users ----------

@@ -1,5 +1,5 @@
 /**
- * ZEROID BROADCAST BRIDGE — Modul keamanan koneksi
+ * STIKAR BROADCAST BRIDGE — Modul keamanan koneksi
  * 1. Hanya menerima koneksi dari localhost / LAN privat (cek remoteAddress)
  * 2. Validasi token (?token=...) dengan perbandingan time-safe
  * 3. Rate limit per koneksi (maks 30 pesan per detik)

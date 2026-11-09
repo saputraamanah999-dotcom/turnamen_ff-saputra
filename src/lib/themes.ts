@@ -1,5 +1,5 @@
 // ============================================================
-// ZEROID ESPORTS — Tema tampilan (§24 prompt PHASE 2)
+// STIKAR ESPORTS — Tema tampilan (§24 prompt PHASE 2)
 // 5 tema resmi; token didefinisikan di globals.css via
 // html[data-theme="…"]. Tersimpan di localStorage.
 // ============================================================
@@ -45,12 +45,12 @@ export const THEMES: ThemeDef[] = [
 ];
 
 export const DEFAULT_THEME = "firestorm";
-const KEY = "zeroid.theme";
+const KEY = "stikar.theme";
 
 export function getStoredTheme(): string {
   if (typeof window === "undefined") return DEFAULT_THEME;
   const t = localStorage.getItem(KEY);
-  return THEMES.some((x) => x.id === t) ? t : DEFAULT_THEME;
+  return t && THEMES.some((x) => x.id === t) ? t : DEFAULT_THEME;
 }
 
 export function applyTheme(id: string): void {

@@ -1,4 +1,4 @@
-"""Jalankan ZEROID AI OBSERVER via uvicorn pada 127.0.0.1:8077."""
+"""Jalankan STIKAR AI OBSERVER via uvicorn pada 127.0.0.1:8077."""
 from __future__ import annotations
 
 import uvicorn

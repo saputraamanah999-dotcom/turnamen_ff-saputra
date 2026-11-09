@@ -1,4 +1,4 @@
-# OBS_SETUP.md — Setup OBS Studio untuk ZEROID ESPORTS (BOF)
+# OBS_SETUP.md — Setup OBS Studio untuk STIKAR ESPORTS (BOF)
 
 Dokumen ini memandu menyiapkan **OBS Studio** di laptop produksi: instalasi, 9 scene resmi BOF, pemasangan overlay transparan, plugin obs-websocket, dan pengaturan audio/video. Setelah selesai, laptop siap menerima gameplay dari scrcpy (lihat [MIRRORING_SETUP.md](MIRRORING_SETUP.md)).
 
@@ -44,7 +44,7 @@ Buat 9 scene berikut dengan **nama persis**. Klik kanan pada panel **Scenes** (k
 
 ---
 
-## 3. Browser Source Overlay ZEROID
+## 3. Browser Source Overlay STIKAR
 
 Overlay adalah halaman web transparan yang dipasang **di atas** gameplay. Tersedia 5 overlay:
 

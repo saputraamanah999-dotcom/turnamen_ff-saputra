@@ -1,6 +1,6 @@
 "use client";
 // /guide/tv-display — Panduan resmi PHASE 2 (§27):
-// "CARA MENYAMBUNGKAN ZEROID ESPORTS KE TV DAN MONITOR BESAR"
+// "CARA MENYAMBUNGKAN STIKAR ESPORTS KE TV DAN MONITOR BESAR"
 // Untuk operator yang belum berpengalaman — urutan A–G, langkah nyata.
 
 import Link from "next/link";
@@ -11,7 +11,7 @@ const SECTIONS: { id: string; title: string; steps: string[]; warn?: string }[] 
     id: "a",
     title: "A. Persiapan Laptop",
     steps: [
-      "Jalankan website ZEROID ESPORTS (Vercel atau localhost:3000) dan login sebagai admin.",
+      "Jalankan website STIKAR ESPORTS (Vercel atau localhost:3000) dan login sebagai admin.",
       "Pastikan laptop terhubung ke jaringan (Wi-Fi router / hotspot).",
       "Buka menu Admin → Live Control.",
       "Pilih sumber gameplay: Capture Jendela Game (pilih jendela Free Fire spectator) atau Capture Layar Penuh.",
@@ -26,7 +26,7 @@ const SECTIONS: { id: string; title: string; steps: string[]; warn?: string }[] 
       "Sambungkan TV ke Wi-Fi hotspot laptop tersebut (nama & sandi muncul di laptop).",
       "Sambungkan smartphone tambahan bila diperlukan sebagai viewer.",
       "Pastikan laptop dan TV berada di jaringan yang SAMA.",
-      "Password Wi-Fi tidak pernah diminta atau disimpan oleh sistem ZEROID.",
+      "Password Wi-Fi tidak pernah diminta atau disimpan oleh sistem STIKAR.",
     ],
     warn: "Sebagian router/hotspot mengaktifkan client isolation yang memblokir TV ↔ laptop. Jika Connection Test gagal, gunakan hotspot laptop (Option 1).",
   },
@@ -95,7 +95,7 @@ export default function GuideTvDisplayPage() {
       <div className="mx-auto max-w-3xl">
         <p className="bo-kicker">Panduan Operator</p>
         <h1 className="mt-3 font-display text-3xl font-black uppercase leading-tight sm:text-4xl">
-          Cara Menyambungkan ZEROID ESPORTS ke TV &amp; Monitor Besar
+          Cara Menyambungkan STIKAR ESPORTS ke TV &amp; Monitor Besar
         </h1>
         <p className="mt-3 text-sm font-semibold leading-relaxed text-fs-muted">
           Panduan lengkap untuk operator yang belum berpengalaman. Ikuti urutan A → G.

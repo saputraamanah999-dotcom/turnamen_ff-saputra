@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Panel detail tim (dibuka saat klik baris)
+// STIKAR ESPORTS — Panel detail tim (dibuka saat klik baris)
 // ============================================================
 
 import { AnimatePresence, motion } from "framer-motion";

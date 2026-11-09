@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — BROADCAST LEADERBOARD (PHASE 2 §14)
+// STIKAR ESPORTS — BROADCAST LEADERBOARD (PHASE 2 §14)
 // Scoreboard esports profesional dengan 7 mode:
 //   compact | full | broadcast | tv | mobile | top3 | results
 // - Rank 1 emas, 2 silver, 3 bronze (spec resmi)
@@ -25,7 +25,7 @@ const MEDAL = {
   3: { plate: "#C98A4B", ink: "#0B0E14", glow: "rgba(201,138,75,.35)" }, // Bronze
 } as const;
 
-function rankPlate(rank: number): { bg: string; ink: string; shadow?: string } | null {
+function rankPlate(rank: number): { plate: string; ink: string; glow: string } | null {
   return MEDAL[rank as 1 | 2 | 3] ?? null;
 }
 
@@ -269,7 +269,7 @@ export function BroadcastLeaderboard({
   return (
     <div className={cn("overflow-hidden border border-fs-edge bg-[#0C1117]", className)}>
       {/* Bar judul */}
-      <div className="flex items-center justify-between border-b border-fs-fire/35 bg-[#0C1117] px-3 py-2">
+      <div className="fs-shine flex items-center justify-between border-b border-fs-fire/35 bg-[#0C1117] px-3 py-2">
         <p className="flex items-center gap-2 font-display text-xs font-bold uppercase tracking-[0.2em] text-fs-gold">
           <span className="inline-block h-3 w-1 bg-gradient-to-b from-fs-fire to-fs-flame" />
           LIVE STANDINGS
@@ -345,7 +345,10 @@ export function Top3Strip({ standings, className }: { standings: StandingsRow[];
             initial={{ y: 16, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: i * 0.08 }}
-            className="relative border bg-[#141B24] px-3 py-3"
+            className={cn(
+              "relative border bg-[#141B24] px-3 py-3",
+              row.rank === 1 && "fs-float",
+            )}
             style={{
               borderColor: plate.plate,
               boxShadow: `0 0 18px ${plate.glow}, inset 0 0 22px ${plate.plate}14`,

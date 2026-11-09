@@ -1,6 +1,6 @@
-# INSTALLATION — Instalasi & Menjalankan ZEROID ESPORTS
+# INSTALLATION — Instalasi & Menjalankan STIKAR ESPORTS
 
-Panduan lengkap instalasi platform ZEROID ESPORTS (BATTLE OFF FRIENDS) dari nol.
+Panduan lengkap instalasi platform STIKAR ESPORTS (BATTLE OFF FRIENDS) dari nol.
 
 ## 1. Prasyarat
 

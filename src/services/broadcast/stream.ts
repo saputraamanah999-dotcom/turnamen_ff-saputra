@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Engine streaming sisi browser (PHASE 2 §5, §7)
+// STIKAR ESPORTS — Engine streaming sisi browser (PHASE 2 §5, §7)
 // Alur: getDisplayMedia (capture gameplay) → WHIP POST → MediaMTX
 // → WebRTC/HLS viewer. 100% open-source, tanpa layanan berbayar.
 //
@@ -248,11 +248,11 @@ export class StreamPublisher {
         const report = await pc.getStats();
         let bytes = 0, frames: number | null = null, ts = 0;
         report.forEach((s) => {
-          const r = s as unknown as Record<string, number>;
+          const r = s as unknown as Record<string, unknown>;
           if (s.type === "outbound-rtp" && r.kind === "video") {
-            bytes += r.bytesSent ?? 0;
-            frames = (frames ?? 0) + (r.framesEncoded ?? 0);
-            ts = Math.max(ts, r.timestamp ?? 0);
+            bytes += Number(r.bytesSent ?? 0);
+            frames = (frames ?? 0) + Number(r.framesEncoded ?? 0);
+            ts = Math.max(ts, Number(r.timestamp ?? 0));
           }
         });
         const now = Date.now();
@@ -282,7 +282,7 @@ export class StreamPublisher {
   private startQualityMonitor(): void {
     if (this.qualityTimer) clearInterval(this.qualityTimer);
     this.qualityTimer = setInterval(() => {
-      const video = document.querySelector<HTMLVideoElement>("video[data-zeroid-preview]");
+      const video = document.querySelector<HTMLVideoElement>("video[data-stikar-preview]");
       const track = this.stream?.getVideoTracks()[0];
       if (!video || !track || track.readyState !== "live" || !video.videoWidth) return;
       const canvas = document.createElement("canvas");

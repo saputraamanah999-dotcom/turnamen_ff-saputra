@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Shell Admin FIRESTORM (PHASE 2 §4)
+// STIKAR ESPORTS — Shell Admin FIRESTORM (PHASE 2 §4)
 // Sidebar bergrup dengan collapse/expand + tooltip, drawer mobile,
 // topbar status siaran realtime + Notification Center, akun admin.
 // Menu & fungsi lama 100% dipertahankan.
@@ -213,7 +213,7 @@ function AdminShell({
   session,
 }: {
   children: React.ReactNode;
-  session: { role: string | null; user: { email?: string | null; uid?: string }; logout: () => Promise<void> };
+  session: { role: string | null; user: { email?: string | null; uid?: string } | null; logout: () => Promise<void> };
 }) {
   const pathname = usePathname();
   const [drawer, setDrawer] = useState(false);
@@ -306,7 +306,7 @@ function SidebarContent({
           {!collapsed ? (
             <div className="min-w-0">
               <p className="font-display text-sm font-black uppercase leading-none tracking-[0.14em]">
-                ZEROID <span className="text-fs-fire">ESPORTS</span>
+                STIKAR <span className="text-fs-fire">ESPORTS</span>
               </p>
               <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.22em] text-fs-muted">
                 Battle Off Friends

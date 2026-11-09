@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Alur admin: entri hasil, publish, audit log
+// STIKAR ESPORTS — Alur admin: entri hasil, publish, audit log
 // Karena proyek memakai Firebase Spark (tanpa Cloud Functions),
 // seluruh perhitungan resmi dilakukan di aplikasi admin yang
 // TERAUTENTIKASI, dan keamanan ditegakkan oleh Firestore Rules.
@@ -434,7 +434,13 @@ export async function publishBroadcastEvent(
 /** Simpan konfigurasi overlay (draft atau on-air). */
 export async function saveOverlayConfig(
   tournamentId: string,
-  patch: { draft?: OverlaySceneConfig; onAir?: OverlaySceneConfig | null; pushedAt?: number | null },
+  patch: {
+    draft?: OverlaySceneConfig;
+    onAir?: OverlaySceneConfig | null;
+    /** Konfigurasi per-scene + snapshot '__prev_onair' untuk RESTORE PREVIOUS. */
+    scenes?: Record<string, OverlaySceneConfig>;
+    pushedAt?: number | null;
+  },
 ): Promise<void> {
   if (!db) throw new Error("Firebase tidak terkonfigurasi.");
   await setDoc(

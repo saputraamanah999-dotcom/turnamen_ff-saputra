@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Notification Center (PHASE 2 §18)
+// STIKAR ESPORTS — Notification Center (PHASE 2 §18)
 // Notifikasi HANYA dari event nyata: perubahan koneksi bridge,
 // status siaran di Firestore, event broadcast, overlay push,
 // pergantian match. Dengan filter kategori + timestamp.

@@ -1,5 +1,5 @@
 // ============================================================
-// ZEROID ESPORTS — Tipe data Firestore
+// STIKAR ESPORTS — Tipe data Firestore
 // Battle Off Friends (BOF) — SMK TI Bali Global Karangasem
 // ============================================================
 

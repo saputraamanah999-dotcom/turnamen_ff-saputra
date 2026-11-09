@@ -1,5 +1,5 @@
 // ============================================================
-// ZEROID ESPORTS — Mesin skor resmi BOF
+// STIKAR ESPORTS — Mesin skor resmi BOF
 // Murni TypeScript tanpa dependensi Firebase — mudah diuji.
 // ============================================================
 

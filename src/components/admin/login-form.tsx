@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Form login admin (Firebase Auth email/password)
+// STIKAR ESPORTS — Form login admin (Firebase Auth email/password)
 // ============================================================
 
 import { useState } from "react";

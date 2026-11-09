@@ -1,4 +1,4 @@
-# ZEROID ESPORTS — PHASE 2 CHANGELOG
+# STIKAR ESPORTS — PHASE 2 CHANGELOG
 
 **FIRESTORM ARENA — Advanced Live Broadcast, Local Network Streaming, TV Display & Esports UI**
 Tournament: BATTLE OFF FRIENDS (BOF) · SMK TI BALI GLOBAL KARANGASEM
@@ -31,7 +31,7 @@ Developed by **Saputra Developer** — dibangun DI ATAS commit terakhir (tanpa m
 
 - **Engine streaming browser** baru (`src/services/broadcast/stream.ts`): publish **WHIP** (getDisplayMedia → MediaMTX), stats koneksi, quality monitor, reconnect bertingkat, dan pemutar **WHE** (WebRTC playback).
 - **broadcast-bridge v2** kini menjadi **Local Broadcast Gateway**:
-  - HTTP server LAN (default 8080): halaman `/display/:tid` & `/live/:tid` bergaya ZEROID (Mode A — TV buka URL lokal, video muncul otomatis tanpa internet untuk video).
+  - HTTP server LAN (default 8080): halaman `/display/:tid` & `/live/:tid` bergaya STIKAR (Mode A — TV buka URL lokal, video muncul otomatis tanpa internet untuk video).
   - **Proxy MediaMTX** (`/mediamtx/*` → WHIP/WHE :8889, `/hls/*` → :8888) — same-origin, bebas masalah CORS/mixed-content untuk viewer LAN.
   - **Pairing** (Mode B): kode 6 digit berlaku 15 menit, bisa dicabut admin, redeem via `/api/pairing/redeem`.
   - **Presence viewer NYATA** via WebSocket `/ws-viewer` (hitungan & daftar perangkat sungguhan).
@@ -70,7 +70,7 @@ Developed by **Saputra Developer** — dibangun DI ATAS commit terakhir (tanpa m
 
 ## 8. ADMIN PANEL (§4)
 
-- Shell baru: sidebar bergrup dengan **collapse/expand + tooltip**, **drawer mobile** (tutup otomatis, tanpa horizontal overflow), logo ZEROID, topbar **status siaran realtime + Notification Center**.
+- Shell baru: sidebar bergrup dengan **collapse/expand + tooltip**, **drawer mobile** (tutup otomatis, tanpa horizontal overflow), logo STIKAR, topbar **status siaran realtime + Notification Center**.
 - **Notification Center** (§18): hanya event NYATA (bridge connect/disconnect, OBS connect/output, gateway viewer, status siaran, event broadcast, match current) + filter kategori + timestamp.
 - **Dashboard** (§4): Live status, turnamen, match berjalan, perangkat penonton (N/A bila bridge offline), sumber stream, OBS, jaringan lokal, AI Observer, klasemen ringkas — semua dari kondisi nyata.
 - Halaman statistik admin (dibuat pada iterasi sebelumnya) ikut bergaya FIRESTORM.

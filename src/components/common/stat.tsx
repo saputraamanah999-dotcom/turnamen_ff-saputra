@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Stat counter animasi + status banner
+// STIKAR ESPORTS — Stat counter animasi + status banner
 // ============================================================
 
 import { useEffect, useRef, useState } from "react";

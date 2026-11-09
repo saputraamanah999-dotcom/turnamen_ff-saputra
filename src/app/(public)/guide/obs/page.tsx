@@ -32,7 +32,7 @@ export default function GuideObsPage() {
           Main Gameplay.
         </p>
 
-        <h2 className="mt-6 font-display text-lg font-black uppercase">3. Memasang Overlay ZEROID</h2>
+        <h2 className="mt-6 font-display text-lg font-black uppercase">3. Memasang Overlay STIKAR</h2>
         <p className="mt-2 font-semibold">
           Tambahkan sumber <strong>Browser</strong>, masukkan URL overlay (ganti
           <code> :tournamentId </code> dengan ID turnamen, mis. <code>bof-main</code>):

@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — OVERLAY ENGINE (OBS Browser Source)
+// STIKAR ESPORTS — OVERLAY ENGINE (OBS Browser Source)
 // /overlay/:tournamentId/:layout
 // Layouts: full | compact | top3 | match-info | lower-third |
 //          score-bug | winner
@@ -12,6 +12,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, Crown, Hourglass, MapPin, Megaphone, Radio, Swords, Trophy } from "lucide-react";
 import { useBroadcast, useDoc, useMatches, useStandings, useTournament } from "@/services/firestore/hooks";
+import { cn } from "@/lib/utils";
 import { formatTime } from "@/lib/constants";
 import type { OverlayLayout } from "@/lib/constants";
 import type { OverlayConfigDoc, OverlayLayerState } from "@/lib/types";
@@ -128,8 +129,13 @@ function FullBoard({ rows }: { rows: ReturnType<typeof useStandings>["data"] ext
         <MatchLabel text="LIVE RANK" />
       </div>
       <div className="thin-scroll h-[calc(100%-44px)] overflow-y-auto">
-        {rows.map((r) => (
-          <motion.div key={r.teamId} layout className="ov-row" style={rowAccent(r.rank)}>
+        {rows.map((r, i) => (
+          <motion.div
+            key={r.teamId}
+            layout
+            className="ov-row fs-row-in"
+            style={{ ...rowAccent(r.rank), animationDelay: `${Math.min(i * 0.045, 0.5)}s` }}
+          >
             <span className="ov-gold w-7 font-display font-black tabular-nums">{r.rank}</span>
             <span className="flex-1 truncate font-bold">{r.teamName}</span>
             <span className="w-8 text-center tabular-nums text-white/70">{r.kills}</span>
@@ -151,8 +157,13 @@ function CompactBoard({ rows, matchLabel }: { rows: NonNullable<ReturnType<typeo
         <p className="ov-gold font-display text-xs font-black uppercase tracking-[0.2em]">BOF Standings</p>
         {matchLabel ? <MatchLabel text={matchLabel} /> : null}
       </div>
-      {rows.slice(0, 5).map((r) => (
-        <motion.div key={r.teamId} layout className="ov-row" style={rowAccent(r.rank)}>
+      {rows.slice(0, 5).map((r, i) => (
+        <motion.div
+          key={r.teamId}
+          layout
+          className="ov-row fs-row-in"
+          style={{ ...rowAccent(r.rank), animationDelay: `${Math.min(i * 0.05, 0.35)}s` }}
+        >
           <span className="ov-gold w-6 font-display font-black tabular-nums">{r.rank}</span>
           <span className="flex-1 truncate text-sm font-bold">{r.teamName}</span>
           <span className="w-10 text-right font-display font-black tabular-nums text-[#f4d374]">{r.totalPoints}</span>
@@ -174,7 +185,7 @@ function Top3Overlay({ rows }: { rows: NonNullable<ReturnType<typeof useStanding
           initial={{ y: 24, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: i * 0.1 }}
-          className="ov-frame ov-cut w-52 px-4 py-3"
+          className={cn("ov-frame ov-cut w-52 px-4 py-3", i === 0 && "fs-float")}
           style={rowAccent(r.rank)}
         >
           <div className="flex items-center gap-2">
@@ -252,7 +263,7 @@ function AnnouncementBanner({ announcements, layer }: { announcements?: string[]
     >
       <Megaphone className="h-5 w-5 shrink-0 text-fs-cyan" />
       <p className="truncate font-display text-xl font-bold uppercase tracking-wide">{text}</p>
-      <span className="ov-chip ml-auto">ZEROID ESPORTS</span>
+      <span className="ov-chip ml-auto">STIKAR ESPORTS</span>
     </motion.div>
   );
 }
@@ -293,7 +304,7 @@ function WinnerOverlay({ winner, tournamentName }: { winner?: NonNullable<Return
         initial={{ y: 12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.15 }}
-        className="mt-2 font-display text-4xl font-black uppercase leading-tight"
+        className="fs-glow-text mt-2 font-display text-4xl font-black uppercase leading-tight"
       >
         {winner.teamName}
       </motion.p>
@@ -343,7 +354,7 @@ function StartingSoonOverlay({
         key={countdown}
         initial={{ scale: 1.06 }}
         animate={{ scale: 1 }}
-        className="mt-4 font-display text-7xl font-black tabular-nums text-[#f4d374]"
+        className="fs-count-tick mt-4 font-display text-7xl font-black tabular-nums text-[#f4d374]"
       >
         {ready ? "STARTING NOW" : countdown}
       </motion.p>

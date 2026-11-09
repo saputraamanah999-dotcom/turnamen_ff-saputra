@@ -1,4 +1,4 @@
-# SECURITY — Model Keamanan ZEROID ESPORTS
+# SECURITY — Model Keamanan STIKAR ESPORTS
 
 Ringkasan model keamanan platform dan praktik yang wajib diikuti operator.
 

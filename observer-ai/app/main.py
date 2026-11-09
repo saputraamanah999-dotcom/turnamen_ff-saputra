@@ -1,4 +1,4 @@
-"""Aplikasi FastAPI ZEROID AI OBSERVER + pipeline analisis frame.
+"""Aplikasi FastAPI STIKAR AI OBSERVER + pipeline analisis frame.
 
 Arsitektur:
 - thread capture (mss) mengambil frame sesuai FPS;
@@ -196,7 +196,7 @@ async def lifespan(app: FastAPI):
         LOGGER.warning("OCR tidak tersedia — observer jalan dengan mode terbatas")
     state.capture.start()
     task = asyncio.create_task(_analysis_loop(app))
-    LOGGER.info("ZEROID AI OBSERVER aktif di http://%s:%s (docs: /docs)", settings.host, settings.port)
+    LOGGER.info("STIKAR AI OBSERVER aktif di http://%s:%s (docs: /docs)", settings.host, settings.port)
     try:
         yield
     finally:
@@ -209,7 +209,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """Rakit aplikasi FastAPI + middleware + router."""
     app = FastAPI(
-        title="ZEROID AI OBSERVER",
+        title="STIKAR AI OBSERVER",
         version="1.0.0",
         description="Observer AI lokal (screen capture + OCR offline) untuk turnamen Free Fire.",
         lifespan=lifespan,

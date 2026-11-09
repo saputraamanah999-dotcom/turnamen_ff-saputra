@@ -1,4 +1,4 @@
-"""REST API lokal ZEROID AI OBSERVER (bind 127.0.0.1 — tidak diekspos).
+"""REST API lokal STIKAR AI OBSERVER (bind 127.0.0.1 — tidak diekspos).
 
 Semua endpoint ringan; komponen pipeline diambil dari ``request.app.state``
 yang diisi lifespan di ``app/main.py``.
@@ -36,7 +36,7 @@ async def health(request: Request) -> Dict[str, Any]:
     st = _state(request)
     return {
         "status": "ok",
-        "service": "ZEROID AI OBSERVER",
+        "service": "STIKAR AI OBSERVER",
         "time": datetime.now(timezone.utc).isoformat(),
         "activeMatchId": getattr(st, "active_match_id", ""),
     }

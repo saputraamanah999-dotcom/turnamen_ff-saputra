@@ -1,5 +1,5 @@
 /**
- * ZEROID BROADCAST BRIDGE — Klien obs-websocket v5 (paket npm 'obs-websocket-js')
+ * STIKAR BROADCAST BRIDGE — Klien obs-websocket v5 (paket npm 'obs-websocket-js')
  *
  * - Koneksi ke OBS Studio di ws://127.0.0.1:4455 (LOCALHOST SAJA, tidak pernah publik)
  * - Password diambil dari .env (OBS_PASSWORD) dan TIDAK PERNAH dicatat ke log

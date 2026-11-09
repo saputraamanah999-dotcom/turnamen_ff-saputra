@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Autentikasi & peran admin (Firebase Auth)
+// STIKAR ESPORTS — Autentikasi & peran admin (Firebase Auth)
 // ============================================================
 
 import { useEffect, useState } from "react";

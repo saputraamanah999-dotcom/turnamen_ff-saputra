@@ -1,4 +1,4 @@
-# ZEROID AI OBSERVER
+# STIKAR AI OBSERVER
 
 Service Python **lokal** untuk menganalisis frame gameplay Free Fire yang **terlihat di layar** (screen
 capture via `mss`), membantu operator turnamen memahami *apa yang sedang terjadi* pada pemain yang

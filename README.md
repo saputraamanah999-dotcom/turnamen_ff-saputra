@@ -1,4 +1,4 @@
-# ZEROID ESPORTS — BATTLE OFF FRIENDS (BOF)
+# STIKAR ESPORTS — BATTLE OFF FRIENDS (BOF)
 
 **Platform manajemen turnamen esports Free Fire, leaderboard realtime, dan broadcast profesional** untuk **SMK TI Bali Global Karangasem**.
 
@@ -12,7 +12,7 @@
 
 ## ⚡ Apa ini?
 
-Bukan sekadar website leaderboard. ZEROID ESPORTS menggabungkan:
+Bukan sekadar website leaderboard. STIKAR ESPORTS menggabungkan:
 
 1. **Website publik** — home, live match (video + leaderboard realtime), klasemen, tim, jadwal, statistik, panduan.
 2. **Panel admin** — kelola turnamen, tim, match, entri hasil resmi dengan kalkulasi otomatis, publish realtime, audit log.

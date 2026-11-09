@@ -1,5 +1,5 @@
 /**
- * ZEROID BROADCAST BRIDGE — Whitelist scene & sumber overlay
+ * STIKAR BROADCAST BRIDGE — Whitelist scene & sumber overlay
  *
  * Memuat daftar scene yang BOLEH di-switch oleh website dari config.json.
  * Bila config.json belum ada, otomatis fallback ke config.example.json,

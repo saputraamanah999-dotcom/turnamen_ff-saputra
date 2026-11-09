@@ -1,5 +1,5 @@
 /**
- * ZEROID BROADCAST BRIDGE — Logger sederhana
+ * STIKAR BROADCAST BRIDGE — Logger sederhana
  * - Log berwarna ke console (ANSI color)
  * - Log polos ke file logs/bridge.log
  *

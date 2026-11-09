@@ -34,7 +34,7 @@ function ConnectInner() {
     }
     // Prefill dari pairing tersimpan
     try {
-      const raw = localStorage.getItem("zeroid.pairing");
+      const raw = localStorage.getItem("stikar.pairing");
       if (raw) {
         const p = JSON.parse(raw) as { gw?: string };
         if (p.gw && !gw) setGw(p.gw);
@@ -60,7 +60,7 @@ function ConnectInner() {
       });
       const j = await res.json();
       if (!res.ok || !j.ok) throw new Error(j.error || "Kode tidak valid");
-      localStorage.setItem("zeroid.pairing", JSON.stringify({
+      localStorage.setItem("stikar.pairing", JSON.stringify({
         gw: gw.replace(/\/$/, ""),
         whe: `${gw.replace(/\/$/, "")}${j.wheUrl}`,
         hls: `${gw.replace(/\/$/, "")}${j.hlsUrl}`,

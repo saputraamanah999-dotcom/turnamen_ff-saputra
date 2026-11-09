@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================
-// ZEROID ESPORTS — Deploy Firestore RULES + INDEXES via REST
+// STIKAR ESPORTS — Deploy Firestore RULES + INDEXES via REST
 // (tanpa firebase-tools CLI; cukup service account)
 // ============================================================
 

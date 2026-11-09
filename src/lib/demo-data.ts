@@ -1,5 +1,5 @@
 // ============================================================
-// ZEROID ESPORTS — DATA DEMO (fallback offline)
+// STIKAR ESPORTS — DATA DEMO (fallback offline)
 // Digunakan HANYA ketika Firestore tidak terjangkau dari browser
 // (koneksi gagal / project belum di-seed). Selalu ditampilkan
 // dengan banner "MODE DEMO". Bukan data resmi turnamen.

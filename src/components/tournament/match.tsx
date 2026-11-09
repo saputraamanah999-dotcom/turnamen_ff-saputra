@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Kartu info match & daftar match
+// STIKAR ESPORTS — Kartu info match & daftar match
 // ============================================================
 
 import { CalendarClock, Gamepad2, MapPin, Trophy } from "lucide-react";

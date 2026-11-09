@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — TV DISPLAY BROADCAST (PHASE 2 §9, §10, §11)
+// STIKAR ESPORTS — TV DISPLAY BROADCAST (PHASE 2 §9, §10, §11)
 // Bukan "website dibuka di TV" — ini tampilan siaran turnamen:
 //   header broadcast | gameplay 70-75% | leaderboard 25-30% | ticker.
 // Data: scoring engine resmi (publicLeaderboards) + broadcastSettings
@@ -120,7 +120,7 @@ function TvDisplayInner({ tidOverride }: { tidOverride?: string }) {
           <span className="fs-cut-sm flex h-11 w-11 shrink-0 items-center justify-center bg-gradient-to-br from-fs-fire to-fs-flame font-display text-xl font-black text-white shadow-[0_0_16px_rgba(255,90,31,.45)]">Z</span>
           <div className="min-w-0">
             <p className="font-display text-lg font-black uppercase leading-none tracking-[0.12em] sm:text-xl">
-              ZEROID <span className="text-fs-fire">ESPORTS</span>
+              STIKAR <span className="text-fs-fire">ESPORTS</span>
             </p>
             <p className="truncate text-[9.5px] font-bold uppercase tracking-[0.26em] text-fs-muted">
               {ORG.tournament} · {tournament.data?.name ?? "—"}
@@ -297,7 +297,7 @@ function PresentationScene({ scene, tid }: { scene: string; tid: string | null }
     <div className="flex h-full w-full flex-col items-center justify-center bg-fs-bg px-10 text-center">
       {scene === "opening" ? (
         <>
-          <p className="fs-live-in font-display text-6xl font-black uppercase tracking-[0.08em]">ZEROID <span className="text-fs-fire">ESPORTS</span></p>
+          <p className="fs-live-in font-display text-6xl font-black uppercase tracking-[0.08em]">STIKAR <span className="text-fs-fire">ESPORTS</span></p>
           <p className="mt-3 font-display text-2xl font-black uppercase text-fs-muted">{ORG.tournament}</p>
           <p className="mt-1 text-sm font-bold uppercase tracking-[0.3em] text-fs-muted/60">{ORG.institution}</p>
         </>

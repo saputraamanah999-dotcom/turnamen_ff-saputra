@@ -1,7 +1,7 @@
 {
-  "name": "zeroid-broadcast-bridge",
+  "name": "stikar-broadcast-bridge",
   "version": "1.0.0",
-  "description": "Jembatan lokal (localhost/LAN only) antara website ZEROID ESPORTS dan OBS Studio via obs-websocket v5. Gratis, tanpa API berbayar.",
+  "description": "Jembatan lokal (localhost/LAN only) antara website STIKAR ESPORTS dan OBS Studio via obs-websocket v5. Gratis, tanpa API berbayar.",
   "type": "module",
   "main": "src/index.js",
   "scripts": {

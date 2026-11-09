@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Champion tracking banner (§30 master prompt)
+// STIKAR ESPORTS — Champion tracking banner (§30 master prompt)
 // Jujur: juara hanya dinyatakan bila SEMUA match format selesai
 // dipublikasikan dan peringkat 1 tidak seri. Sebelum itu:
 // CHAMPION NOT CONFIRMED + kandidat + sisa match.

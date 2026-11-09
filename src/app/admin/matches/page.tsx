@@ -10,7 +10,7 @@ import { useActiveTournament, useMatches, useTeams } from "@/services/firestore/
 import { upsertMatch, setCurrentMatch, deleteMatch } from "@/services/scoring/publish";
 import { useAdminSession } from "@/services/auth/admin";
 import { useToast } from "@/hooks/use-toast";
-import { MAP_CATALOG, MATCH_FORMATS, formatDateTime } from "@/lib/constants";
+import { MAP_CATALOG, MATCH_FORMATS, formatDateTime, toDateTimeInputValue } from "@/lib/constants";
 import type { Match } from "@/lib/types";
 
 export default function AdminMatchesPage() {
@@ -99,7 +99,7 @@ export default function AdminMatchesPage() {
               <input
                 className="bo-input"
                 type="datetime-local"
-                value={editing.scheduledAt ? new Date(editing.scheduledAt).toISOString().slice(0, 16) : ""}
+                value={toDateTimeInputValue(editing.scheduledAt ?? null)}
                 onChange={(e) => setEditing({ ...editing, scheduledAt: e.target.value ? new Date(e.target.value).getTime() : null })}
               />
             </Field>

@@ -1,5 +1,5 @@
 /**
- * ZEROID BROADCAST BRIDGE — WebSocket server untuk website
+ * STIKAR BROADCAST BRIDGE — WebSocket server untuk website
  *
  * Dibuat dengan paket 'ws' murni (ringan, tanpa socket.io).
  * Keamanan:
@@ -66,7 +66,7 @@ export class BridgeServer {
       logger.error(`WebSocket server error: ${err.message}`);
     });
     this.wss.on('listening', () => {
-      logger.ok(`ZEROID Broadcast Bridge siap di ws://${this.host}:${this.port} (hanya localhost/LAN)`);
+      logger.ok(`STIKAR Broadcast Bridge siap di ws://${this.host}:${this.port} (hanya localhost/LAN)`);
     });
 
     // Heartbeat: ping klien secara berkala agar koneksi mati terdeteksi & dibersihkan
@@ -212,7 +212,7 @@ export class BridgeServer {
   async _sendHello(ws) {
     try {
       const status = await this.obs.getStatus();
-      this._send(ws, { type: 'hello', data: { service: 'zeroid-broadcast-bridge', obs: status } });
+      this._send(ws, { type: 'hello', data: { service: 'stikar-broadcast-bridge', obs: status } });
     } catch {
       /* abaikan */
     }

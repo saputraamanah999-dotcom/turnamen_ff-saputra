@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================
-// ZEROID ESPORTS — Script Seeding Firebase (Battle Off Friends)
+// STIKAR ESPORTS — Script Seeding Firebase (Battle Off Friends)
 // 1. Membuat akun super admin (Firebase Auth) + adminRoles/{uid}
 // 2. Konfigurasi poin resmi BOF (scoringConfigurations)
 // 3. Turnamen bof-main + 12 tim + 7 match
@@ -32,7 +32,7 @@ loadDotEnv();
 const SERVICE_ACCOUNT_PATH =
   process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.FIREBASE_SERVICE_ACCOUNT_PATH || "./secrets/serviceAccountKey.json";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "saputra.developer@bof-esports.id";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "ZeroidBOF#2026";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "StikarBOF#2026";
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "turnamenffbof";
 const TOURNAMENT_ID = "bof-main";
 
@@ -78,7 +78,7 @@ async function main() {
   const auth = getAuth();
   const db = getFirestore();
 
-  console.log(`\n=== ZEROID ESPORTS — Seeding project: ${PROJECT_ID} ===\n`);
+  console.log(`\n=== STIKAR ESPORTS — Seeding project: ${PROJECT_ID} ===\n`);
 
   // 1. Super admin
   let uid;
@@ -90,7 +90,7 @@ async function main() {
     const user = await auth.createUser({
       email: ADMIN_EMAIL,
       password: ADMIN_PASSWORD,
-      displayName: "Super Admin ZEROID",
+      displayName: "Super Admin STIKAR",
     });
     uid = user.uid;
     console.log(`[1/6] Super admin dibuat: ${ADMIN_EMAIL} (password dari ADMIN_PASSWORD)`);
@@ -206,10 +206,29 @@ async function main() {
     announcements: ["Selamat datang di BATTLE OFF FRIENDS — SMK TI Bali Global Karangasem!"],
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
+
+  // 7b. Konfigurasi overlay default + state presentasi TV (PHASE 2 §13/§17)
+  await db.doc(`overlayConfigs/${TOURNAMENT_ID}`).set({
+    tournamentId: TOURNAMENT_ID,
+    preset: "full-broadcast",
+    draft: { preset: "full-broadcast", layers: {} },
+    onAir: null,
+    scenes: {},
+    pushedAt: null,
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+  await db.doc(`presentationState/${TOURNAMENT_ID}`).set({
+    tournamentId: TOURNAMENT_ID,
+    scene: "Starting Soon",
+    playing: false,
+    auto: false,
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+
   await db.collection("auditLogs").add({
     action: "SEED_DATABASE",
     actorUid: "system",
-    actorEmail: "system@zeroid",
+    actorEmail: "system@stikar",
     targetType: "database",
     targetId: TOURNAMENT_ID,
     details: { teams: TEAMS.length, matches: 7, published: Object.keys(RESULTS).length },

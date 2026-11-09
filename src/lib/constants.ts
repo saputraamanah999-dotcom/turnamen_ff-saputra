@@ -1,5 +1,5 @@
 // ============================================================
-// ZEROID ESPORTS — Konstanta resmi BOF
+// STIKAR ESPORTS — Konstanta resmi BOF
 // ============================================================
 
 import type { MatchFormat } from "./types";
@@ -36,7 +36,7 @@ export const MATCH_FORMATS: { value: MatchFormat; label: string; games: number }
 ];
 
 export const ORG = {
-  brand: "ZEROID ESPORTS",
+  brand: "STIKAR ESPORTS",
   tournament: "BATTLE OFF FRIENDS",
   tournamentShort: "BOF",
   institution: "SMK TI BALI GLOBAL KARANGASEM",
@@ -126,6 +126,19 @@ function toDate(
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/** Nilai untuk <input type="datetime-local"> memakai waktu LOKAL (bukan UTC!).
+ *  Pakai toISOString() menggeser jam di zona non-UTC (mis. WITA ±8 jam) —
+ *  ini penyebab "error date": jadwal 19:00 tampil 11:00 lalu bergeser saat disimpan. */
+export function toDateTimeInputValue(ts?: number | null): string {
+  const d = toDate(ts);
+  if (!d) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+    "T" + pad(d.getHours()) + ":" + pad(d.getMinutes())
+  );
+}
+
 /** ============================================================
  *  OVERLAY LAYER REGISTRY (PHASE 2 §13) — 23 layer resmi
  *  ============================================================ */
@@ -140,7 +153,7 @@ export interface OverlayLayerDef {
 
 export const OVERLAY_LAYERS: OverlayLayerDef[] = [
   { id: "tournament-logo", label: "Tournament Logo", group: "brand", pos: "tl" },
-  { id: "zeroid-branding", label: "ZEROID ESPORTS Branding", group: "brand", pos: "tl" },
+  { id: "stikar-branding", label: "STIKAR ESPORTS Branding", group: "brand", pos: "tl" },
   { id: "live-badge", label: "LIVE Badge", group: "brand", pos: "tr" },
   { id: "tournament-header", label: "Tournament Header", group: "match", pos: "tc" },
   { id: "match-number", label: "Match Number", group: "match", pos: "tc" },
@@ -167,7 +180,7 @@ export const OVERLAY_LAYERS: OverlayLayerDef[] = [
 export const OVERLAY_PRESETS: { id: string; name: string; layers: string[]; note: string }[] = [
   {
     id: "full-broadcast", name: "FULL BROADCAST",
-    layers: ["tournament-logo", "zeroid-branding", "live-badge", "tournament-header", "match-number", "round-number", "map-name", "leaderboard-panel", "broadcast-ticker"],
+    layers: ["tournament-logo", "stikar-branding", "live-badge", "tournament-header", "match-number", "round-number", "map-name", "leaderboard-panel", "broadcast-ticker"],
     note: "Gameplay + header + leaderboard + live badge",
   },
   {

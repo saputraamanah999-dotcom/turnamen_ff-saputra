@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Podium Top 3
+// STIKAR ESPORTS — Podium Top 3
 // ============================================================
 
 import { motion } from "framer-motion";

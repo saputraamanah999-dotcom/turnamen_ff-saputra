@@ -45,7 +45,7 @@ export default function LiveStatusPage() {
     let cancelled = false;
     (async () => {
       try {
-        const raw = localStorage.getItem("zeroid.pairing");
+        const raw = localStorage.getItem("stikar.pairing");
         if (!raw) return;
         const p = JSON.parse(raw) as { gw?: string };
         if (!p.gw) return;

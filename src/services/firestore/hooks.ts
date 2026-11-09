@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Hooks Firestore realtime dengan fallback offline
+// STIKAR ESPORTS — Hooks Firestore realtime dengan fallback offline
 // Semua listener onSnapshot; jika Firebase tidak terjangkau
 // (contoh: sandbox tanpa akses), status menjadi "offline" dan
 // komponen dapat menampilkan DATA DEMO yang diberi label jelas.

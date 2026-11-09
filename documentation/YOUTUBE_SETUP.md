@@ -48,7 +48,7 @@ Sebelum mulai, isi metadata siaran:
 
 | Pengaturan | Saran |
 |---|---|
-| Title | "ZEROID ESPORTS — BOF [Nama Turnamen] — SMK TI Bali Global Karangasem" |
+| Title | "STIKAR ESPORTS — BOF [Nama Turnamen] — SMK TI Bali Global Karangasem" |
 | Description | Jadwal, daftar tim, aturan poin BOF |
 | Visibility | **Unlisted** untuk uji coba (hanya yang punya link), **Public** untuk hari-H |
 | Schedule | Atur tanggal/jam mulai agar penonton bisa "set reminder" |

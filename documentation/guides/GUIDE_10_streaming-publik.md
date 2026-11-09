@@ -12,7 +12,7 @@ Menyiarkan pertandingan ke internet umum melalui **YouTube Live (Mode A)** dan m
 1. Login YouTube Studio dengan akun sekolah → **Go live → Stream**.
 2. Salin **Stream key**. **Jangan bagikan ke siapa pun** — key ini akses menyiarkan di channel sekolah.
 3. Buka OBS → **Settings → Stream** → Service: **YouTube - RTMPS** → tempel stream key → OK.
-4. Isi metadata siaran di Studio: judul (`ZEROID ESPORTS — BOF ...`), deskripsi (jadwal + daftar tim + aturan poin BOF), dan visibility:
+4. Isi metadata siaran di Studio: judul (`STIKAR ESPORTS — BOF ...`), deskripsi (jadwal + daftar tim + aturan poin BOF), dan visibility:
    - **Unlisted** → hanya yang punya link (cocok untuk uji/latihan).
    - **Public** → publik penuh, siap di-embed di website (hari-H).
 5. Sebelum event, jalankan **siaran uji unlisted**: Start Streaming dari OBS → cek video + audio + overlay → Stop.

@@ -320,7 +320,7 @@ export default function AdminLiveControlPage() {
 
           {/* Preview 16:9 */}
           <div className="relative mt-3 aspect-video w-full overflow-hidden border border-fs-edge bg-black">
-            <video ref={videoRef} data-zeroid-preview className="h-full w-full object-contain" autoPlay muted playsInline />
+            <video ref={videoRef} data-stikar-preview className="h-full w-full object-contain" autoPlay muted playsInline />
             {!source ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center">
                 <Camera className="h-8 w-8 text-white/25" />

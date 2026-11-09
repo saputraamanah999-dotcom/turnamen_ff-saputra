@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SETUP FIREBASE — ZEROID ESPORTS (BOF)</title>
+<title>SETUP FIREBASE — STIKAR ESPORTS (BOF)</title>
 <style>
   :root {
     --blue: #182CFF; --purple: #8150F5; --cyan: #66F0E6;
@@ -65,7 +65,7 @@
 <body>
 
 <header>
-  <h1>⚡ SETUP FIREBASE — <span>ZEROID ESPORTS</span></h1>
+  <h1>⚡ SETUP FIREBASE — <span>STIKAR ESPORTS</span></h1>
   <p>BATTLE OFF FRIENDS · SMK TI BALI GLOBAL KARANGASEM · by SAPUTRA DEVELOPER</p>
 </header>
 
@@ -78,7 +78,7 @@
   <label>Email Super Admin</label>
   <input id="adminEmail" value="saputra.developer@bof-esports.id">
   <label>Password Super Admin</label>
-  <input id="adminPassword" type="password" value="ZeroidBOF#2026">
+  <input id="adminPassword" type="password" value="StikarBOF#2026">
   <p class="hint">Default mengikuti script seed resmi. <b>Ganti password setelah login pertama!</b></p>
 </div>
 
@@ -138,7 +138,7 @@
 <script>
 "use strict";
 // ============================================================
-// ZEROID ESPORTS — Setup Firebase One-Click (100% client-side)
+// STIKAR ESPORTS — Setup Firebase One-Click (100% client-side)
 // Alur: service account → JWT RS256 (Web Crypto) → OAuth token
 //       → Identity Toolkit (buat admin) + Firestore REST (seed,
 //         rules, indexes). Tanpa server, tanpa library.
@@ -167,7 +167,7 @@ const placementPointsFor = (p) => (p >= 1 && p <= PLACEMENT_POINTS.length ? PLAC
 const FIRESTORE_RULES = `rules_version = '2';
 
 // ============================================================
-// ZEROID ESPORTS — Battle Off Friends (BOF)
+// STIKAR ESPORTS — Battle Off Friends (BOF)
 // Firestore Security Rules
 // Publik: hanya BACA data yang sudah dipublikasikan.
 // Admin: tulis sesuai peran di koleksi adminRoles.
@@ -275,6 +275,21 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ---------- overlayConfigs ----------
+    // Konfigurasi grafis siaran (Overlay Manager §13). OBS/TV Display
+    // membaca konfigurasi ON AIR secara publik; hanya admin yang menulis.
+    match /overlayConfigs/{tournamentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------- presentationState ----------
+    // State layar TV (scene, playing, auto). TV membaca publik; admin tulis.
+    match /presentationState/{tournamentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // ---------- users ----------
     match /users/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
@@ -334,7 +349,7 @@ function cfg() {
   };
 }
 function getSA() {
-  try { return JSON.parse(localStorage.getItem("zeroid.setup.sa") || "null"); }
+  try { return JSON.parse(localStorage.getItem("stikar.setup.sa") || "null"); }
   catch { return null; }
 }
 function refreshSaStatus() {
@@ -352,13 +367,13 @@ $("btnSaSave").onclick = () => {
   try {
     const sa = JSON.parse($("saText").value);
     if (!sa.private_key || !sa.client_email) throw new Error("JSON bukan service account (butuh private_key & client_email)");
-    localStorage.setItem("zeroid.setup.sa", JSON.stringify(sa));
+    localStorage.setItem("stikar.setup.sa", JSON.stringify(sa));
     log("💾 Service account disimpan di perangkat ini (" + sa.client_email + ")", "ok");
     refreshSaStatus();
   } catch (e) { log("❌ JSON tidak valid: " + e.message, "err"); }
 };
 $("btnSaClear").onclick = () => {
-  localStorage.removeItem("zeroid.setup.sa");
+  localStorage.removeItem("stikar.setup.sa");
   $("saText").value = "";
   log("🗑 Service account dihapus dari perangkat", "warn");
   refreshSaStatus();
@@ -483,7 +498,7 @@ async function ensureAdmin() {
   if (!localId) {
     try {
       const created = await gfetch("https://identitytoolkit.googleapis.com/v1/projects/" + projectId + "/accounts",
-        { email: adminEmail, password: adminPassword, displayName: "Super Admin ZEROID" });
+        { email: adminEmail, password: adminPassword, displayName: "Super Admin STIKAR" });
       localId = created.localId;
       log("👤 Super admin dibuat: " + adminEmail, "ok");
     } catch (e) {
@@ -491,7 +506,7 @@ async function ensureAdmin() {
         log("⚠ Login Email/Password belum aktif — mencoba aktifkan otomatis…", "warn");
         await enablePasswordSignIn();
         const created = await gfetch("https://identitytoolkit.googleapis.com/v1/projects/" + projectId + "/accounts",
-          { email: adminEmail, password: adminPassword, displayName: "Super Admin ZEROID" });
+          { email: adminEmail, password: adminPassword, displayName: "Super Admin STIKAR" });
         localId = created.localId;
         log("👤 Super admin dibuat (setelah aktifkan provider): " + adminEmail, "ok");
       } else throw e;
@@ -597,9 +612,19 @@ async function seedData() {
     streamTitle: S("BATTLE OFF FRIENDS — Siaran Resmi"), showPublicTimeline: B(true),
     announcements: A([S("Selamat datang di BATTLE OFF FRIENDS — SMK TI Bali Global Karangasem!")]) }));
 
+  // Konfigurasi overlay default (dipakai Overlay Manager, OBS & TV Display)
+  writes.push(updateWrite(projectId, "overlayConfigs/" + TOURNAMENT_ID, {
+    tournamentId: S(TOURNAMENT_ID), preset: S("full-broadcast"), pushedAt: NUL,
+    draft: { mapValue: F({ preset: S("full-broadcast"), layers: { mapValue: F({}) } }) },
+    onAir: NUL, scenes: { mapValue: F({}) } }));
+
+  // State presentasi TV default (scene awal: Starting Soon)
+  writes.push(updateWrite(projectId, "presentationState/" + TOURNAMENT_ID, {
+    tournamentId: S(TOURNAMENT_ID), scene: S("Starting Soon"), playing: B(false), auto: B(false) }));
+
   // Audit log seed (ID acak)
   writes.push(updateWrite(projectId, "auditLogs/" + (crypto.randomUUID ? crypto.randomUUID() : "seed-" + Date.now()), {
-    action: S("SEED_DATABASE"), actorUid: S("system"), actorEmail: S("system@zeroid"),
+    action: S("SEED_DATABASE"), actorUid: S("system"), actorEmail: S("system@stikar"),
     targetType: S("database"), targetId: S(TOURNAMENT_ID),
     details: { mapValue: F({ teams: I(TEAMS.length), matches: I(7), published: I(Object.keys(RESULTS).length) }) } }));
   // createdAt transform khusus untuk audit log (field createdAt, bukan updatedAt)
@@ -614,7 +639,7 @@ async function seedData() {
     if (errs.length) throw new Error(errs.length + " write gagal: " + JSON.stringify(errs[0]));
     log("📦 Commit " + chunk.length + " dokumen OK", "ok");
   }
-  log("🏆 Seed selesai: turnamen, 12 tim, 7 match, 3 hasil resmi, klasemen " + standings.length + " tim (total " +
+  log("🏆 Seed selesai: turnamen, 12 tim, 7 match, 3 hasil resmi, klasemen " + standings.length + " tim, overlay + TV state (total " +
     standings.reduce((a, r) => a + r.kills, 0) + " kill)", "ok");
 }
 
@@ -777,7 +802,7 @@ $("btnStatus").onclick = () => runStep("btnStatus", checkStatus);
 $("btnResetPw").onclick = () => runStep("btnResetPw", resetAdminPassword);
 $("btnEnablePw").onclick = () => runStep("btnEnablePw", enablePasswordSignIn);
 
-log("SETUP v1.4 ✔ (panduan error jelas: 403 IAM / API belum aktif / index masih dibangun) — Isi Langkah 2 (service account) lalu tekan tombol BIRU BESAR.", "big");
+log("SETUP v1.5 ✔ (rules overlayConfigs+presentationState — fix 'Push gagal: Missing or insufficient permissions' + koleksi baru di seed) — Isi Langkah 2 lalu tekan tombol BIRU BESAR.", "big");
 refreshSaStatus();
 </script>
 </body>

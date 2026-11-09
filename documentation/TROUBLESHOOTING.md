@@ -1,6 +1,6 @@
 # TROUBLESHOOTING.md — Masalah Umum dan Solusi
 
-Dokumen ini berisi tabel masalah yang paling sering muncul saat operasional ZEROID ESPORTS — BOF, beserta penyebab dan solusinya. Untuk panduan langkah demi langkah, lihat dokumen setup masing-masing dan folder [guides/](guides/README.md).
+Dokumen ini berisi tabel masalah yang paling sering muncul saat operasional STIKAR ESPORTS — BOF, beserta penyebab dan solusinya. Untuk panduan langkah demi langkah, lihat dokumen setup masing-masing dan folder [guides/](guides/README.md).
 
 ---
 

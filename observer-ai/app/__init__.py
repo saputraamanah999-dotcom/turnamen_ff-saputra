@@ -1,4 +1,4 @@
-"""ZEROID AI OBSERVER — observer AI lokal untuk gameplay Free Fire.
+"""STIKAR AI OBSERVER — observer AI lokal untuk gameplay Free Fire.
 
 Prinsip kerja: hanya MELIHAT piksel layar (screen capture via mss) + OCR HUD
 offline (RapidOCR). Tanpa API berbayar, tanpa akses memori game, tanpa

@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Klien AI Observer lokal (port 8077)
+// STIKAR ESPORTS — Klien AI Observer lokal (port 8077)
 // Service ini berjalan di laptop produksi operator.
 // Website TIDAK berjalan jika observer offline — hanya panel
 // yang menampilkan status "tidak tersedia".
@@ -8,7 +8,7 @@
 
 import type { ObserverEvent } from "@/lib/types";
 
-const OBSERVER_URL_KEY = "zeroid.observer.url";
+const OBSERVER_URL_KEY = "stikar.observer.url";
 export const OBSERVER_DEFAULT_URL = "http://127.0.0.1:8077";
 
 export function getObserverUrl(): string {

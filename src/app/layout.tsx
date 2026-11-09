@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     template: `%s · ${ORG.brand}`,
   },
   description: `Platform manajemen turnamen esports Free Fire, leaderboard realtime, dan broadcast profesional ${ORG.tournament} — ${ORG.institution}. Dibuat oleh ${ORG.developer}.`,
-  keywords: ["ZEROID ESPORTS", "Battle Off Friends", "BOF", "turnamen Free Fire", "esports sekolah", "leaderboard", "SMK TI Bali Global Karangasem"],
+  keywords: ["STIKAR ESPORTS", "Battle Off Friends", "BOF", "turnamen Free Fire", "esports sekolah", "leaderboard", "SMK TI Bali Global Karangasem"],
   authors: [{ name: ORG.developer }],
   openGraph: {
     title: `${ORG.brand} — ${ORG.tournament}`,

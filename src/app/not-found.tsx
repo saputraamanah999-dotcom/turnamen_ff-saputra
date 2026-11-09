@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Home, ShieldQuestion, Zap } from "lucide-react";
 
-// Halaman 404 branded ZEROID — pengunjung yang salah alamat tetap
+// Halaman 404 branded STIKAR — pengunjung yang salah alamat tetap
 // diarahkan ke konten yang benar.
 export default function NotFound() {
   return (
@@ -18,7 +18,7 @@ export default function NotFound() {
           Halaman Tidak Ditemukan
         </h1>
         <p className="mt-2 text-sm font-semibold text-fs-text/60">
-          Alamat yang kamu buka tidak ada di platform ZEROID ESPORTS. Mungkin salah ketik
+          Alamat yang kamu buka tidak ada di platform STIKAR ESPORTS. Mungkin salah ketik
           atau halamannya sudah dipindahkan.
         </p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">

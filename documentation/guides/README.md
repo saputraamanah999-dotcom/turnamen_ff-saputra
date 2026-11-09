@@ -1,4 +1,4 @@
-# Indeks Guide Operasional ZEROID ESPORTS — BOF
+# Indeks Guide Operasional STIKAR ESPORTS — BOF
 
 17 guide operasional harian untuk operator sekolah. Urutan baca disarankan mengikuti alur penyelenggaraan: **persiapan (G01–G05) → teknis siaran (G06–G11) → AI (G12–G13) → operasi hari-H (G14–G17)**.
 
@@ -12,7 +12,7 @@
 | [GUIDE_06](GUIDE_06_menghubungkan-hp-ke-laptop.md) | Cara menghubungkan HP ke laptop | Mode developer, USB debugging, `adb devices` — diagram |
 | [GUIDE_07](GUIDE_07_memakai-scrcpy.md) | Cara memakai scrcpy | Mode USB & TCP/IP (`adb tcpip 5555`), latency — diagram |
 | [GUIDE_08](GUIDE_08_gameplay-ke-obs.md) | Cara memasukkan gameplay ke OBS | Window/Display Capture, Fit to screen — diagram |
-| [GUIDE_09](GUIDE_09_pasang-overlay-di-obs.md) | Cara memasang overlay ZEROID di OBS | 5 overlay `/overlay/:tournamentId/...`, dimensi, transparan — diagram |
+| [GUIDE_09](GUIDE_09_pasang-overlay-di-obs.md) | Cara memasang overlay STIKAR di OBS | 5 overlay `/overlay/:tournamentId/...`, dimensi, transparan — diagram |
 | [GUIDE_10](GUIDE_10_streaming-publik.md) | Cara mengatur streaming publik | YouTube Live (Mode A), stream key, `youtubeVideoId` di Broadcast Settings |
 | [GUIDE_11](GUIDE_11_streaming-lokal-sekolah.md) | Cara membuat streaming lokal sekolah | MediaMTX (Mode B), `http://IP-LAPTOP:8888/stream`, hanya LAN — diagram |
 | [GUIDE_12](GUIDE_12_jalankan-ai-observer.md) | Cara menjalankan AI Observer | venv, kalibrasi HUD/minimap, FPS 1/2/5, port 8077 — diagram |

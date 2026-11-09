@@ -66,7 +66,7 @@
   --color-fs-err: #EF4444;     /* Red — error/emergency */
   --color-fs-ink: #0B0E14;     /* Ink gelap untuk teks di atas emas/sian */
 
-  /* ==== LEGACY ZEROID PALETTE → dipetakan ke FIRESTORM ====
+  /* ==== LEGACY STIKAR PALETTE → dipetakan ke FIRESTORM ====
      Kelas lama (bg-zb-blue, bg-zb-yellow, dsb.) tetap berfungsi
      dan otomatis mengikuti tema baru. zb-black = tinta gelap yang
      dipakai DI ATAS permukaan emas/sian (kontras). */
@@ -461,8 +461,70 @@ html[data-theme] .theme-accent { color: var(--fs-fire); }
   animation: fs-progress-fire .8s linear infinite;
 }
 
+/* ============================================================
+   PREMIUM ESPORT LAYER — efek sinematik yang purposeful
+   (stagger reveal, holo border, specular sweep, podium float)
+   ============================================================ */
+
+/* Reveal baris leaderboard: slide + fade halus, dipakai dengan
+   animation-delay bertingkat (stagger) — kesan "mantap" saat data masuk. */
+@keyframes fs-row-in {
+  0% { opacity: 0; transform: translateX(-14px); clip-path: inset(0 100% 0 0); }
+  100% { opacity: 1; transform: translateX(0); clip-path: inset(0 0 0 0); }
+}
+.fs-row-in { animation: fs-row-in .45s cubic-bezier(.22,1,.36,1) both; }
+
+/* Border holografik: gradien fire→gold→cyan berputar pelan di tepi kartu. */
+@keyframes fs-holo {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.fs-holo {
+  border: 1px solid transparent !important;
+  background:
+    linear-gradient(#0C1117, #0C1117) padding-box,
+    linear-gradient(115deg, rgba(255,90,31,.75), rgba(255,194,71,.75), rgba(53,214,255,.65), rgba(255,90,31,.75)) border-box;
+  background-size: 100% 100%, 320% 320%;
+  animation: fs-holo 7s ease-in-out infinite;
+}
+
+/* Sweep cahaya spesular di atas panel emas (header LIVE STANDINGS). */
+@keyframes fs-shine {
+  0% { transform: translateX(-120%) skewX(-18deg); }
+  60%, 100% { transform: translateX(320%) skewX(-18deg); }
+}
+.fs-shine { position: relative; overflow: hidden; }
+.fs-shine::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 34%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.10), transparent);
+  animation: fs-shine 4.8s ease-in-out infinite; pointer-events: none;
+}
+
+/* Podium bernafas: naik-turun super halus (kartu juara). */
+@keyframes fs-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.fs-float { animation: fs-float 5.5s ease-in-out infinite; }
+
+/* Angka countdown berdetak halus tiap detik (Starting Soon overlay). */
+@keyframes fs-count-tick {
+  0% { transform: scale(1.045); text-shadow: 0 0 18px rgba(244,211,116,.45); }
+  100% { transform: scale(1); text-shadow: 0 0 6px rgba(244,211,116,.15); }
+}
+.fs-count-tick { animation: fs-count-tick .95s cubic-bezier(.22,1,.36,1) both; }
+
+/* Teks emas bernyala pelan (champion / judul besar). */
+@keyframes fs-glow-text {
+  0%, 100% { text-shadow: 0 0 10px rgba(255,194,71,.35), 0 0 28px rgba(255,194,71,.12); }
+  50% { text-shadow: 0 0 20px rgba(255,194,71,.6), 0 0 44px rgba(255,194,71,.25); }
+}
+.fs-glow-text { animation: fs-glow-text 2.8s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   .bo-skel, .flash-up, .rank-champion, .zb-rise, .fs-live-badge,
   .fs-scanline::after, .fs-onair, .fs-connecting, .fs-ticker-track,
-  .fs-progress-fire, .fs-live-in { animation: none !important; }
+  .fs-progress-fire, .fs-live-in, .fs-row-in, .fs-holo, .fs-shine::before,
+  .fs-float, .fs-count-tick, .fs-glow-text { animation: none !important; }
 }

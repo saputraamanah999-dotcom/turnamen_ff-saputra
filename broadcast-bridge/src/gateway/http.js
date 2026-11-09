@@ -1,11 +1,11 @@
 /**
- * ZEROID LOCAL BROADCAST GATEWAY (PHASE 2 §6, §7, §8)
+ * STIKAR LOCAL BROADCAST GATEWAY (PHASE 2 §6, §7, §8)
  *
  * HTTP server yang berjalan di LAPTOP PRODUKSI dan melayani jaringan lokal:
  *   TV / HP penonton  --http://<ip-laptop>:<GATEWAY_PORT>-->  GATEWAY
  *
  * Fungsi:
- *  1. Halaman DISPLAY & LIVE bergaya ZEROID (video gameplay + leaderboard).
+ *  1. Halaman DISPLAY & LIVE bergaya STIKAR (video gameplay + leaderboard).
  *  2. Proxy ke MediaMTX (WHIP publish / WHE playback / HLS fallback) —
  *     sehingga browser viewer same-origin, bebas masalah CORS/mixed-content.
  *  3. Pairing code untuk website publik (dibatasi waktu, bisa dicabut).
@@ -177,7 +177,7 @@ export class LocalGateway {
       cors(res);
       const ip = activeLanIp();
       const body = {
-        service: 'zeroid-local-gateway',
+        service: 'stikar-local-gateway',
         server: true,
         gatewayPort: this.port,
         lanIp: ip ? ip.address : null,

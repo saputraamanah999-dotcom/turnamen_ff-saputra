@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// /admin/local-network — ZEROID LOCAL BROADCAST CONNECTOR (§6)
+// /admin/local-network — STIKAR LOCAL BROADCAST CONNECTOR (§6)
 // Wizard profesional: pilih metode koneksi → pilih interface →
 // host server → connection test → share ke TV (QR) → viewer list.
 // Semua data NYATA: IP dari network interface laptop (via bridge),
@@ -202,12 +202,14 @@ export default function AdminLocalNetworkPage() {
   }
 
   const bridgeOn = Boolean(bridge?.connected);
-  const viewerList = bridge?.viewerList ?? gatewayStatus?.viewerList ?? [];
+  const viewerList = (bridge?.viewerList ?? gatewayStatus?.viewerList ?? []) as Array<{
+    label?: string; type?: string; since?: number;
+  }>;
 
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="font-display text-2xl font-bold uppercase tracking-wide">ZEROID Local Broadcast Connector</h1>
+        <h1 className="font-display text-2xl font-bold uppercase tracking-wide">STIKAR Local Broadcast Connector</h1>
         <p className="mt-1 max-w-3xl text-sm font-semibold text-fs-muted">
           Hubungkan laptop → hotspot/router → TV & perangkat penonton. Semua status di bawah
           diambil dari kondisi jaringan nyata — bukan simulasi.
@@ -302,7 +304,7 @@ export default function AdminLocalNetworkPage() {
                   <li>2. macOS: <b className="text-fs-text">System Settings → General → Sharing → Internet Sharing</b>.</li>
                   <li>3. Sambungkan TV ke nama hotspot laptop (cek nama & kata sandi di layar laptop).</li>
                   <li>4. Jangan sampai TV dan laptop berbeda jaringan — tes dengan STEP 3.</li>
-                  <li>5. Password Wi-Fi TIDAK diminta/diimpan oleh sistem ZEROID.</li>
+                  <li>5. Password Wi-Fi TIDAK diminta/diimpan oleh sistem STIKAR.</li>
                 </ol>
                 <p className="mt-3 flex items-start gap-2 border border-fs-gold/40 bg-fs-gold/10 p-2.5 text-[11px] font-semibold text-fs-gold">
                   <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -399,7 +401,7 @@ export default function AdminLocalNetworkPage() {
                     </BoButton>
                   </div>
                   <p className="mt-2 text-[11px] font-semibold text-fs-muted">
-                    TV buka Display URL → langsung tampil layout siaran ZEROID (Mode A, tanpa internet untuk video).
+                    TV buka Display URL → langsung tampil layout siaran STIKAR (Mode A, tanpa internet untuk video).
                   </p>
                 </div>
                 {/* Pairing Mode B untuk website publik */}

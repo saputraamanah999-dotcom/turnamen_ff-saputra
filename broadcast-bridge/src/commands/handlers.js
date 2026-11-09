@@ -1,5 +1,5 @@
 /**
- * ZEROID BROADCAST BRIDGE — Handler perintah website -> bridge
+ * STIKAR BROADCAST BRIDGE — Handler perintah website -> bridge
  *
  * Whitelist perintah (satu-satunya yang boleh dijalankan):
  *   getStatus, getScenes, switchScene, toggleSource, refreshOverlay, getOutputs

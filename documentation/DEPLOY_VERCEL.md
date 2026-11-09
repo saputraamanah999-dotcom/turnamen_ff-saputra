@@ -1,4 +1,4 @@
-# ▲ DEPLOY KE VERCEL — ZEROID ESPORTS (BOF)
+# ▲ DEPLOY KE VERCEL — STIKAR ESPORTS (BOF)
 
 Panduan deploy website turnamen ke **Vercel** (paket **Hobby / gratis**) — ditulis untuk
 dikerjakan langsung dari **HP (Chrome Android)** maupun laptop.
@@ -109,4 +109,4 @@ dibuka di **`https://<domain-vercel-kamu>/setup.html`** langsung dari HP.
 
 ---
 
-*Deploy guide — ZEROID ESPORTS · Designed by SAPUTRA DEVELOPER*
+*Deploy guide — STIKAR ESPORTS · Designed by SAPUTRA DEVELOPER*

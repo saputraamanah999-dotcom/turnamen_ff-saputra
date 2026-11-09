@@ -7,11 +7,11 @@ export default function AboutPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
       <span className="bo-kicker mb-2 inline-block bg-zb-purple">Tentang</span>
-      <h1 className="bo-title mb-6">ZEROID ESPORTS</h1>
+      <h1 className="bo-title mb-6">STIKAR ESPORTS</h1>
 
       <BoCard className="bg-fs-panel p-6 leading-relaxed">
         <p className="text-base font-semibold">
-          ZEROID ESPORTS adalah platform manajemen turnamen esports Free Fire, leaderboard
+          STIKAR ESPORTS adalah platform manajemen turnamen esports Free Fire, leaderboard
           realtime, dan sistem broadcast profesional yang dirancang khusus untuk panggung
           esports tingkat sekolah — <strong>{ORG.tournament}</strong> yang diselenggarakan oleh{" "}
           <strong>{ORG.institution}</strong>.

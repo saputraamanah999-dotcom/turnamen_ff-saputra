@@ -10,7 +10,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Check, ChevronDown, Copy, Eye, Layers, RotateCcw, Send, Sliders, Undo2, Zap,
+  Check, ChevronDown, Copy, ExternalLink, Eye, Layers, MonitorPlay, RefreshCw, RotateCcw, Send, Sliders, Undo2, Zap,
 } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import { useActiveTournament, useDoc } from "@/services/firestore/hooks";
@@ -18,7 +18,8 @@ import { saveOverlayConfig, publishBroadcastEvent } from "@/services/scoring/pub
 import { useAdminSession } from "@/services/auth/admin";
 import { useToast } from "@/hooks/use-toast";
 import {
-  OVERLAY_LAYERS, OVERLAY_PRESETS, OVERLAY_SCENES,
+  OVERLAY_LAYERS, OVERLAY_LAYOUTS, OVERLAY_PRESETS, OVERLAY_SCENES,
+  type OverlayLayout,
 } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { OverlayConfigDoc, OverlayLayerState, OverlaySceneConfig } from "@/lib/types";
@@ -55,6 +56,11 @@ export default function AdminOverlayPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [lastPushedAt, setLastPushedAt] = useState<number | null>(null);
+  // Preview test: embed halaman overlay ASLI (yang dilihat OBS/TV) + uji pipeline realtime.
+  const [origin, setOrigin] = useState("");
+  const [previewLayout, setPreviewLayout] = useState<OverlayLayout>("compact");
+  const [previewKey, setPreviewKey] = useState(0);
+  useEffect(() => setOrigin(window.location.origin), []);
 
   // Muat konfigurasi per-scene dari Firestore bila ada.
   useEffect(() => {
@@ -144,6 +150,24 @@ export default function AdminOverlayPage() {
       await saveOverlayConfig(tid, { onAir: prev, pushedAt: Date.now() });
       await publishBroadcastEvent(tid, "OVERLAY_PUSHED", { message: "RESTORE PREVIOUS" });
       toast({ title: "Konfigurasi on-air sebelumnya dikembalikan" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendTestEvent() {
+    if (!tid) return;
+    setBusy(true);
+    try {
+      await publishBroadcastEvent(tid, "MATCH_INFO_UPDATED", {
+        message: "UJI COBA — pipeline realtime berjalan (dari Preview Test)",
+        matchNumber: null,
+        map: null,
+      });
+      setPreviewKey((k) => k + 1);
+      toast({ title: "Event uji terkirim", description: "Cek TV Display & /live — animasi notice muncul realtime." });
+    } catch (e) {
+      toast({ title: "Uji gagal", description: e instanceof Error ? e.message : String(e), variant: "destructive" as never });
     } finally {
       setBusy(false);
     }
@@ -396,6 +420,63 @@ export default function AdminOverlayPage() {
           </div>
         </BoCard>
       </div>
+
+      {/* ===== PREVIEW TEST — halaman overlay asli + uji pipeline realtime ===== */}
+      <BoCard className="p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 font-display text-sm font-bold uppercase tracking-[0.16em]">
+            <MonitorPlay className="h-4 w-4 text-fs-fire" /> Preview Test — Halaman Overlay Asli
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={previewLayout}
+              onChange={(e) => setPreviewLayout(e.target.value as OverlayLayout)}
+              className="bo-input !h-9 !w-52 !py-0"
+              aria-label="Pilih layout overlay untuk preview"
+            >
+              {OVERLAY_LAYOUTS.map((l) => (
+                <option key={l.value} value={l.value}>{l.label} ({l.value})</option>
+              ))}
+            </select>
+            <BoButton variant="white" className="!px-3 !py-2 !text-[11px]" onClick={() => setPreviewKey((k) => k + 1)} title="Muat ulang preview">
+              <RefreshCw className="h-3.5 w-3.5" /> Reload
+            </BoButton>
+            {tid ? (
+              <a
+                href={`/overlay/${tid}/${previewLayout}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 border-2 border-fs-edge bg-white px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-fs-head transition hover:border-fs-cyan"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Tab Baru
+              </a>
+            ) : null}
+            <BoButton variant="gold" className="!px-3 !py-2 !text-[11px]" onClick={sendTestEvent} disabled={busy || !tid} title="Kirim event broadcast uji — TV & /live harus bereaksi realtime">
+              <Zap className="h-3.5 w-3.5" /> Kirim Uji Realtime
+            </BoButton>
+          </div>
+        </div>
+        <div className="mt-3 aspect-video w-full overflow-hidden border-2 border-fs-edge bg-[#04070B] fs-onair">
+          {tid && origin ? (
+            <iframe
+              key={`${previewLayout}-${previewKey}`}
+              src={`${origin}/overlay/${tid}/${previewLayout}`}
+              title={`Preview overlay ${previewLayout}`}
+              className="h-full w-full"
+              sandbox="allow-same-origin allow-scripts"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-xs font-bold uppercase tracking-widest text-fs-muted/60">
+              Turnamen belum aktif — preview siap setelah ada turnamen
+            </div>
+          )}
+        </div>
+        <p className="mt-2 text-[11px] font-semibold text-fs-muted">
+          Ini BUKAN mockup — iframe memuat <code className="text-fs-cyan">/overlay/{tid ?? ":tid"}/{previewLayout}</code> persis seperti
+          Browser Source OBS &amp; TV Display. PUSH TO BROADCAST lalu tekan <b>Kirim Uji Realtime</b>: jika animasi
+          notice muncul di sini, pipeline realtime 100% jalan.
+        </p>
+      </BoCard>
     </div>
   );
 }

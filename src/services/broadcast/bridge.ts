@@ -1,12 +1,12 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Klien Broadcast Bridge lokal (port 8078)
+// STIKAR ESPORTS — Klien Broadcast Bridge lokal (port 8078)
 // Hanya terhubung ketika website dibuka di laptop produksi.
 // Tidak pernah mengekspos OBS WebSocket ke internet publik.
 // ============================================================
 
-const BRIDGE_URL_KEY = "zeroid.bridge.url";
-const BRIDGE_TOKEN_KEY = "zeroid.bridge.token";
+const BRIDGE_URL_KEY = "stikar.bridge.url";
+const BRIDGE_TOKEN_KEY = "stikar.bridge.token";
 export const BRIDGE_DEFAULT_URL = "ws://127.0.0.1:8078";
 
 export function getBridgeUrl(): string {

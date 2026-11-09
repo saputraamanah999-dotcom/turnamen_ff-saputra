@@ -1,4 +1,4 @@
-# MediaMTX untuk Siaran Lokal ZEROID (gratis & open-source)
+# MediaMTX untuk Siaran Lokal STIKAR (gratis & open-source)
 
 Alur: **Browser capture (WHIP) → MediaMTX → TV/HP (WebRTC/HLS)**
 

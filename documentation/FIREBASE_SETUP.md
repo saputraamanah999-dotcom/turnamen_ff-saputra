@@ -1,4 +1,4 @@
-# FIREBASE_SETUP.md — Setup Firebase untuk ZEROID ESPORTS (BOF)
+# FIREBASE_SETUP.md — Setup Firebase untuk STIKAR ESPORTS (BOF)
 
 Dokumen ini memandu panitia/developer menyiapkan **backend Firebase** dari nol sampai website bisa dipakai. Ikuti urutan bab secara berurutan. Semua langkah menggunakan **Spark plan (gratis)** — **jangan pernah mengaktifkan billing** atau upgrade ke Blaze.
 
@@ -16,7 +16,7 @@ Dokumen ini memandu panitia/developer menyiapkan **backend Firebase** dari nol s
 1. Buka `https://console.firebase.google.com` di browser.
 2. Login memakai akun Google sekolah.
 3. Klik **Create a project** (atau "Add project").
-4. Isi nama project, misalnya `zeroid-bof-smktibgk`.
+4. Isi nama project, misalnya `stikar-bof-smktibgk`.
 5. Jika ditanya tentang Google Analytics: **pilih tidak aktif** (tidak diperlukan).
 6. Klik **Create project** dan tunggu proses selesai.
 7. **PENTING:** Buka menu ikon roda gigi (Project Settings) → tab **Usage and billing**. Pastikan tertulis **Spark plan**. Jangan pilih upgrade ke Blaze. Spark sudah cukup untuk Auth email/password + Firestore.
@@ -148,7 +148,7 @@ npm run build
 firebase deploy
 ```
 
-4. Terminal akan menampilkan **Hosting URL**, misalnya `https://zeroid-bof-smktibgk.web.app`. Buka URL itu — beranda `/` harus tampil.
+4. Terminal akan menampilkan **Hosting URL**, misalnya `https://stikar-bof-smktibgk.web.app`. Buka URL itu — beranda `/` harus tampil.
 5. Uji cepat: buka `/leaderboard`, `/teams`, `/matches`, dan `/admin` (login). Semua harus tampil tanpa error.
 
 **Update selanjutnya:** setiap kali konten berubah, cukup `npm run build` lalu `firebase deploy`.

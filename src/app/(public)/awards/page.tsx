@@ -183,7 +183,7 @@ export default function AwardsPage() {
 
       <p className="mt-8 text-xs font-semibold text-fs-text/50">
         Sumber: klasemen resmi {standings.data.scoringVersion} · {teams.data?.length ?? 0} tim terdaftar ·
-        diperbarui otomatis realtime oleh sistem ZEROID ESPORTS.
+        diperbarui otomatis realtime oleh sistem STIKAR ESPORTS.
       </p>
     </div>
   );

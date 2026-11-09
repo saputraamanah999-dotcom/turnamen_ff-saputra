@@ -1,13 +1,13 @@
-# ZEROID BROADCAST BRIDGE
+# STIKAR BROADCAST BRIDGE
 
-Service Node.js **lokal** yang menjembatani **website ZEROID ESPORTS** dengan **OBS Studio**
+Service Node.js **lokal** yang menjembatani **website STIKAR ESPORTS** dengan **OBS Studio**
 melalui plugin **obs-websocket v5**. Bridge berjalan di laptop produksi sekolah dan
 **hanya listen di localhost/LAN** — OBS WebSocket **TIDAK PERNAH terekspos ke internet publik**.
 100% gratis, tanpa API berbayar.
 
 ```
 ┌──────────────────┐     ws://127.0.0.1:8078      ┌────────────────────┐     ws://127.0.0.1:4455      ┌────────────┐
-│ Website ZEROID   │ ───────────────────────────► │  Broadcast Bridge  │ ───────────────────────────► │ OBS Studio │
+│ Website STIKAR   │ ───────────────────────────► │  Broadcast Bridge  │ ───────────────────────────► │ OBS Studio │
 │ (panel operator) │   (?token=..., hanya lokal)  │  (Node.js + 'ws')  │  (plugin obs-websocket v5)   │            │
 └──────────────────┘                              └────────────────────┘                              └────────────┘
 ```
@@ -103,11 +103,11 @@ npm run dev
 Contoh output:
 
 ```
-[2025-01-01T09:00:00.000Z] INFO   ZEROID BROADCAST BRIDGE — mulai
+[2025-01-01T09:00:00.000Z] INFO   STIKAR BROADCAST BRIDGE — mulai
 [2025-01-01T09:00:00.010Z] OK     Config dimuat — scene whitelist berisi 9 scene
 [2025-01-01T09:00:00.012Z] OBS    Menghubungkan ke OBS di ws://127.0.0.1:4455 ...
 [2025-01-01T09:00:00.015Z] WARN   OBS belum terhubung (OBS tidak dapat dihubungi ...)
-[2025-01-01T09:00:00.016Z] OK     ZEROID Broadcast Bridge siap di ws://127.0.0.1:8078 (hanya localhost/LAN)
+[2025-01-01T09:00:00.016Z] OK     STIKAR Broadcast Bridge siap di ws://127.0.0.1:8078 (hanya localhost/LAN)
 [2025-01-01T09:00:02.020Z] OBS    Terhubung ke OBS Studio
 ```
 
@@ -208,4 +208,4 @@ Setiap perubahan status OBS, semua klien yang terhubung menerima:
   koneksi dicoba ulang otomatis (2 dtk, 4 dtk, 8 dtk, ... maks 30 dtk).
 - Bila `BRIDGE_TOKEN` kosong saat bridge dijalankan, bridge membuat token sementara acak
   dan mencetaknya sekali ke console (untuk uji coba saja — tetap isi `.env` untuk produksi).
-- Gratis untuk ZEROID ESPORTS / komunitas. Tanpa layanan berbayar.
+- Gratis untuk STIKAR ESPORTS / komunitas. Tanpa layanan berbayar.

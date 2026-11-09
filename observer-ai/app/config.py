@@ -1,4 +1,4 @@
-"""Konfigurasi ZEROID AI OBSERVER (pydantic-settings).
+"""Konfigurasi STIKAR AI OBSERVER (pydantic-settings).
 
 Semua nilai bisa dioverride lewat environment variable berprefix ``OBSERVER_``
 (contoh: ``OBSERVER_PORT=8077``, ``OBSERVER_FPS=2``) atau file ``.env`` di

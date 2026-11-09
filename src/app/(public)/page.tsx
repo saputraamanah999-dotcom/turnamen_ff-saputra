@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — HOMEPAGE (Battle Off Friends)
+// STIKAR ESPORTS — HOMEPAGE (Battle Off Friends)
 // ============================================================
 
 import Link from "next/link";
@@ -50,7 +50,7 @@ export default function HomePage() {
       <DataStatusBanner status={status === "online" && standings.status === "online" ? "online" : standings.status} />
 
       {/* ============ HERO ============ */}
-      <section className="relative overflow-hidden border-[4px] border-fs-edge bg-fs-panel bo-shadow-lg">
+      <section className="fs-shine relative overflow-hidden border-[4px] border-fs-edge bg-fs-panel bo-shadow-lg">
         <div className="bo-halftone absolute inset-0" aria-hidden />
         <div className="absolute -right-10 -top-10 h-56 w-56 rotate-12 border-[4px] border-fs-edge bg-zb-cyan" aria-hidden />
         <div className="absolute -bottom-16 -left-14 h-52 w-52 -rotate-6 border-[4px] border-fs-edge bg-zb-yellow" aria-hidden />
@@ -69,7 +69,7 @@ export default function HomePage() {
             </div>
 
             <h1 className="mt-5 font-display text-5xl font-black uppercase leading-[0.95] sm:text-6xl lg:text-7xl">
-              ZEROID
+              <span className="fs-glow-text block">STIKAR</span>
               <span className="block text-zb-blue">ESPORTS</span>
             </h1>
             <p className="mt-4 max-w-2xl text-base font-semibold leading-relaxed text-fs-text/70 sm:text-lg">

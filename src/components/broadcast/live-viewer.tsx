@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — LIVE VIEWER (PHASE 2 §8)
+// STIKAR ESPORTS — LIVE VIEWER (PHASE 2 §8)
 // Halaman live publik: gameplay + info match + leaderboard +
 // status koneksi stream. Video auto-connect ke sumber yang
 // benar-benar tersedia (WHE lokal → HLS → YouTube publik).
@@ -35,7 +35,7 @@ export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
   useEffect(() => {
     const t = setTimeout(() => {
       try {
-        const raw = localStorage.getItem("zeroid.pairing");
+        const raw = localStorage.getItem("stikar.pairing");
         if (raw) setPairing(JSON.parse(raw));
       } catch { /* abaikan */ }
     }, 0);

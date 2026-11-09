@@ -1,4 +1,4 @@
-"""Skema pydantic: kontrak request/response API ZEROID AI OBSERVER."""
+"""Skema pydantic: kontrak request/response API STIKAR AI OBSERVER."""
 from __future__ import annotations
 
 from typing import Dict, List, Optional
@@ -75,6 +75,6 @@ class HealthModel(BaseModel):
     """GET /health — indikator layanan hidup."""
 
     status: str = "ok"
-    service: str = "ZEROID AI OBSERVER"
+    service: str = "STIKAR AI OBSERVER"
     time: str = ""
     activeMatchId: str = ""

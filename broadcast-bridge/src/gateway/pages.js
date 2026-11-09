@@ -1,5 +1,5 @@
 /**
- * ZEROID LOCAL GATEWAY — Halaman siaran standalone (PHASE 2 §8, §9, §26)
+ * STIKAR LOCAL GATEWAY — Halaman siaran standalone (PHASE 2 §8, §9, §26)
  * /display/:tid — Mode A utama untuk TV: gameplay besar kiri, leaderboard kanan,
  *                 header ronde/map, ticker bawah, animasi LIVE NOW, emergency screen.
  * /live/:tid    — Untuk HP penonton: video + info + leaderboard ringkas.
@@ -236,7 +236,7 @@ function renderData(lb, bs, tour){
   if (bs && Array.isArray(bs.announcements) && bs.announcements.length) parts.push(bs.announcements[bs.announcements.length-1]);
   if (bs && bs.streamTitle) parts.push(bs.streamTitle);
   parts.push('BATTLE OFF FRIENDS · '+ (tour && tour.name ? tour.name : 'TURNAMEN') +' · SMK TI BALI GLOBAL KARANGASEM');
-  parts.push('POWERED BY ZEROID ESPORTS — SAPUTRA DEVELOPER');
+  parts.push('POWERED BY STIKAR ESPORTS — SAPUTRA DEVELOPER');
   const track = $('#tickertrack');
   const content = parts.map(x=>'<b>▸</b> '+esc(x)).join(' &nbsp;&nbsp; ');
   track.innerHTML = content + ' &nbsp;&nbsp; ' + content;
@@ -251,7 +251,7 @@ function showEvent(ev){
     STREAM_RECONNECTING: 'RECONNECTING…', TECHNICAL_DIFFICULTIES: 'TECHNICAL DIFFICULTIES',
     BROADCAST_ENDED: 'BROADCAST ENDED',
   }[ev.type] || ev.type;
-  wrap.innerHTML = '<div class="e1 cond">'+esc(label)+'</div><div class="e2">'+esc('BATTLE OFF FRIENDS — ZEROID ESPORTS')+'</div>';
+  wrap.innerHTML = '<div class="e1 cond">'+esc(label)+'</div><div class="e2">'+esc('BATTLE OFF FRIENDS — STIKAR ESPORTS')+'</div>';
   const dur = ev.type==='LIVE_NOW' || ev.type==='LIVE_STARTING' ? 6000 : 3800;
   eventShownUntil = Date.now() + dur;
   setTimeout(()=>{ if (Date.now() >= eventShownUntil - 50) wrap.innerHTML=''; }, dur);
@@ -406,7 +406,7 @@ function pageShell({ tid, projectId, role, body, extraHead = '', wheUrl, hlsUrl 
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ZEROID ESPORTS — ${role === 'display' ? 'TV DISPLAY' : 'LIVE'} · BATTLE OFF FRIENDS</title>
+<title>STIKAR ESPORTS — ${role === 'display' ? 'TV DISPLAY' : 'LIVE'} · BATTLE OFF FRIENDS</title>
 <style>${CSS}</style>
 ${extraHead}
 </head>
@@ -430,7 +430,7 @@ export function renderDisplayPage({ tid, projectId = 'turnamenffbof', mediamtxPa
     <div class="brand">
       <span class="logo cond">Z</span>
       <div>
-        <h1 class="cond">ZEROID <b>ESPORTS</b></h1>
+        <h1 class="cond">STIKAR <b>ESPORTS</b></h1>
         <p>BATTLE OFF FRIENDS · SMK TI BALI GLOBAL KARANGASEM</p>
       </div>
     </div>
@@ -485,7 +485,7 @@ export function renderLivePage({ tid, projectId = 'turnamenffbof', mediamtxPath 
     <div class="brand">
       <span class="logo cond">Z</span>
       <div>
-        <h1 class="cond">ZEROID <b>ESPORTS</b> · LIVE</h1>
+        <h1 class="cond">STIKAR <b>ESPORTS</b> · LIVE</h1>
         <p>BATTLE OFF FRIENDS</p>
       </div>
     </div>
@@ -516,10 +516,10 @@ export function renderLivePage({ tid, projectId = 'turnamenffbof', mediamtxPath 
 export function renderInfoPage({ port, lanIp, mediamtx }) {
   const disp = lanIp ? `http://${lanIp}:${port}/display` : '(IP LAN belum terdeteksi)';
   return `<!DOCTYPE html>
-<html lang="id"><head><meta charset="UTF-8"><title>ZEROID Local Gateway</title><style>${CSS}</style></head>
+<html lang="id"><head><meta charset="UTF-8"><title>STIKAR Local Gateway</title><style>${CSS}</style></head>
 <body>
 <div class="info">
-  <h1 class="cond">ZEROID <span style="color:var(--fire)">LOCAL GATEWAY</span></h1>
+  <h1 class="cond">STIKAR <span style="color:var(--fire)">LOCAL GATEWAY</span></h1>
   <p style="color:var(--muted);font-size:14px">Server siaran lokal laptop berjalan. Buka link di bawah dari TV / HP yang terhubung ke Wi-Fi atau hotspot yang sama.</p>
   <div class="card">
     <h2 class="cond">STATUS SERVER</h2>
@@ -533,7 +533,7 @@ export function renderInfoPage({ port, lanIp, mediamtx }) {
     <div class="rowl"><span>Live viewer</span><a href="/live">/live</a></div>
     <div class="rowl"><span>Status API</span><a href="/api/status">/api/status</a></div>
   </div>
-  <p style="margin-top:16px;color:var(--muted);font-size:11px;letter-spacing:.2em" class="cond">ZEROID ESPORTS — DEVELOPED BY SAPUTRA DEVELOPER</p>
+  <p style="margin-top:16px;color:var(--muted);font-size:11px;letter-spacing:.2em" class="cond">STIKAR ESPORTS — DEVELOPED BY SAPUTRA DEVELOPER</p>
 </div>
 </body></html>`;
 }

@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Navigasi utama
+// STIKAR ESPORTS — Navigasi utama
 // ============================================================
 
 import Link from "next/link";
@@ -28,13 +28,13 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-fs-edge bg-fs-panel">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4">
-        <Link href="/" className="flex items-center gap-2.5" aria-label="Beranda ZEROID ESPORTS">
+        <Link href="/" className="flex items-center gap-2.5" aria-label="Beranda STIKAR ESPORTS">
           <span className="flex h-10 w-10 items-center justify-center border border-fs-edge bg-zb-blue text-white bo-shadow-sm">
             <Zap className="h-5 w-5" strokeWidth={2.75} />
           </span>
           <span className="leading-none">
             <span className="block font-display text-lg font-black tracking-tight">
-              ZEROID <span className="text-zb-blue">ESPORTS</span>
+              STIKAR <span className="text-zb-blue">ESPORTS</span>
             </span>
             <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-fs-text/60">
               {ORG.tournament} · {ORG.institution}
@@ -119,7 +119,7 @@ export function Footer() {
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-3">
         <div>
           <p className="font-display text-xl font-black tracking-tight">
-            ZEROID <span className="text-zb-cyan">ESPORTS</span>
+            STIKAR <span className="text-zb-cyan">ESPORTS</span>
           </p>
           <p className="mt-2 text-sm text-white/70">
             {ORG.tournament} · {ORG.institution}
@@ -147,7 +147,7 @@ export function Footer() {
           </p>
           <p className="text-zb-yellow font-black">{ORG.developer}</p>
           <p className="mt-3 text-xs text-white/40">
-            © {new Date().getFullYear()} ZEROID ESPORTS. Semua statistik dihitung dari hasil resmi yang dipublikasikan panitia.
+            © {new Date().getFullYear()} STIKAR ESPORTS. Semua statistik dihitung dari hasil resmi yang dipublikasikan panitia.
           </p>
         </div>
       </div>

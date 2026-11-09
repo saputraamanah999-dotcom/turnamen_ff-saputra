@@ -12,7 +12,7 @@ Membuat turnamen baru di Admin Panel (route `/admin`) sehingga website langsung 
 1. Buka website sekolah di browser, masuk ke route **`/admin`**.
 2. Login dengan email dan password akun panitia (Firebase Auth email/password).
 3. Cari bagian kelola turnamen, lalu pilih aksi **membuat turnamen baru**.
-4. Isi **nama turnamen** dengan benar, misalnya: `ZEROID ESPORTS — BOF SEMESTER GANJIL 2025`. Hindari nama yang membingungkan karena nama ini tampil di publik.
+4. Isi **nama turnamen** dengan benar, misalnya: `STIKAR ESPORTS — BOF SEMESTER GANJIL 2025`. Hindari nama yang membingungkan karena nama ini tampil di publik.
 5. Isi **tanggal/jadwal** pelaksanaan sesuai rencana panitia.
 6. Pilih **format pertandingan**:
    - **Best of 3 (BO3)** — pemenang ditentukan dari 3 game terbaik.

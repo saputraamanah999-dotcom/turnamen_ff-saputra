@@ -1,4 +1,4 @@
-# GUIDE 09 — Cara Memasang Overlay ZEROID di OBS
+# GUIDE 09 — Cara Memasang Overlay STIKAR di OBS
 
 ## Tujuan
 Memasang **overlay transparan** (leaderboard, top 3, info match, lower third) di atas gameplay dalam OBS, sehingga penonton melihat grafis skor BOF yang realtime.

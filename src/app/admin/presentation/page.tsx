@@ -137,7 +137,7 @@ export default function AdminPresentationPage() {
       <BoCardLg className="bo-grid-bg min-h-[480px] bg-fs-panel p-6">
         {section === "Opening" ? (
           <div className="flex h-80 flex-col items-center justify-center text-center">
-            <p className="font-display text-5xl font-black uppercase">ZEROID <span className="text-zb-blue">ESPORTS</span></p>
+            <p className="font-display text-5xl font-black uppercase">STIKAR <span className="text-zb-blue">ESPORTS</span></p>
             <p className="mt-2 font-display text-2xl font-black uppercase text-fs-text/60">{ORG.tournament}</p>
             <p className="mt-1 text-sm font-bold uppercase tracking-widest text-fs-text/40">{ORG.institution}</p>
           </div>

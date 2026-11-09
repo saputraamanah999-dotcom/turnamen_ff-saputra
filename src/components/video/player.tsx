@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Live Video Player v2 (PHASE 2 §7, §8, §19, §26)
+// STIKAR ESPORTS — Live Video Player v2 (PHASE 2 §7, §8, §19, §26)
 // Sumber didukung (prioritas):
 //   1. WHE  — WebRTC playback via MediaMTX (latensi rendah, LAN)
 //   2. HLS  — MediaMTX / URL HLS apa pun (fallback codec TV lama)
@@ -183,7 +183,7 @@ export function LiveVideoPlayer({
         ) : showVideo ? (
           <video
             ref={videoRef}
-            data-zeroid-preview={undefined}
+            data-stikar-preview={undefined}
             className="h-full w-full object-contain"
             autoPlay
             muted={muted}
@@ -241,7 +241,7 @@ export function LiveVideoPlayer({
                   <RefreshCw className="h-3.5 w-3.5" /> Coba Lagi
                 </button>
               </>
-            ) : status === "blocked" || (needsPlay && status === "connecting") ? (
+            ) : status === "blocked" || needsPlay ? (
               <>
                 <button
                   onClick={forcePlay}

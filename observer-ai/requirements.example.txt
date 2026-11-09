@@ -1,4 +1,4 @@
-# ZEROID AI OBSERVER — dependensi 100% lokal & gratis (tanpa API berbayar)
+# STIKAR AI OBSERVER — dependensi 100% lokal & gratis (tanpa API berbayar)
 fastapi>=0.110
 uvicorn[standard]>=0.29
 mss>=9.0.1

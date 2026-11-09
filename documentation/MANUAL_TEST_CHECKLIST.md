@@ -1,4 +1,4 @@
-# MANUAL TEST CHECKLIST — ZEROID ESPORTS (BOF)
+# MANUAL TEST CHECKLIST — STIKAR ESPORTS (BOF)
 
 Checklist QA manual sebelum go-live. Tandai ☑ hanya bila hasil benar-benar diverifikasi.
 Automated scoring tests: `npx tsx scripts/test-scoring.ts` (harus semua PASS).

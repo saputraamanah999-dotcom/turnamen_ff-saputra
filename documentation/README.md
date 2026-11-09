@@ -1,4 +1,4 @@
-# ZEROID ESPORTS — BATTLE OFF FRIENDS (BOF)
+# STIKAR ESPORTS — BATTLE OFF FRIENDS (BOF)
 
 Dokumentasi resmi platform **turnamen esports Free Fire** untuk **SMK TI BALI GLOBAL KARANGASEM**.
 
@@ -10,7 +10,7 @@ Dokumen ini adalah pintu masuk utama seluruh dokumentasi. Semua materi ditulis d
 
 ## 1. Ringkasan Proyek
 
-ZEROID ESPORTS — BATTLE OFF FRIENDS (BOF) adalah sistem penyelenggaraan turnamen Free Fire antar kelas/jurusan di lingkungan sekolah. Sistem terdiri dari:
+STIKAR ESPORTS — BATTLE OFF FRIENDS (BOF) adalah sistem penyelenggaraan turnamen Free Fire antar kelas/jurusan di lingkungan sekolah. Sistem terdiri dari:
 
 | Komponen | Fungsi |
 |---|---|

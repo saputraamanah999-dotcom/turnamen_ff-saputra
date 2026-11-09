@@ -1,7 +1,7 @@
 /**
- * ZEROID BROADCAST BRIDGE — Entry point
+ * STIKAR BROADCAST BRIDGE — Entry point
  *
- * Menjembatani website ZEROID ESPORTS dengan OBS Studio:
+ * Menjembatani website STIKAR ESPORTS dengan OBS Studio:
  *   website --ws://127.0.0.1:8078--> BRIDGE --obs-websocket ws://127.0.0.1:4455--> OBS Studio
  *
  * Penting:
@@ -22,7 +22,7 @@ import { getWhitelist, reloadConfig } from './security/whitelist.js';
 dotenv.config();
 
 logger.info('==========================================');
-logger.info('  ZEROID BROADCAST BRIDGE — mulai');
+logger.info('  STIKAR BROADCAST BRIDGE — mulai');
 logger.info('==========================================');
 
 // ---------- Konfigurasi dari .env ----------

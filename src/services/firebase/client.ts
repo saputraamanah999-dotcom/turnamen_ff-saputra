@@ -1,5 +1,5 @@
 // ============================================================
-// ZEROID ESPORTS — Firebase client (SDK Web)
+// STIKAR ESPORTS — Firebase client (SDK Web)
 // ============================================================
 
 import { getApp, getApps, initializeApp } from "firebase/app";

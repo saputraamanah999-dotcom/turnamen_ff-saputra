@@ -12,7 +12,7 @@ const GUIDES = [
   { n: 6, title: "Cara menghubungkan HP ke laptop", href: "/guide/mirroring" },
   { n: 7, title: "Cara memakai scrcpy", href: "/guide/mirroring" },
   { n: 8, title: "Cara memasukkan gameplay ke OBS", href: "/guide/obs" },
-  { n: 9, title: "Cara memasang overlay ZEROID di OBS", href: "/guide/obs" },
+  { n: 9, title: "Cara memasang overlay STIKAR di OBS", href: "/guide/obs" },
   { n: 10, title: "Cara mengatur streaming publik", href: "/guide/streaming" },
   { n: 11, title: "Cara membuat streaming lokal sekolah", href: "/guide/local-network" },
   { n: 12, title: "Cara menjalankan AI Observer", href: "/guide/ai-observer" },

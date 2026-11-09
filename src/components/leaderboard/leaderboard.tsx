@@ -1,6 +1,6 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Tabel leaderboard realtime broadcast-grade
+// STIKAR ESPORTS — Tabel leaderboard realtime broadcast-grade
 // Kolom: RANK · TIM · KILL · POIN — highlight Top 3, glow juara,
 // kilatan emas saat poin berubah, skeleton saat menghubungkan,
 // indikator pergerakan, klik baris → detail tim.

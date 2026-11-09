@@ -1,8 +1,8 @@
 {
-  "name": "zeroid-esports",
+  "name": "stikar-esports",
   "version": "1.0.0",
   "private": true,
-  "description": "ZEROID ESPORTS — Battle Off Friends (BOF): platform turnamen Free Fire, leaderboard realtime, broadcast & overlay OBS untuk SMK TI Bali Global Karangasem.",
+  "description": "STIKAR ESPORTS — Battle Off Friends (BOF): platform turnamen Free Fire, leaderboard realtime, broadcast & overlay OBS untuk SMK TI Bali Global Karangasem.",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
