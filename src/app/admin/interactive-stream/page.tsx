@@ -242,7 +242,13 @@ export default function InteractiveStreamAdminPage() {
       });
       setDeviceSaved(`Perangkat "${name}" terdaftar sebagai viewer.`);
     } catch (e) {
-      setDeviceSaved("Gagal daftar: " + (e instanceof Error ? e.message : "unknown"));
+      const msg = e instanceof Error ? e.message : "unknown";
+      setDeviceSaved(
+        "Gagal daftar: " + msg +
+        " — Cek cepat: (1) pastikan Anda LOGIN sebagai admin di perangkat ini (logout-login ulang bila sesi basi), " +
+        "(2) pastikan security rules sudah di-deploy (setup.html tahap ⑤ atau `python3 scripts/deploy-firestore.py`), " +
+        "(3) lihat dokumentasi/documentation/FIREBASE_SA_DEPLOY.md."
+      );
     }
   }
 
