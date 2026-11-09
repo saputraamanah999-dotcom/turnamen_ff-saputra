@@ -435,6 +435,8 @@ const I = (v) => ({ integerValue: String(v) });
 const B = (v) => ({ booleanValue: v });
 const NUL = { nullValue: null };
 function A(vals) { return { arrayValue: { values: vals } }; }
+// F() membungkus fields menjadi MapValue — HANYA untuk dipakai di dalam "mapValue".
+// Untuk fields dokumen langsung (update.fields), kirim objek fields mentah TANPA F().
 function F(obj) { return { fields: obj }; }
 const TS = { fieldPath: "updatedAt", setToServerValue: "REQUEST_TIME" };
 
@@ -487,8 +489,8 @@ async function ensureAdmin() {
   // Tulis adminRoles/{uid}
   await gfetch("https://firestore.googleapis.com/v1/projects/" + projectId + "/databases/(default)/documents:commit", {
     writes: [{
-      update: { name: docName(projectId, "adminRoles/" + localId), fields: F({
-        uid: S(localId), email: S(adminEmail), role: S("superadmin"), createdAt: NUL }) },
+      update: { name: docName(projectId, "adminRoles/" + localId), fields: {
+        uid: S(localId), email: S(adminEmail), role: S("superadmin"), createdAt: NUL } },
       updateTransforms: [{ fieldPath: "createdAt", setToServerValue: "REQUEST_TIME" }],
     }],
   });
@@ -525,47 +527,47 @@ async function seedData() {
   const base = "tournaments/" + TOURNAMENT_ID;
 
   // Konfigurasi poin
-  writes.push(updateWrite(projectId, "scoringConfigurations/bof-official-v1", F({
+  writes.push(updateWrite(projectId, "scoringConfigurations/bof-official-v1", {
     placementPoints: A(PLACEMENT_POINTS.map(I)), killPointPerKill: I(KILL_POINT),
-    version: S(SCORING_VERSION), isOfficial: B(true) })));
+    version: S(SCORING_VERSION), isOfficial: B(true) }));
 
   // Turnamen
-  writes.push(updateWrite(projectId, base, F({
+  writes.push(updateWrite(projectId, base, {
     id: S(TOURNAMENT_ID), name: S("BATTLE OFF FRIENDS"), shortName: S("BOF"),
     institution: S("SMK TI BALI GLOBAL KARANGASEM"), developer: S("SAPUTRA DEVELOPER"),
     status: S("active"), format: S("BO7"), totalMatches: I(7), teamCapacity: I(12),
-    currentMatchId: S("match-04"), liveStatus: S("offline"), scoringVersion: S(SCORING_VERSION) })));
+    currentMatchId: S("match-04"), liveStatus: S("offline"), scoringVersion: S(SCORING_VERSION) }));
 
   // 12 tim
   for (const [id, name, tag] of TEAMS) {
-    writes.push(updateWrite(projectId, base + "/teams/" + id, F({
+    writes.push(updateWrite(projectId, base + "/teams/" + id, {
       id: S(id), tournamentId: S(TOURNAMENT_ID), name: S(name), tag: S(tag),
-      number: I(Number(id.slice(1))), status: S("active") })));
+      number: I(Number(id.slice(1))), status: S("active") }));
   }
 
   // 7 match + hasil 3 match pertama
   for (let i = 1; i <= 7; i++) {
     const id = "match-0" + i;
     const published = RESULTS[id] != null;
-    writes.push(updateWrite(projectId, base + "/matches/" + id, F({
+    writes.push(updateWrite(projectId, base + "/matches/" + id, {
       id: S(id), tournamentId: S(TOURNAMENT_ID), matchNumber: I(i), map: S(MAPS[i - 1]),
       format: S("BO7"), status: S(published ? "completed" : i === 4 ? "live" : "scheduled"),
-      isCurrent: B(i === 4), resultsPublished: B(published), scoringVersion: S(SCORING_VERSION) })));
+      isCurrent: B(i === 4), resultsPublished: B(published), scoringVersion: S(SCORING_VERSION) }));
     if (published) {
       for (const [teamId, placement, kills] of RESULTS[id]) {
         const team = TEAMS.find((t) => t[0] === teamId);
-        writes.push(updateWrite(projectId, base + "/matches/" + id + "/results/" + teamId, F({
+        writes.push(updateWrite(projectId, base + "/matches/" + id + "/results/" + teamId, {
           teamId: S(teamId), teamName: S(team[1]), teamTag: S(team[2]),
           placement: I(placement), kills: I(kills),
           placementPoints: I(placementPointsFor(placement)), killPoints: I(kills * KILL_POINT),
-          totalPoints: I(placementPointsFor(placement) + kills * KILL_POINT) })));
+          totalPoints: I(placementPointsFor(placement) + kills * KILL_POINT) }));
       }
     }
   }
 
   // Klasemen publik
   const standings = buildStandings();
-  writes.push(updateWrite(projectId, "publicLeaderboards/" + TOURNAMENT_ID, F({
+  writes.push(updateWrite(projectId, "publicLeaderboards/" + TOURNAMENT_ID, {
     tournamentId: S(TOURNAMENT_ID),
     standings: A(standings.map((r) => ({ mapValue: F({
       teamId: S(r.teamId), teamName: S(r.teamName), teamTag: S(r.teamTag),
@@ -574,19 +576,19 @@ async function seedData() {
       totalPoints: I(r.totalPoints), lastPlacement: NUL, rank: I(r.rank), movement: S(r.movement) }) }))),
     publishedMatchCount: I(Object.keys(RESULTS).length),
     totalKills: I(standings.reduce((a, r) => a + r.kills, 0)),
-    scoringVersion: S(SCORING_VERSION) })));
+    scoringVersion: S(SCORING_VERSION) }));
 
   // Broadcast settings
-  writes.push(updateWrite(projectId, "broadcastSettings/" + TOURNAMENT_ID, F({
+  writes.push(updateWrite(projectId, "broadcastSettings/" + TOURNAMENT_ID, {
     tournamentId: S(TOURNAMENT_ID), streamMode: S("offline"),
     streamTitle: S("BATTLE OFF FRIENDS — Siaran Resmi"), showPublicTimeline: B(true),
-    announcements: A([S("Selamat datang di BATTLE OFF FRIENDS — SMK TI Bali Global Karangasem!")]) })));
+    announcements: A([S("Selamat datang di BATTLE OFF FRIENDS — SMK TI Bali Global Karangasem!")]) }));
 
   // Audit log seed (ID acak)
-  writes.push(updateWrite(projectId, "auditLogs/" + (crypto.randomUUID ? crypto.randomUUID() : "seed-" + Date.now()), F({
+  writes.push(updateWrite(projectId, "auditLogs/" + (crypto.randomUUID ? crypto.randomUUID() : "seed-" + Date.now()), {
     action: S("SEED_DATABASE"), actorUid: S("system"), actorEmail: S("system@zeroid"),
     targetType: S("database"), targetId: S(TOURNAMENT_ID),
-    details: { mapValue: F({ teams: I(TEAMS.length), matches: I(7), published: I(Object.keys(RESULTS).length) }) } })));
+    details: { mapValue: F({ teams: I(TEAMS.length), matches: I(7), published: I(Object.keys(RESULTS).length) }) } }));
   // createdAt transform khusus untuk audit log (field createdAt, bukan updatedAt)
   writes[writes.length - 1].updateTransforms = [{ fieldPath: "createdAt", setToServerValue: "REQUEST_TIME" }];
 
@@ -735,7 +737,7 @@ $("btnStatus").onclick = () => runStep("btnStatus", checkStatus);
 $("btnResetPw").onclick = () => runStep("btnResetPw", resetAdminPassword);
 $("btnEnablePw").onclick = () => runStep("btnEnablePw", enablePasswordSignIn);
 
-log("Selamat datang! Isi Langkah 2 (service account) lalu tekan tombol BIRU BESAR.", "big");
+log("SETUP v1.1 ✔ (bug payload diperbaiki) — Isi Langkah 2 (service account) lalu tekan tombol BIRU BESAR.", "big");
 refreshSaStatus();
 </script>
 </body>
