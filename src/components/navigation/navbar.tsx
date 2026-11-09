@@ -16,6 +16,7 @@ const NAV = [
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/teams", label: "Tim" },
   { href: "/matches", label: "Jadwal" },
+  { href: "/awards", label: "Penghargaan" },
   { href: "/statistics", label: "Statistik" },
   { href: "/guide", label: "Panduan" },
 ];
@@ -133,6 +134,8 @@ export function Footer() {
             <li><Link className="hover:text-zb-cyan" href="/live">Live Match</Link></li>
             <li><Link className="hover:text-zb-cyan" href="/leaderboard">Leaderboard</Link></li>
             <li><Link className="hover:text-zb-cyan" href="/results">Hasil</Link></li>
+            <li><Link className="hover:text-zb-cyan" href="/awards">Penghargaan</Link></li>
+            <li><Link className="hover:text-zb-cyan" href="/display">Display TV</Link></li>
             <li><Link className="hover:text-zb-cyan" href="/guide">Panduan Operator</Link></li>
             <li><Link className="hover:text-zb-cyan" href="/about">Tentang</Link></li>
           </ul>

@@ -7,29 +7,58 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
-  BarChart3, Boxes, CalendarRange, ClipboardList, Cpu, ExternalLink,
-  Gauge, LayoutDashboard, ListVideo, LogOut, Menu, Radio, ScrollText,
-  Settings, ShieldCheck, Trophy, X,
+  BarChart3, Boxes, CalendarRange, ClipboardList, Clapperboard, Cpu, ExternalLink,
+  Gauge, LayoutDashboard, ListOrdered, ListVideo, LogOut, Map, Menu, MonitorPlay,
+  Radio, ScrollText, Settings, ShieldCheck, Siren, Sparkles, Trophy, Users, Wifi, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BoButton } from "@/components/common/bo";
 import { useAdminSession } from "@/services/auth/admin";
 import { AdminLoginForm } from "@/components/admin/login-form";
 
-const NAV = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/tournaments", label: "Tournaments", icon: Trophy },
-  { href: "/admin/teams", label: "Tim", icon: Boxes },
-  { href: "/admin/matches", label: "Match", icon: CalendarRange },
-  { href: "/admin/scoring", label: "Sistem Poin", icon: ClipboardList },
-  { href: "/admin/live-control", label: "Live Control", icon: ListVideo },
-  { href: "/admin/observer", label: "AI Observer", icon: Cpu },
-  { href: "/admin/broadcast", label: "Broadcast Control", icon: Radio },
-  { href: "/admin/overlay", label: "Overlay Manager", icon: Gauge },
-  { href: "/admin/statistics", label: "Statistik", icon: BarChart3 },
-  { href: "/admin/audit", label: "Audit Logs", icon: ScrollText },
-  { href: "/admin/settings", label: "Pengaturan", icon: Settings },
-  { href: "/admin/documentation", label: "Dokumentasi", icon: ExternalLink },
+// Sidebar dikelompokkan per domain kerja (master prompt §9).
+const NAV_GROUPS: { label: string; items: { href: string; label: string; icon: typeof Trophy }[] }[] = [
+  {
+    label: "Turnamen",
+    items: [
+      { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/admin/tournaments", label: "Tournaments", icon: Trophy },
+      { href: "/admin/teams", label: "Tim", icon: Boxes },
+      { href: "/admin/players", label: "Pemain", icon: Users },
+      { href: "/admin/matches", label: "Match", icon: CalendarRange },
+      { href: "/admin/scoring", label: "Sistem Poin", icon: ClipboardList },
+      { href: "/admin/leaderboard", label: "Klasemen", icon: ListOrdered },
+      { href: "/admin/statistics", label: "Statistik", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Broadcast",
+    items: [
+      { href: "/admin/live-control", label: "Live Control", icon: ListVideo },
+      { href: "/admin/broadcast", label: "Broadcast", icon: Radio },
+      { href: "/admin/overlay", label: "Overlay Manager", icon: Gauge },
+      { href: "/admin/presentation", label: "Presentasi TV", icon: MonitorPlay },
+      { href: "/admin/rehearsal", label: "Rehearsal", icon: Clapperboard },
+      { href: "/admin/emergency", label: "Emergency", icon: Siren },
+      { href: "/admin/local-network", label: "Local Network", icon: Wifi },
+    ],
+  },
+  {
+    label: "AI Observer",
+    items: [
+      { href: "/admin/observer", label: "AI Observer", icon: Cpu },
+      { href: "/admin/ai-results", label: "AI Results", icon: Sparkles },
+      { href: "/admin/map-history", label: "Map History", icon: Map },
+    ],
+  },
+  {
+    label: "Sistem",
+    items: [
+      { href: "/admin/audit", label: "Audit Logs", icon: ScrollText },
+      { href: "/admin/settings", label: "Pengaturan", icon: Settings },
+      { href: "/admin/documentation", label: "Dokumentasi", icon: ExternalLink },
+    ],
+  },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -109,26 +138,33 @@ function SidebarContent({
         <span className="font-display text-sm font-black uppercase tracking-wider">Panel Admin BOF</span>
       </Link>
       <nav className={cn("thin-scroll flex-1 space-y-1 overflow-y-auto", vertical ? "" : "")} aria-label="Menu admin">
-        {NAV.map((item) => {
-          const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className={cn(
-                "flex items-center gap-2.5 border-[3px] px-3 py-2 text-sm font-bold transition-all",
-                active
-                  ? "border-zb-black bg-zb-yellow bo-shadow-sm"
-                  : "border-transparent hover:border-zb-black hover:bg-zb-off",
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {item.label}
-            </Link>
-          );
-        })}
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label} className="mb-2">
+            <p className="px-2 pb-1 pt-2 text-[10px] font-black uppercase tracking-[0.18em] text-zb-black/40">
+              {group.label}
+            </p>
+            {group.items.map((item) => {
+              const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={cn(
+                    "flex items-center gap-2.5 border-[3px] px-3 py-1.5 text-sm font-bold transition-all",
+                    active
+                      ? "border-zb-black bg-zb-yellow bo-shadow-sm"
+                      : "border-transparent hover:border-zb-black hover:bg-zb-off",
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
       <div className={cn("border-t-[3px] border-zb-black pt-3", vertical ? "mt-3" : "mt-4")}>
         <p className="truncate px-1 text-xs font-bold text-zb-black/60">{session.user?.email ?? "admin"}</p>

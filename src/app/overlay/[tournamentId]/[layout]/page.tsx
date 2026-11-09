@@ -7,10 +7,10 @@
 // Transparan, tanpa navigasi, realtime via onSnapshot.
 // ============================================================
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Crown, MapPin, Radio, Swords, Trophy } from "lucide-react";
+import { AlertTriangle, Crown, Hourglass, MapPin, Radio, Swords, Trophy } from "lucide-react";
 import { useBroadcast, useMatches, useStandings, useTournament } from "@/services/firestore/hooks";
 import { formatTime } from "@/lib/constants";
 import type { OverlayLayout } from "@/lib/constants";
@@ -21,6 +21,14 @@ export default function OverlayPage() {
   const tid = params?.tournamentId ?? null;
   const layout = (params?.layout ?? "compact") as OverlayLayout;
   const scale = Number(search.get("scale") ?? 1);
+  const [tick, setTick] = useState(0);
+  // Ticker 1 detik HANYA untuk layout countdown — murah dan lokal.
+  const needTicker = layout === "starting-soon";
+  useEffect(() => {
+    if (!needTicker) return;
+    const t = setInterval(() => setTick((v) => v + 1), 1000);
+    return () => clearInterval(t);
+  }, [needTicker]);
 
   const tournament = useTournament(tid);
   const standings = useStandings(tid);
@@ -68,6 +76,23 @@ export default function OverlayPage() {
           <ScoreBug key="bug" rows={rows} matchLabel={currentMatch ? `M${currentMatch.matchNumber}` : ""} map={currentMatch?.map} />
         ) : null}
         {layout === "winner" ? <WinnerOverlay key="winner" winner={winner} tournamentName={tournament.data?.name ?? ""} /> : null}
+        {layout === "starting-soon" ? (
+          <StartingSoonOverlay
+            key="starting-soon"
+            tournamentName={tournament.data?.name ?? "BATTLE OFF FRIENDS"}
+            matchNumber={currentMatch?.matchNumber}
+            map={currentMatch?.map}
+            target={currentMatch?.scheduledAt ?? null}
+            tick={tick}
+          />
+        ) : null}
+        {layout === "emergency" ? (
+          <EmergencyOverlay
+            key="emergency"
+            preset={broadcast.data?.emergency?.preset ?? "Technical Difficulties"}
+            message={broadcast.data?.emergency?.message ?? ""}
+          />
+        ) : null}
       </AnimatePresence>
     </div>
   );
@@ -254,6 +279,73 @@ function rowAccent(rank: number): React.CSSProperties {
   if (rank === 2) return { background: "rgba(108,43,217,0.22)", borderLeft: "3px solid #6c2bd9" };
   if (rank === 3) return { borderLeft: "3px solid rgba(217,180,91,0.5)" };
   return { borderLeft: "3px solid transparent" };
+}
+
+/* ---------- STARTING SOON (countdown) ---------- */
+function StartingSoonOverlay({
+  tournamentName, matchNumber, map, target, tick,
+}: {
+  tournamentName: string; matchNumber?: number; map?: string;
+  target: number | null | undefined; tick: number;
+}) {
+  void tick; // re-render tiap detik via state induk
+  let countdown = "—:—:—";
+  if (target && Number.isFinite(target)) {
+    const diff = Math.max(0, target - Date.now());
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    countdown = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+  const ready = target != null && target - Date.now() <= 0;
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="ov-frame ov-cut mx-auto w-[720px] px-10 py-8 text-center"
+    >
+      <p className="ov-gold font-display text-sm font-black uppercase tracking-[0.3em]">{tournamentName}</p>
+      <p className="mt-2 font-display text-3xl font-black uppercase">
+        {matchNumber ? `MATCH ${matchNumber} DIMULAI DALAM` : "BROADCAST SEGERA DIMULAI"}
+      </p>
+      <motion.p
+        key={countdown}
+        initial={{ scale: 1.06 }}
+        animate={{ scale: 1 }}
+        className="mt-4 font-display text-7xl font-black tabular-nums text-[#f4d374]"
+      >
+        {ready ? "STARTING NOW" : countdown}
+      </motion.p>
+      {map ? (
+        <p className="mt-3 flex items-center justify-center gap-2 text-sm font-bold text-white/70">
+          <MapPin className="h-4 w-4" /> {map}
+        </p>
+      ) : null}
+      <p className="mt-4 text-[11px] font-bold uppercase tracking-widest text-white/50">
+        <Hourglass className="mr-1 inline h-3.5 w-3.5" /> Countdown mengikuti jadwal resmi panitia
+      </p>
+    </motion.div>
+  );
+}
+
+/* ---------- EMERGENCY ---------- */
+function EmergencyOverlay({ preset, message }: { preset: string; message: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="ov-frame ov-cut mx-auto w-[720px] border-[rgba(239,68,68,0.8)] bg-[rgba(60,0,0,0.85)] px-10 py-8 text-center"
+    >
+      <AlertTriangle className="mx-auto h-10 w-10 animate-pulse text-red-400" />
+      <p className="mt-3 font-display text-3xl font-black uppercase tracking-wide text-red-300">
+        {preset}
+      </p>
+      {message ? <p className="mt-3 text-sm font-semibold text-white/80">{message}</p> : null}
+      <p className="mt-4 text-[11px] font-bold uppercase tracking-widest text-white/50">
+        Broadcast akan segera kembali — skor resmi tidak terpengaruh
+      </p>
+    </motion.div>
+  );
 }
 
 // formatTime dipakai bila timeline publik diaktifkan di overlay.

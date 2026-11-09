@@ -4,12 +4,15 @@ import { BoCard } from "@/components/common/bo";
 
 const DOCS = [
   { file: "README.md", desc: "Ringkasan proyek, arsitektur, quick start" },
+  { file: "INSTALLATION.md", desc: "Instalasi Node.js, dependency, build, deploy Vercel" },
   { file: "FIREBASE_SETUP.md", desc: "Setup Firebase Spark, Auth, Firestore, rules, seeding, hosting" },
   { file: "OBS_SETUP.md", desc: "9 scene, browser source overlay, obs-websocket" },
   { file: "MIRRORING_SETUP.md", desc: "USB debugging, scrcpy USB & TCP/IP, capture ke OBS" },
   { file: "LOCAL_STREAMING.md", desc: "MediaMTX untuk streaming LAN sekolah" },
   { file: "YOUTUBE_SETUP.md", desc: "YouTube Live, stream key, embed" },
   { file: "AI_OBSERVER_SETUP.md", desc: "Service Python lokal, kalibrasi, privasi" },
+  { file: "SECURITY.md", desc: "Model keamanan: RBAC, rules, token bridge, secret" },
+  { file: "MANUAL_TEST_CHECKLIST.md", desc: "Checklist QA manual semua fitur sebelum go-live" },
   { file: "TROUBLESHOOTING.md", desc: "Masalah umum & solusi" },
 ];
 

@@ -62,7 +62,9 @@ export type OverlayLayout =
   | "match-info"
   | "lower-third"
   | "score-bug"
-  | "winner";
+  | "winner"
+  | "starting-soon"
+  | "emergency";
 
 export const OVERLAY_LAYOUTS: { value: OverlayLayout; label: string; note: string }[] = [
   { value: "full", label: "Full Leaderboard", note: "Semua tim, sisi kanan layar" },
@@ -72,6 +74,8 @@ export const OVERLAY_LAYOUTS: { value: OverlayLayout; label: string; note: strin
   { value: "lower-third", label: "Lower Third", note: "Pengumuman di bawah layar" },
   { value: "score-bug", label: "Score Bug", note: "Info kecil di sudut layar" },
   { value: "winner", label: "Winner", note: "Pengumuman juara" },
+  { value: "starting-soon", label: "Starting Soon", note: "Countdown sebelum match" },
+  { value: "emergency", label: "Emergency", note: "Layar gangguan broadcast" },
 ];
 
 export const OVERLAY_DIMENSIONS = [

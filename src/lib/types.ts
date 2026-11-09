@@ -124,6 +124,13 @@ export interface ScoringConfiguration {
   updatedBy?: string;
 }
 
+export interface BroadcastEmergency {
+  active: boolean;
+  preset: string; // Technical Difficulties | Signal Lost | Reconnecting | Source Offline | Match Paused | Waiting for Official Results | Network Problem | OBS Disconnected
+  message: string;
+  updatedAt?: number;
+}
+
 export interface BroadcastSettings {
   tournamentId: string;
   streamMode: StreamMode;
@@ -133,6 +140,7 @@ export interface BroadcastSettings {
   streamUrl?: string; // untuk MediaMTX (LAN)
   showPublicTimeline: boolean;
   announcements?: string[];
+  emergency?: BroadcastEmergency;
   updatedAt?: number;
 }
 
@@ -160,6 +168,15 @@ export interface AuditLog {
   targetId: string;
   details?: Record<string, unknown>;
   createdAt?: number;
+}
+
+export interface ChampionState {
+  /** true HANYA bila semua match format selesai & dipublikasikan dan juara tidak seri. */
+  confirmed: boolean;
+  candidate: StandingsRow | null;
+  gap: number; // selisih poin dengan peringkat 2
+  remainingMatches: number;
+  possibleTie: boolean;
 }
 
 export interface AdminRole {

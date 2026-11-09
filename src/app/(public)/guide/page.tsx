@@ -14,13 +14,15 @@ const GUIDES = [
   { n: 8, title: "Cara memasukkan gameplay ke OBS", href: "/guide/obs" },
   { n: 9, title: "Cara memasang overlay ZEROID di OBS", href: "/guide/obs" },
   { n: 10, title: "Cara mengatur streaming publik", href: "/guide/streaming" },
-  { n: 11, title: "Cara membuat streaming lokal sekolah", href: "/guide/streaming" },
-  { n: 12, title: "Cara menjalankan AI Observer", href: "/guide#ai" },
-  { n: 13, title: "Cara membaca hasil analisis AI", href: "/guide#ai" },
+  { n: 11, title: "Cara membuat streaming lokal sekolah", href: "/guide/local-network" },
+  { n: 12, title: "Cara menjalankan AI Observer", href: "/guide/ai-observer" },
+  { n: 13, title: "Cara membaca hasil analisis AI", href: "/guide/ai-observer" },
   { n: 14, title: "Cara mengganti scene OBS", href: "/guide/obs" },
-  { n: 15, title: "Cara melihat pertandingan melalui HP", href: "/guide/streaming" },
+  { n: 15, title: "Cara melihat pertandingan melalui HP", href: "/guide/local-network" },
   { n: 16, title: "Cara mengatasi masalah video dan leaderboard", href: "/guide#troubleshoot" },
   { n: 17, title: "Cara mengatasi AI Observer gagal membaca HUD", href: "/guide#ai" },
+  { n: 18, title: "Cara setup Wi-Fi / hotspot turnamen", href: "/guide/hotspot" },
+  { n: 19, title: "Cara menghubungkan TV ke streaming lokal", href: "/guide/local-network" },
 ];
 
 export default function GuideIndexPage() {

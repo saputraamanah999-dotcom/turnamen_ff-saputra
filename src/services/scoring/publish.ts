@@ -8,17 +8,19 @@
 
 import {
   collection,
+  deleteField,
   doc,
   getDoc,
   getDocs,
   serverTimestamp,
   setDoc,
+  updateDoc,
   writeBatch,
 } from "firebase/firestore";
 import { db } from "@/services/firebase/client";
 import { SCORING_VERSION } from "@/lib/constants";
 import { applyMovement, calcMatchResult, computeStandings, validateResultEntries } from "@/lib/scoring";
-import type { Match, MatchResult, StandingsRow, Team } from "@/lib/types";
+import type { BroadcastEmergency, Match, MatchResult, StandingsRow, Team } from "@/lib/types";
 
 export interface ResultEntryInput {
   teamId: string;
@@ -162,6 +164,123 @@ export async function publishResults(
     targetType: "match",
     targetId: match.id,
     details: { matchNumber: match.matchNumber, publishedMatchCount: published.length },
+  });
+}
+
+/**
+ * Hitung ulang & publikasikan ulang klasemen dari SEMUA hasil resmi yang
+ * sudah dipublish — tanpa mengubah hasil match mana pun. Dipakai menu
+ * Admin → Leaderboard bila panitia mengoreksi hasil lewat Entri Hasil.
+ */
+export async function recomputeStandings(
+  tournamentId: string,
+  actor?: { uid: string; email: string },
+): Promise<void> {
+  if (!db) throw new Error("Firebase tidak terkonfigurasi.");
+
+  const matchesSnap = await getDocs(collection(db, `tournaments/${tournamentId}/matches`));
+  const published = matchesSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as Match)
+    .filter((m) => m.resultsPublished)
+    .sort((a, b) => a.matchNumber - b.matchNumber);
+
+  const accum: {
+    teamId: string; teamName: string; teamTag: string; teamNumber: number; placement: number; kills: number;
+  }[] = [];
+  const finalPlacement: Record<string, number> = {};
+  for (const m of published) {
+    const resSnap = await getDocs(collection(db, `tournaments/${tournamentId}/matches/${m.id}/results`));
+    resSnap.docs.forEach((d) => {
+      const r = d.data() as MatchResult;
+      accum.push({
+        teamId: r.teamId, teamName: r.teamName, teamTag: r.teamTag ?? "",
+        teamNumber: 0, placement: r.placement, kills: r.kills,
+      });
+    });
+    // Placement pada game terakhir sesuai format (tiebreaker #3).
+    const isFinalGame =
+      (m.format === "BO7" && m.matchNumber === 7) ||
+      (m.format === "BO5" && m.matchNumber === 5) ||
+      (m.format === "BO3" && m.matchNumber === 3);
+    if (isFinalGame) {
+      resSnap.docs.forEach((d) => {
+        const r = d.data() as MatchResult;
+        finalPlacement[r.teamId] = r.placement;
+      });
+    }
+  }
+
+  const teamsSnap = await getDocs(collection(db, `tournaments/${tournamentId}/teams`));
+  const teamNumber = new Map<string, number>();
+  teamsSnap.docs.forEach((d) => {
+    const t = d.data() as Team;
+    teamNumber.set(t.id, t.number ?? 0);
+  });
+  accum.forEach((a) => { a.teamNumber = teamNumber.get(a.teamId) ?? 999; });
+
+  const prevBoard = await getDoc(doc(db, `publicLeaderboards/${tournamentId}`));
+  const prevStandings = ((prevBoard.data() as { standings?: StandingsRow[] } | undefined)?.standings ?? []);
+  const standings = applyMovement(computeStandings(accum, finalPlacement), prevStandings);
+
+  await setDoc(doc(db, `publicLeaderboards/${tournamentId}`), {
+    tournamentId,
+    standings,
+    publishedMatchCount: published.length,
+    totalKills: standings.reduce((a, r) => a + r.kills, 0),
+    scoringVersion: SCORING_VERSION,
+    updatedAt: serverTimestamp(),
+  });
+
+  await writeAuditLog({
+    action: "RECOMPUTE_STANDINGS",
+    actor,
+    targetType: "tournament",
+    targetId: tournamentId,
+    details: { publishedMatchCount: published.length, teams: standings.length },
+  });
+}
+
+/**
+ * Simpan roster pemain sebuah tim (Admin → Pemain).
+ * RosterMember[] = { nickname, role? } — tidak pernah mengubah hasil skor.
+ */
+export async function upsertRoster(
+  tournamentId: string,
+  teamId: string,
+  roster: { nickname: string; role?: string }[],
+  actor?: { uid: string; email: string },
+): Promise<void> {
+  if (!db) throw new Error("Firebase tidak terkonfigurasi.");
+  await updateDoc(doc(db, `tournaments/${tournamentId}/teams/${teamId}`), {
+    roster: roster.filter((r) => r.nickname.trim().length > 0),
+    updatedAt: serverTimestamp(),
+  });
+  await writeAuditLog({
+    action: "UPDATE_ROSTER",
+    actor,
+    targetType: "team",
+    targetId: teamId,
+    details: { players: roster.length },
+  });
+}
+
+/** Atur pesan darurat broadcast (Admin → Emergency). Tidak pernah mengubah skor. */
+export async function setEmergencyBroadcast(
+  tournamentId: string,
+  emergency: BroadcastEmergency | null,
+  actor?: { uid: string; email: string },
+): Promise<void> {
+  if (!db) throw new Error("Firebase tidak terkonfigurasi.");
+  await updateDoc(doc(db, `broadcastSettings/${tournamentId}`), {
+    emergency: emergency ?? deleteField(),
+    updatedAt: serverTimestamp(),
+  });
+  await writeAuditLog({
+    action: emergency?.active ? "EMERGENCY_ON" : "EMERGENCY_OFF",
+    actor,
+    targetType: "broadcast",
+    targetId: tournamentId,
+    details: { preset: emergency?.preset ?? null },
   });
 }
 

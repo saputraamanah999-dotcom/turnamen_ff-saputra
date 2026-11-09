@@ -8,7 +8,7 @@ import {
   OFFICIAL_PLACEMENT_POINTS,
   SCORING_VERSION,
 } from "./constants";
-import type { MatchResult, StandingsRow } from "./types";
+import type { ChampionState, MatchResult, StandingsRow } from "./types";
 
 /** Poin placement untuk peringkat tertentu (1-based). */
 export function placementPointsFor(placement: number, capacity = 12): number {
@@ -184,4 +184,35 @@ export function applyMovement(rows: StandingsRow[], previous: StandingsRow[]): S
     const movement = r.rank < old ? "up" : r.rank > old ? "down" : "same";
     return { ...r, movement, previousRank: old };
   });
+}
+
+/**
+ * Champion tracking (§30 master prompt) — JUJUR:
+ * juara hanya dikonfirmasi bila SEMUA match format selesai dipublikasikan
+ * DAN peringkat 1 tidak seri (tidak perlu review manual).
+ * Sebelum itu: CHAMPION NOT CONFIRMED (dengan kandidat + sisa match).
+ */
+export function computeChampion(
+  standings: StandingsRow[],
+  totalMatches: number,
+  publishedMatchCount: number,
+): ChampionState {
+  const candidate = standings[0] ?? null;
+  const second = standings[1] ?? null;
+  const gap = candidate && second ? candidate.totalPoints - second.totalPoints : candidate ? candidate.totalPoints : 0;
+  const remainingMatches = Math.max(0, totalMatches - publishedMatchCount);
+  const possibleTie = Boolean(
+    candidate && second &&
+    candidate.totalPoints === second.totalPoints &&
+    candidate.placementPoints === second.placementPoints,
+  );
+  const confirmed = Boolean(
+    candidate &&
+    remainingMatches === 0 &&
+    totalMatches > 0 &&
+    publishedMatchCount >= totalMatches &&
+    !candidate.needsManualReview &&
+    !possibleTie,
+  );
+  return { confirmed, candidate, gap, remainingMatches, possibleTie };
 }
