@@ -19,7 +19,7 @@ python --version
 ```
 
 Jika belum ada, unduh di `https://www.python.org/downloads/` (saat install Windows, centang **Add python.exe to PATH**).
-- Folder proyek AI Observer (Python) lengkap dengan file `requirements.txt`.
+- Folder proyek AI Observer (Python) lengkap dengan file `requirements.example.txt`.
 - Website BOF berjalan, dan Anda punya akses `/admin`.
 
 ---
@@ -38,7 +38,8 @@ venv\Scripts\activate
 # Linux:
 source venv/bin/activate
 
-# 3. Install dependensi dari requirements.txt
+# 3. Install dependensi (file .example.txt disalin dulu sekali)
+cp requirements.example.txt requirements.txt
 pip install -r requirements.txt
 ```
 

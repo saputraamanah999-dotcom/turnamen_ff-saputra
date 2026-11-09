@@ -19,6 +19,8 @@ di-spectate: nama pemain HUD, perpindahan target, kill feed, map, dan minimap (e
 cd observer-ai
 python3 -m venv .venv
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
+# File terpisang sebagai .example.txt agar tidak terdeteksi sebagai service oleh Vercel.
+cp requirements.example.txt requirements.txt   # sekali saja
 pip install -r requirements.txt
 ```
 
@@ -94,7 +96,7 @@ dan **tidak pernah mengubah skor resmi**; konfirmasi akhir tetap di tangan opera
 ```
 observer-ai/
 ├── run.py                     # entrypoint uvicorn
-├── requirements.txt
+├── requirements.example.txt
 ├── catalog.json               # katalog map (BERMUDA/PURGATORY/KALAHARI/ALPINE/NEXTERRA)
 ├── calibration.example.json   # contoh region kalibrasi
 ├── calibration.json           # (opsional) hasil kalibrasi

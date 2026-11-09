@@ -5,7 +5,7 @@ Mengoperasikan **AI Observer** (Python lokal, port **8077**) untuk mendapatkan *
 
 ## Prasyarat
 - Python **3.10+** terpasang di laptop (`python --version`).
-- Folder proyek AI Observer lengkap dengan `requirements.txt`.
+- Folder proyek AI Observer lengkap dengan `requirements.example.txt`.
 - Gameplay tampil di laptop (scrcpy berjalan) — AI membaca frame lokal dari layar.
 
 ## Langkah-langkah
@@ -21,6 +21,7 @@ venv\Scripts\activate        # Windows
 3. Install dependensi:
 
 ```bash
+cp requirements.example.txt requirements.txt   # sekali saja
 pip install -r requirements.txt
 ```
 

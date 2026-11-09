@@ -1,6 +1,7 @@
 "use client";
 // /admin/live-control — kontrol match berjalan
-import { useActiveTournament, useMatches, useTeams, setCurrentMatch } from "@/services/firestore/hooks";
+import { useActiveTournament, useMatches, useTeams } from "@/services/firestore/hooks";
+import { setCurrentMatch } from "@/services/scoring/publish";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import { MatchStatusBadge } from "@/components/tournament/match";
 import { useAdminSession } from "@/services/auth/admin";

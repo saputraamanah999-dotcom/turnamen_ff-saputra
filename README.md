@@ -21,14 +21,14 @@ Bukan sekadar website leaderboard. ZEROID ESPORTS menggabungkan:
 5. **Broadcast bridge** — service Node lokal untuk kontrol scene OBS (obs-websocket) dari dashboard.
 6. **AI Observer** — service Python lokal: OCR nama pemain, indikasi pertarungan, deteksi map — semua event berstatus *pending* dan diverifikasi operator.
 
-## 🏗️ Struktur Monorepo
+## 🏗️ Struktur Proyek
 
 ```
 turnamen_ff-saputra/
-├── apps/
-│   └── web/                 # Next.js 16 — website + admin + overlay (Firebase client SDK)
-├── broadcast-bridge/        # Service Node lokal — OBS WebSocket bridge (port 8078, localhost)
-├── observer-ai/             # Service Python lokal — AI Observer (port 8077, localhost)
+├── src/                     # Next.js 16 — website + admin + overlay (Firebase client SDK)
+├── public/
+├── broadcast-bridge/        # Service Node LOKAL — OBS WebSocket bridge (port 8078, localhost)
+├── observer-ai/             # Service Python LOKAL — AI Observer (port 8077, localhost)
 ├── firebase/
 │   ├── firebase.json
 │   ├── firestore.rules      # Security rules (publik baca-only, tulis via adminRoles)
@@ -38,15 +38,20 @@ turnamen_ff-saputra/
 │   └── deploy-rules-indexes.mjs
 ├── documentation/           # 8 dokumen setup + 17 guide operator (Bahasa Indonesia)
 ├── .env.example
-└── package.json
+├── package.json             # Aplikasi Next.js ada di ROOT repo → siap deploy Vercel
+└── vercel.json
 ```
+
+> **Catatan deploy:** aplikasi web sengaja diletakkan di **root repo** agar Vercel langsung
+deteksi Next.js tanpa konfigurasi "Services". `broadcast-bridge` dan `observer-ai` adalah
+service **lokal laptop produksi** — tidak dideploy ke Vercel (butuh akses OBS & layar).
 
 ## 🚀 Quick Start
 
 ```bash
-# 1. Website (apps/web)
+# 1. Website (root repo)
 cp .env.example .env                  # isi konfigurasi Firebase project kamu
-npm install --prefix apps/web
+npm install
 npm run dev                           # http://localhost:3000
 
 # 2. Firebase: rules + klasemen awal (butuh file service account)
@@ -57,8 +62,29 @@ npm run deploy:rules                  # deploy security rules + composite indexe
 # 3. Layanan lokal (opsional, di laptop produksi)
 cd broadcast-bridge && npm install && npm run dev   # OBS bridge
 cd observer-ai && python -m venv .venv && source .venv/bin/activate
+cp requirements.example.txt requirements.txt         # lalu:
 pip install -r requirements.txt && python run.py    # AI Observer
 ```
+
+## ▲ Deploy ke Vercel (gratis)
+
+Aplikasi web ada di root repo → Vercel otomatis mendeteksi **Next.js**, tanpa vercel.json
+khusus "Services". Langkah:
+
+1. Push repo ini ke GitHub, lalu di [vercel.com](https://vercel.com) pilih **Add New → Project** dan import repo.
+2. Framework preset otomatis: **Next.js**. Root directory biarkan `./` (jangan diubah).
+3. Tambahkan Environment Variables (Production + Preview) — daftar lengkap lihat `.env.example`:
+   - `NEXT_PUBLIC_FIREBASE_API_KEY`
+   - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+   - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+   - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+   - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+   - `NEXT_PUBLIC_FIREBASE_APP_ID` *(wajib — sering terlewat!)*
+   - `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` *(opsional)*
+4. Klik **Deploy**. Detail lengkap: [`documentation/DEPLOY_VERCEL.md`](documentation/DEPLOY_VERCEL.md).
+
+> `BRIDGE_PASSWORD_HINT` dan service lokal **tidak perlu** diisi di Vercel —
+> itu hanya untuk laptop produksi (broadcast-bridge).
 
 ## 🔑 Sistem Poin Resmi BOF
 
