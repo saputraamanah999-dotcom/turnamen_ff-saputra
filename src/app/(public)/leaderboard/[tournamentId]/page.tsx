@@ -1,6 +1,6 @@
 "use client";
 // /leaderboard/:tournamentId — sama dengan indeks tetapi terikat turnamen
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { BoCard } from "@/components/common/bo";
 import { DataStatusBanner, EmptyState } from "@/components/common/stat";
 import { LeaderboardTable } from "@/components/leaderboard/leaderboard";
@@ -9,6 +9,7 @@ import { OFFICIAL_PLACEMENT_POINTS } from "@/lib/constants";
 
 export default function LeaderboardDetailPage() {
   const params = useParams<{ tournamentId: string }>();
+  const router = useRouter();
   const tid = params?.tournamentId ?? null;
   const tournament = useTournament(tid);
   const standings = useStandings(tid);
@@ -21,7 +22,12 @@ export default function LeaderboardDetailPage() {
 
       {standings.data ? (
         <BoCard className="overflow-hidden bg-white">
-          <LeaderboardTable standings={standings.data.standings} />
+          <LeaderboardTable
+            standings={standings.data.standings}
+            status={standings.status}
+            updatedAt={standings.data.updatedAt}
+            onTeamClick={(row) => router.push(`/teams/${row.teamId}?tid=${tid ?? ""}`)}
+          />
         </BoCard>
       ) : (
         <EmptyState title="Klasemen belum tersedia" description="Menunggu publikasi hasil pertama oleh panitia." />

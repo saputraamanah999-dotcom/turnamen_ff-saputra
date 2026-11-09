@@ -9,6 +9,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   serverTimestamp,
   setDoc,
@@ -16,8 +17,8 @@ import {
 } from "firebase/firestore";
 import { db } from "@/services/firebase/client";
 import { SCORING_VERSION } from "@/lib/constants";
-import { calcMatchResult, computeStandings, validateResultEntries } from "@/lib/scoring";
-import type { Match, MatchResult, Team } from "@/lib/types";
+import { applyMovement, calcMatchResult, computeStandings, validateResultEntries } from "@/lib/scoring";
+import type { Match, MatchResult, StandingsRow, Team } from "@/lib/types";
 
 export interface ResultEntryInput {
   teamId: string;
@@ -140,8 +141,12 @@ export async function publishResults(
     a.teamNumber = teamNumber.get(a.teamId) ?? 999;
   });
 
-  // 4. Susun klasemen + tiebreaker, lalu tulis dokumen publik.
-  const standings = computeStandings(accum, finalGamePlacement);
+  // 4. Susun klasemen + tiebreaker. Ambil klasemen SEBELUMNYA dulu agar
+  // pergerakan peringkat (↑ naik / ↓ turun / = tetap) bisa ditampilkan
+  // realtime di leaderboard — indikator ini sebelumnya mati data.
+  const prevBoard = await getDoc(doc(db, `publicLeaderboards/${tournamentId}`));
+  const prevStandings = ((prevBoard.data() as { standings?: StandingsRow[] } | undefined)?.standings ?? []);
+  const standings = applyMovement(computeStandings(accum, finalGamePlacement), prevStandings);
   await setDoc(doc(db, `publicLeaderboards/${tournamentId}`), {
     tournamentId,
     standings,

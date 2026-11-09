@@ -75,7 +75,14 @@ export default function AdminObserverPage() {
           <BoButton variant="black" className="!px-4" onClick={() => { setObserverUrl(url); void refresh(); }}>
             <Gauge className="h-4 w-4" /> Simpan &amp; Cek
           </BoButton>
-          <BoButton variant="white" onClick={() => void refresh()} disabled={busy}>
+          <BoButton
+            variant="white"
+            onClick={() => {
+              setBusy(true);
+              void refresh().finally(() => setBusy(false));
+            }}
+            disabled={busy}
+          >
             Refresh
           </BoButton>
         </div>

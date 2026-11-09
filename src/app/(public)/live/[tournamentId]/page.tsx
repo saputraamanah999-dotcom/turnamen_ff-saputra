@@ -122,6 +122,8 @@ export default function LiveTournamentPage() {
             <div className="thin-scroll max-h-[520px] overflow-y-auto">
               <LeaderboardTable
                 standings={standings.data?.standings ?? []}
+                status={standings.status}
+                updatedAt={standings.data?.updatedAt}
                 onTeamClick={openTeam}
                 selectedTeamId={selected?.teamId}
                 compact

@@ -4,6 +4,7 @@
 // ============================================================
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -29,6 +30,7 @@ import {
 import { ORG } from "@/lib/constants";
 
 export default function HomePage() {
+  const router = useRouter();
   const { tournament, status } = useActiveTournament();
   const tid = tournament?.id ?? null;
   const standings = useStandings(tid);
@@ -143,7 +145,14 @@ export default function HomePage() {
                 Klasemen {tournament?.shortName ?? "BOF"} · {standings.data?.publishedMatchCount ?? 0} match resmi
               </p>
             </div>
-            <LeaderboardTable standings={standings.data?.standings ?? []} maxRows={8} compact />
+            <LeaderboardTable
+              standings={standings.data?.standings ?? []}
+              maxRows={8}
+              compact
+              status={standings.status}
+              updatedAt={standings.data?.updatedAt}
+              onTeamClick={(row) => router.push(`/teams/${row.teamId}?tid=${tid ?? ""}`)}
+            />
             <div className="border-t-[3px] border-zb-black bg-zb-off px-4 py-2.5 text-center">
               <Link href="/leaderboard" className="text-xs font-black uppercase tracking-wider text-zb-blue hover:underline">
                 Lihat klasemen lengkap →

@@ -265,3 +265,58 @@
 .thin-scroll::-webkit-scrollbar-track {
   background: #f1f1ec;
 }
+
+/* ============================================================
+   ANIMASI ZEROID — leaderboard broadcast & micro-interaction
+   ============================================================ */
+
+@keyframes zb-shimmer {
+  0% { background-position: -480px 0; }
+  100% { background-position: 480px 0; }
+}
+
+/* Baris skeleton leaderboard saat menghubungkan database realtime */
+.bo-skel {
+  background: linear-gradient(90deg, #ececea 25%, #f8f8f5 50%, #ececea 75%);
+  background-size: 960px 100%;
+  animation: zb-shimmer 1.4s linear infinite;
+}
+
+/* Kilatan emas saat poin tim berubah (dipicu kelas .flash) */
+@keyframes zb-flash-gold {
+  0% { background-color: rgba(255, 230, 0, 0.45); }
+  100% { background-color: transparent; }
+}
+.flash-up {
+  animation: zb-flash-gold 0.9s ease-out 1;
+}
+
+/* Glow podium juara */
+@keyframes zb-glow-gold {
+  0%, 100% { box-shadow: 4px 4px 0 #111111, 0 0 18px rgba(217, 180, 91, 0.35); }
+  50% { box-shadow: 4px 4px 0 #111111, 0 0 30px rgba(255, 230, 0, 0.55); }
+}
+.rank-champion {
+  animation: zb-glow-gold 2.2s ease-in-out infinite;
+}
+
+/* Ticker informasi broadcast */
+@keyframes zb-ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Muncul halus untuk section baru */
+@keyframes zb-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.zb-rise {
+  animation: zb-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bo-skel, .flash-up, .rank-champion, .zb-rise {
+    animation: none !important;
+  }
+}

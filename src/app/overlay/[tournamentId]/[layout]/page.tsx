@@ -173,7 +173,7 @@ function MatchInfoOverlay({
           <MapPin className="h-3.5 w-3.5" /> {map ?? "—"} · {format ?? ""} · {status === "live" ? "LIVE" : status === "completed" ? "SELESAI" : "TERJADWAL"}
         </p>
       </div>
-      {announcements[0] ? (
+      {announcements?.[0] ? (
         <div className="border-l-2 border-[rgba(217,180,91,0.5)] pl-3 text-xs font-semibold text-white/80">
           {announcements[0]}
         </div>
@@ -184,7 +184,7 @@ function MatchInfoOverlay({
 
 /* ---------- LOWER THIRD ---------- */
 function LowerThird({ announcements }: { announcements?: string[] }) {
-  const text = announcements[0];
+  const text = announcements?.[0];
   if (!text) return null;
   return (
     <motion.div

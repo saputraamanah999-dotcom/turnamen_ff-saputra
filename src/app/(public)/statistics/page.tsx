@@ -74,16 +74,16 @@ export default function StatisticsPage() {
       .map(([placement, total]) => ({ name: `Rank ${placement}`, value: total }));
   }, [perMatch, teamFilter]);
 
-  const bestMatchPoints = useMemo(() => {
+  const bestMatchPoints = useMemo<{ team: string; points: number; match: string } | null>(() => {
     let best: { team: string; points: number; match: string } | null = null;
-    Object.entries(perMatch).forEach(([mid, results]) => {
-      results.forEach((r) => {
+    for (const [mid, results] of Object.entries(perMatch)) {
+      for (const r of results) {
         if (!best || r.totalPoints > best.points) {
           const m = completed.find((c) => c.id === mid);
           best = { team: r.teamName, points: r.totalPoints, match: `Match ${m?.matchNumber ?? ""}` };
         }
-      });
-    });
+      }
+    }
     return best;
   }, [perMatch, completed]);
 

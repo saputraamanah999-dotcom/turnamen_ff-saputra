@@ -87,11 +87,11 @@ export default function GuideIndexPage() {
           <ol className="list-decimal space-y-2 pl-5 font-semibold">
             <li>Masuk <strong>Admin → Tournaments</strong>, buat turnamen dengan format BO3/BO5/BO7 dan kapasitas tim (default 12).</li>
             <li>Aktifkan turnamen (status <em>active</em>) agar halaman publik menampilkan data.</li>
-            <li>Tambahkan tim di <strong>Admin → Tim</strong>: nama, tag, nomor, dan roster opsional.</li>
+            <li className="scroll-mt-24" id="tim">Tambahkan tim di <strong>Admin → Tim</strong>: nama, tag, nomor, dan roster opsional.</li>
             <li>Buat match di <strong>Admin → Match</strong>: nomor, map, format, dan jadwal.</li>
-            <li>Setelah match selesai, buka <strong>Admin → Entri Hasil</strong> pada match tersebut.</li>
+            <li className="scroll-mt-24" id="hasil">Setelah match selesai, buka <strong>Admin → Entri Hasil</strong> pada match tersebut.</li>
             <li>Isi placement &amp; kill tiap tim — poin placement, kill points, dan total dihitung otomatis sesuai aturan resmi BOF.</li>
-            <li>Gunakan <strong>Simpan Draft</strong> untuk menyimpan sementara, lalu <strong>Publish</strong> agar klasemen publik diperbarui realtime.</li>
+            <li className="scroll-mt-24" id="leaderboard">Gunakan <strong>Simpan Draft</strong> untuk menyimpan sementara, lalu <strong>Publish</strong> agar klasemen publik diperbarui realtime.</li>
           </ol>
         </BoCard>
       </section>

@@ -1,5 +1,6 @@
 "use client";
 // /admin/scoring — konfigurasi sistem poin (resmi BOF terkunci)
+import Link from "next/link";
 import { BoBadge, BoCard, BoButton } from "@/components/common/bo";
 import { OFFICIAL_KILL_POINT, OFFICIAL_PLACEMENT_POINTS, SCORING_VERSION } from "@/lib/constants";
 
@@ -51,9 +52,11 @@ export default function AdminScoringPage() {
           agar hasil historis tetap dapat direproduksi.
         </p>
         <div className="mt-3">
-          <BoButton variant="black" onClick={() => window.open("/documentation", "_self")} disabled>
-            Pengaturan lanjutan (superadmin)
-          </BoButton>
+          <Link href="/admin/documentation">
+            <BoButton variant="black">
+              Pengaturan lanjutan (superadmin)
+            </BoButton>
+          </Link>
         </div>
       </BoCard>
     </div>

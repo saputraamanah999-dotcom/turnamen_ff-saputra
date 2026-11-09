@@ -1,12 +1,16 @@
 "use client";
 // ============================================================
-// ZEROID ESPORTS — Tabel leaderboard realtime
-// Kolom: RANK · TIM · KILLS · POIN — highlight Top 3,
+// ZEROID ESPORTS — Tabel leaderboard realtime broadcast-grade
+// Kolom: RANK · TIM · KILL · POIN — highlight Top 3, glow juara,
+// kilatan emas saat poin berubah, skeleton saat menghubungkan,
 // indikator pergerakan, klik baris → detail tim.
 // ============================================================
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, ChevronUp, Minus, ShieldQuestion } from "lucide-react";
+import {
+  ChevronDown, ChevronUp, Crown, Medal, Minus, RefreshCw, ShieldQuestion,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { StandingsRow } from "@/lib/types";
 
@@ -17,7 +21,7 @@ export function MovementIcon({ movement }: { movement: StandingsRow["movement"] 
 }
 
 const RANK_STYLES: Record<number, string> = {
-  1: "bg-zb-yellow text-zb-black",
+  1: "bg-zb-yellow text-zb-black rank-champion",
   2: "bg-zb-cyan text-zb-black",
   3: "bg-zb-purple text-white",
 };
@@ -57,20 +61,96 @@ export function TeamInitials({ name, size = "md" }: { name: string; size?: "sm" 
   );
 }
 
+/**
+ * Angka dengan kilatan emas saat nilainya berubah (realtime).
+ * Dipakai pada sel POIN/KILL agar perubahan terlihat jelas saat siaran.
+ */
+function FlashNumber({ value, className }: { value: number; className?: string }) {
+  const prev = useRef(value);
+  const [flash, setFlash] = useState(false);
+
+  useEffect(() => {
+    if (prev.current !== value) {
+      prev.current = value;
+      setFlash(true);
+      const t = setTimeout(() => setFlash(false), 900);
+      return () => clearTimeout(t);
+    }
+  }, [value]);
+
+  return (
+    <motion.span
+      key={value}
+      initial={flash ? { scale: 1.35 } : false}
+      animate={{ scale: 1 }}
+      transition={{ type: "spring", stiffness: 500, damping: 22 }}
+      className={cn("inline-block tabular-nums", flash && "flash-up px-1", className)}
+    >
+      {value.toLocaleString("id-ID")}
+    </motion.span>
+  );
+}
+
+/** Baris skeleton saat status "connecting". */
+function SkeletonRows({ rows = 6 }: { rows?: number }) {
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, i) => (
+        <tr key={i} className="border-b-[3px] border-zb-black/10 bg-white">
+          <td className="px-2 py-2.5 text-center">
+            <div className="bo-skel mx-auto h-8 w-8 border-[3px] border-zb-black/10" />
+          </td>
+          <td className="px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <div className="bo-skel h-4 w-10 border-[2px] border-zb-black/10" />
+              <div className="bo-skel h-4 w-28 border-[2px] border-zb-black/10" />
+            </div>
+          </td>
+          <td className="px-2 py-2.5 text-center">
+            <div className="bo-skel mx-auto h-4 w-8 border-[2px] border-zb-black/10" />
+          </td>
+          <td className="px-2 py-2.5 text-center">
+            <div className="bo-skel mx-auto h-5 w-10 border-[2px] border-zb-black/10" />
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+/** Format "terakhir diperbarui" dari Firestore Timestamp / Date / string. */
+export function formatUpdatedAt(value: unknown): string | null {
+  let d: Date | null = null;
+  if (value && typeof value === "object" && "seconds" in (value as Record<string, unknown>)) {
+    const s = (value as { seconds: number }).seconds;
+    d = new Date(s * 1000);
+  } else if (value instanceof Date) d = value;
+  else if (typeof value === "string" || typeof value === "number") d = new Date(value);
+  if (!d || Number.isNaN(d.getTime())) return null;
+  return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
 export function LeaderboardTable({
   standings,
   onTeamClick,
   compact = false,
   maxRows,
   selectedTeamId,
+  status,
+  updatedAt,
 }: {
   standings: StandingsRow[];
   onTeamClick?: (row: StandingsRow) => void;
   compact?: boolean;
   maxRows?: number;
   selectedTeamId?: string | null;
+  status?: "connecting" | "online" | "offline";
+  updatedAt?: unknown;
 }) {
+  const connecting = status === "connecting" && standings.length === 0;
   const rows = maxRows ? standings.slice(0, maxRows) : standings;
+  const updated = formatUpdatedAt(updatedAt);
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[420px] border-collapse text-sm">
@@ -91,54 +171,92 @@ export function LeaderboardTable({
           </tr>
         </thead>
         <tbody>
-          <AnimatePresence initial={false}>
-            {rows.map((row) => (
-              <motion.tr
-                key={row.teamId}
-                layout
-                initial={{ opacity: 0.6 }}
-                animate={{ opacity: 1 }}
-                transition={{ type: "spring", stiffness: 320, damping: 30 }}
-                onClick={() => onTeamClick?.(row)}
-                className={cn(
-                  "border-b-[3px] border-zb-black/15 bg-white transition-colors",
-                  onTeamClick ? "cursor-pointer" : "",
-                  selectedTeamId === row.teamId ? "bg-zb-cyan/40" : "hover:bg-zb-yellow/25",
-                  row.rank === 1 ? "bg-zb-yellow/20" : "",
-                )}
-              >
-                <td className="px-2 py-2 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <RankBadge rank={row.rank} />
-                  </div>
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <MovementIcon movement={row.movement} />
-                    <div className={cn(compact ? "" : "min-w-0")}>
-                      <p className="truncate font-display text-sm font-bold leading-tight">
-                        {row.teamName}
-                        {row.needsManualReview ? (
-                          <ShieldQuestion className="ml-1 inline h-3.5 w-3.5 text-amber-600" aria-label="Perlu review manual" />
-                        ) : null}
-                      </p>
-                      {row.teamTag ? (
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-zb-black/50">
-                          [{row.teamTag}] · Main {row.matchesPlayed}x
-                        </p>
+          {connecting ? (
+            <SkeletonRows rows={compact ? 6 : 8} />
+          ) : (
+            <AnimatePresence initial={false}>
+              {rows.map((row) => (
+                <motion.tr
+                  key={row.teamId}
+                  layout
+                  initial={{ opacity: 0.6 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 320, damping: 30 }}
+                  onClick={() => onTeamClick?.(row)}
+                  className={cn(
+                    "border-b-[3px] border-zb-black/15 bg-white transition-colors",
+                    onTeamClick ? "cursor-pointer" : "",
+                    selectedTeamId === row.teamId ? "bg-zb-cyan/40" : "hover:bg-zb-yellow/25",
+                  )}
+                >
+                  <td className="px-2 py-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <RankBadge rank={row.rank} />
+                      {row.rank === 1 ? (
+                        <Crown className="h-4 w-4 text-amber-500" strokeWidth={2.5} aria-label="Juara sementara" />
+                      ) : row.rank <= 3 ? (
+                        <Medal className="h-3.5 w-3.5 text-zb-purple" strokeWidth={2.5} aria-label="Top 3" />
                       ) : null}
                     </div>
-                  </div>
-                </td>
-                <td className="px-2 py-2 text-center font-bold tabular-nums">{row.kills}</td>
-                <td className="px-2 py-2 text-center">
-                  <span className="font-display text-base font-black tabular-nums">{row.totalPoints}</span>
-                </td>
-              </motion.tr>
-            ))}
-          </AnimatePresence>
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "flex h-5 w-5 shrink-0 items-center justify-center border-[2px] border-zb-black/20 bg-white",
+                          row.movement === "up" && "border-emerald-600 bg-emerald-100",
+                          row.movement === "down" && "border-red-500 bg-red-100",
+                        )}
+                        title={
+                          row.movement === "up"
+                            ? `Naik dari peringkat ${row.previousRank ?? "?"}`
+                            : row.movement === "down"
+                              ? `Turun dari peringkat ${row.previousRank ?? "?"}`
+                              : row.movement === "new"
+                                ? "Tim baru masuk klasemen"
+                                : "Peringkat tetap"
+                        }
+                      >
+                        <MovementIcon movement={row.movement} />
+                      </span>
+                      <div className={cn(compact ? "" : "min-w-0")}>
+                        <p className="truncate font-display text-sm font-bold leading-tight">
+                          {row.teamName}
+                          {row.needsManualReview ? (
+                            <ShieldQuestion className="ml-1 inline h-3.5 w-3.5 text-amber-600" aria-label="Perlu review manual" />
+                          ) : null}
+                        </p>
+                        {row.teamTag ? (
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-zb-black/50">
+                            [{row.teamTag}] · Main {row.matchesPlayed}x
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-2 py-2 text-center font-bold">
+                    <FlashNumber value={row.kills} />
+                  </td>
+                  <td className="px-2 py-2 text-center">
+                    <FlashNumber
+                      value={row.totalPoints}
+                      className="font-display text-base font-black"
+                    />
+                  </td>
+                </motion.tr>
+              ))}
+            </AnimatePresence>
+          )}
         </tbody>
       </table>
+
+      {/* Ticker status broadcast — hanya bila waktu update tersedia */}
+      {updated ? (
+        <div className="flex items-center gap-2 border-t-[3px] border-zb-black bg-zb-black px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white/80">
+          <RefreshCw className="h-3.5 w-3.5 text-zb-cyan" />
+          Realtime · terakhir diperbarui {updated}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 // /leaderboard — daftar turnamen + klasemen lengkap dengan detail skor
-import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BoCard } from "@/components/common/bo";
 import { DataStatusBanner, EmptyState } from "@/components/common/stat";
 import { LeaderboardTable } from "@/components/leaderboard/leaderboard";
@@ -9,6 +9,7 @@ import { useActiveTournament, useStandings } from "@/services/firestore/hooks";
 import { OFFICIAL_PLACEMENT_POINTS } from "@/lib/constants";
 
 export default function LeaderboardIndexPage() {
+  const router = useRouter();
   const { tournament, status } = useActiveTournament();
   const tid = tournament?.id ?? null;
   const standings = useStandings(tid);
@@ -21,7 +22,12 @@ export default function LeaderboardIndexPage() {
 
       {standings.data ? (
         <BoCard className="overflow-hidden bg-white">
-          <LeaderboardTable standings={standings.data.standings} />
+          <LeaderboardTable
+            standings={standings.data.standings}
+            status={standings.status}
+            updatedAt={standings.data.updatedAt}
+            onTeamClick={(row) => router.push(`/teams/${row.teamId}?tid=${tid ?? ""}`)}
+          />
           <div className="grid grid-cols-2 gap-px border-t-[3px] border-zb-black bg-zb-black sm:grid-cols-4">
             <MiniStat label="Match Resmi" value={String(standings.data.publishedMatchCount)} bg="bg-white" />
             <MiniStat label="Total Kill" value={String(standings.data.totalKills)} bg="bg-zb-cyan" />

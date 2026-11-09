@@ -1,6 +1,6 @@
 "use client";
 // /teams/:teamId — detail tim: statistik + riwayat hasil per match
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";

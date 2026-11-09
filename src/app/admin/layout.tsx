@@ -98,7 +98,7 @@ function SidebarContent({
   vertical,
 }: {
   pathname: string;
-  session: { role: string | null; user: { email?: string | null }; logout: () => Promise<void> };
+  session: { role: string | null; user: { email?: string | null } | null; logout: () => Promise<void> };
   onNavigate?: () => void;
   vertical?: boolean;
 }) {
@@ -131,7 +131,7 @@ function SidebarContent({
         })}
       </nav>
       <div className={cn("border-t-[3px] border-zb-black pt-3", vertical ? "mt-3" : "mt-4")}>
-        <p className="truncate px-1 text-xs font-bold text-zb-black/60">{session.user.email}</p>
+        <p className="truncate px-1 text-xs font-bold text-zb-black/60">{session.user?.email ?? "admin"}</p>
         <p className="px-1 text-[10px] font-black uppercase tracking-widest text-zb-purple">{session.role}</p>
         <div className="mt-2 flex gap-2">
           <Link href="/" className="bo-btn bo-btn-white flex-1 !px-2 !py-1.5 !text-[11px]">
