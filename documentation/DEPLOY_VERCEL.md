@@ -77,14 +77,34 @@ Website sudah online, tapi untuk **data & admin** masih perlu (dari laptop, seka
 > Tanpa langkah 2–3, halaman publik tetap tampil namun **kosong** (tanpa klasemen/tim) —
 > itu perilaku normal karena Firestore masih belum berisi data & rules belum terpasang.
 
+## 5b. Cara MUDAH tanpa laptop — halaman `/setup.html` ⚡
+
+Repo ini menyertakan **halaman setup satu-klik**: `public/setup.html` → setelah deploy bisa
+dibuka di **`https://<domain-vercel-kamu>/setup.html`** langsung dari HP.
+
+1. Buka `/setup.html` di HP/laptop.
+2. Konfigurasi sudah terisi otomatis (project `turnamenffbof`) — email & password super
+   admin bisa diganti di kolom yang tersedia.
+3. **Langkah 2**: tempel isi file JSON *service account* Firebase (diproses langsung di
+   browser → Google; tersimpan hanya di perangkat kamu; bisa dihapus kapan saja).
+4. Tekan tombol biru besar **"⚡ BUAT SEMUA — SEKALI PENCET"**. Halaman akan otomatis:
+   aktifkan login Email/Password → buat akun super admin + `adminRoles` → seed data
+   turnamen (12 tim, 7 match, 3 hasil resmi, klasemen) → pasang security rules →
+   buat composite indexes → cek status.
+5. Selesai! Login admin di `/admin`. Setelah setup, tombol-tombol ini tidak perlu
+   dipakai lagi; opsional hapus service account dari perangkat (tombol 🗑).
+
+> Halaman ini menggantikan `npm run seed` + `npm run deploy:rules` — tidak butuh laptop,
+> tidak butuh Node.js. Tetap tersedia keduanya untuk yang terbiasa terminal.
+
 ## 6. Masalah umum
 
 | Gejala | Solusi |
 |---|---|
 | Dialog "requires a vercel.json" saat import | Project lama belum dihapus / masih import setelan lama. Hapus project, import ulang. |
 | Build gagal `NEXT_PUBLIC_FIREBASE_APP_ID` kosong | Variabel wajib belum diisi — lengkapi 6 variabel di langkah 3. |
-| Halaman terbuka tapi klasemen kosong | Firestore belum di-seed / rules belum dideploy (lihat langkah 5). |
-| Login admin gagal | Akun super admin dibuat oleh `npm run seed` — jalankan dari laptop. |
+| Halaman terbuka tapi klasemen kosong | Firestore belum di-seed / rules belum dideploy (lihat langkah 5 atau 5b). |
+| Login admin gagal | Buat akun admin via `/setup.html` (langkah 5b) atau `npm run seed` dari laptop. |
 | Deploy ulang | Cukup `git push` ke GitHub — Vercel otomatis build ulang. |
 
 ---

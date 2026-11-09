@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SETUP FIREBASE — ZEROID ESPORTS (BOF)</title>
+<style>
+  :root {
+    --blue: #182CFF; --purple: #8150F5; --cyan: #66F0E6;
+    --yellow: #FFE600; --ink: #0A0A0A; --paper: #F5F4F0;
+    --ok: #0E9F6E; --err: #E02424; --warn: #B45309;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--paper); color: var(--ink);
+    padding: 14px; max-width: 560px; margin: 0 auto; padding-bottom: 40px;
+  }
+  .box { background: #fff; border: 3px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); padding: 14px; margin-top: 16px; }
+  header { background: var(--ink); color: #fff; border: 3px solid var(--ink); box-shadow: 6px 6px 0 var(--purple); padding: 16px 14px; }
+  h1 { font-size: 20px; letter-spacing: 1px; }
+  h1 span { color: var(--yellow); }
+  header p { font-size: 12px; opacity: .8; margin-top: 4px; }
+  h2 { font-size: 15px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .step-tag { background: var(--blue); color: #fff; font-size: 11px; padding: 2px 8px; border: 2px solid var(--ink); }
+  label { font-size: 12px; font-weight: 700; display: block; margin: 10px 0 4px; }
+  input, textarea {
+    width: 100%; padding: 10px; border: 2px solid var(--ink); font-size: 14px;
+    background: #fff; font-family: inherit;
+  }
+  textarea { font-family: ui-monospace, monospace; font-size: 11px; min-height: 110px; resize: vertical; }
+  button {
+    display: block; width: 100%; padding: 14px; margin-top: 12px;
+    border: 3px solid var(--ink); background: var(--yellow); color: var(--ink);
+    font-size: 16px; font-weight: 800; cursor: pointer; box-shadow: 4px 4px 0 var(--ink);
+    font-family: inherit; letter-spacing: .5px;
+  }
+  button:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-big { background: var(--blue); color: #fff; font-size: 18px; padding: 18px; animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 4px 4px 0 var(--ink); } 50% { box-shadow: 4px 4px 0 var(--purple); } }
+  .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btn-row button { margin-top: 0; font-size: 13px; padding: 11px; }
+  .btn-secondary { background: var(--cyan); font-size: 13px; }
+  .btn-danger { background: #fff; color: var(--err); font-size: 13px; }
+  .hint { font-size: 11.5px; color: #555; margin-top: 6px; line-height: 1.5; }
+  .warnbox { background: var(--yellow); border: 2px solid var(--ink); padding: 8px 10px; font-size: 11.5px; margin-top: 10px; line-height: 1.5; }
+  .progress-wrap { border: 2px solid var(--ink); height: 18px; background: #fff; margin-top: 12px; display: none; }
+  .progress-bar { height: 100%; width: 0%; background: repeating-linear-gradient(45deg, var(--purple), var(--purple) 8px, var(--cyan) 8px, var(--cyan) 16px); transition: width .3s; }
+  #log {
+    background: var(--ink); color: #9FE8DE; font-family: ui-monospace, monospace;
+    font-size: 11px; padding: 10px; margin-top: 12px; max-height: 260px; overflow-y: auto;
+    border: 2px solid var(--ink); white-space: pre-wrap; word-break: break-word;
+  }
+  #log .ok { color: #6EE7A8; } #log .err { color: #FF9B9B; font-weight: bold; }
+  #log .warn { color: var(--yellow); } #log .big { color: #fff; font-weight: bold; }
+  .sa-status { font-size: 12px; font-weight: 700; margin-top: 8px; }
+  .sa-status.on { color: var(--ok); } .sa-status.off { color: var(--warn); }
+  .done-card { display: none; background: var(--cyan); border: 3px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); padding: 14px; margin-top: 16px; }
+  .done-card b { display: block; margin-bottom: 6px; }
+  .done-card code { background: #fff; border: 1px solid var(--ink); padding: 2px 6px; font-size: 12px; }
+  .details summary { font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ SETUP FIREBASE — <span>ZEROID ESPORTS</span></h1>
+  <p>BATTLE OFF FRIENDS · SMK TI BALI GLOBAL KARANGASEM · by SAPUTRA DEVELOPER</p>
+</header>
+
+<div class="box">
+  <h2>1 · Konfigurasi Project</h2>
+  <label>Project ID Firebase</label>
+  <input id="projId" value="turnamenffbof">
+  <label>Web API Key (Firebase → Project Settings)</label>
+  <input id="apiKey" value="AIzaSyDPU3fKTfoXc2vEVcDasPOIsmOsGqW4HNM">
+  <label>Email Super Admin</label>
+  <input id="adminEmail" value="saputra.developer@bof-esports.id">
+  <label>Password Super Admin</label>
+  <input id="adminPassword" type="password" value="ZeroidBOF#2026">
+  <p class="hint">Default mengikuti script seed resmi. <b>Ganti password setelah login pertama!</b></p>
+</div>
+
+<div class="box">
+  <h2>2 · Service Account <span class="step-tag">wajib</span></h2>
+  <p class="hint">Tempel isi file JSON service account Firebase (yang punya <code>private_key</code>).
+  Ini dipakai untuk membuat data &amp; rules sebagai <b>admin</b> (melewati security rules).
+  Tersimpan <b>hanya di perangkat kamu</b> (localStorage), dikirim langsung ke Google, tidak ke mana pun lainnya.</p>
+  <textarea id="saText" placeholder='Tempel seluruh isi JSON service account di sini, mulai dari { "type": "service_account", ... }'></textarea>
+  <div class="btn-row">
+    <button class="btn-secondary" id="btnSaSave">💾 Simpan di Perangkat</button>
+    <button class="btn-danger" id="btnSaClear">🗑 Hapus dari Perangkat</button>
+  </div>
+  <div id="saStatus" class="sa-status off">Belum ada service account</div>
+</div>
+
+<div class="box">
+  <h2>3 · Jalankan</h2>
+  <button class="btn-big" id="btnAll">⚡ BUAT SEMUA — SEKALI PENCET ⚡</button>
+  <p class="hint">Satu tombol ini akan otomatis:
+  ① aktifkan login Email/Password → ② buat akun super admin → ③ tulis adminRoles →
+  ④ seed data turnamen (12 tim, 7 match, hasil 3 match, klasemen) →
+  ⑤ pasang security rules → ⑥ buat composite indexes.</p>
+  <div class="progress-wrap"><div class="progress-bar" id="pbar"></div></div>
+
+  <details class="details">
+    <summary>🔧 Jalankan per-langkah (kalau ada yang gagal / mau ulang sebagian)</summary>
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn-secondary" id="btnToken">1·Uji Kunci SA</button>
+      <button class="btn-secondary" id="btnAdmin">2·Buat Admin</button>
+    </div>
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn-secondary" id="btnSeed">4·Seed Data</button>
+      <button class="btn-secondary" id="btnRules">5·Pasang Rules</button>
+    </div>
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn-secondary" id="btnIndexes">6·Buat Indexes</button>
+      <button class="btn-secondary" id="btnStatus">✔ Cek Status DB</button>
+    </div>
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn-secondary" id="btnResetPw">🔑 Reset Password Admin</button>
+      <button class="btn-secondary" id="btnEnablePw">🔓 Aktifkan Login Email</button>
+    </div>
+  </details>
+</div>
+
+<div class="done-card" id="doneCard">
+  <b>✅ SETUP SELESAI!</b>
+  <p class="hint">Login admin di halaman <code>/admin</code> website kamu dengan:</p>
+  <p class="hint">Email: <code id="doneEmail"></code><br>Password: <i>(yang kamu isi di atas)</i></p>
+  <p class="hint">Cek: <code>/leaderboard/bof-main</code> · <code>/live/bof-main</code> · <code>/admin</code></p>
+  <p class="hint" style="color:var(--warn)">⚠ Index composite butuh 2–5 menit untuk siap — tidak perlu diapa-apakan.</p>
+</div>
+
+<div id="log"></div>
+
+<script>
+"use strict";
+// ============================================================
+// ZEROID ESPORTS — Setup Firebase One-Click (100% client-side)
+// Alur: service account → JWT RS256 (Web Crypto) → OAuth token
+//       → Identity Toolkit (buat admin) + Firestore REST (seed,
+//         rules, indexes). Tanpa server, tanpa library.
+// ============================================================
+
+// ---------- Data seed resmi (identik scripts/seed-firebase.mjs) ----------
+const TOURNAMENT_ID = "bof-main";
+const SCORING_VERSION = "BOF-OFFICIAL-v1";
+const PLACEMENT_POINTS = [20, 17, 15, 13, 12, 10, 6, 4, 3, 2, 1, 0];
+const KILL_POINT = 2;
+const TEAMS = [
+  ["t01", "Team Alpha", "ALP"], ["t02", "Team Bravo", "BRV"], ["t03", "Team Charlie", "CHL"],
+  ["t04", "Team Delta", "DLT"], ["t05", "Team Echo", "ECH"], ["t06", "Team Foxtrot", "FXT"],
+  ["t07", "Team Golf", "GLF"], ["t08", "Team Hotel", "HTL"], ["t09", "Team India", "IND"],
+  ["t10", "Team Juliet", "JLT"], ["t11", "Team Kilo", "KLO"], ["t12", "Team Lima", "LMA"],
+];
+const MAPS = ["BERMUDA", "PURGATORY", "KALAHARI", "ALPINE", "NEXTERRA", "BERMUDA", "PURGATORY"];
+const RESULTS = {
+  "match-01": [["t01",1,8],["t02",2,5],["t03",3,7],["t04",4,3],["t05",5,6],["t06",6,2],["t07",7,4],["t08",8,1],["t09",9,3],["t10",10,0],["t11",11,2],["t12",12,1]],
+  "match-02": [["t05",1,9],["t01",2,6],["t09",3,5],["t03",4,4],["t07",5,5],["t02",6,3],["t12",7,4],["t04",8,2],["t06",9,2],["t08",10,1],["t10",11,1],["t11",12,0]],
+  "match-03": [["t03",1,10],["t02",2,6],["t01",3,7],["t05",4,5],["t09",5,6],["t07",6,3],["t06",7,4],["t12",8,3],["t04",9,2],["t11",10,1],["t08",11,1],["t10",12,0]],
+};
+const placementPointsFor = (p) => (p >= 1 && p <= PLACEMENT_POINTS.length ? PLACEMENT_POINTS[p - 1] : 0);
+
+// ---------- Firestore rules (identik firebase/firestore.rules) ----------
+const FIRESTORE_RULES = `rules_version = '2';
+
+// ============================================================
+// ZEROID ESPORTS — Battle Off Friends (BOF)
+// Firestore Security Rules
+// Publik: hanya BACA data yang sudah dipublikasikan.
+// Admin: tulis sesuai peran di koleksi adminRoles.
+// Superadmin: kelola peran admin & konfigurasi sistem.
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helper ----------
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function myRole() {
+      return get(/databases/$(database)/documents/adminRoles/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return signedIn() && myRole() in ['admin', 'superadmin'];
+    }
+
+    function isSuperAdmin() {
+      return signedIn() && myRole() == 'superadmin';
+    }
+
+    // ---------- adminRoles ----------
+    // Hanya superadmin boleh mengelola peran; admin boleh MEMBACA sendiri.
+    match /adminRoles/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
+
+    // ---------- tournaments ----------
+    match /tournaments/{tournamentId} {
+      allow read: if resource.data.status == 'active' || resource.data.status == 'completed' || isAdmin();
+      allow create, update: if isAdmin();
+      allow delete: if isSuperAdmin();
+
+      // ---------- teams ----------
+      match /teams/{teamId} {
+        allow read: if isAdmin()
+          || get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.status in ['active', 'completed'];
+        allow create, update: if isAdmin();
+        allow delete: if isAdmin();
+      }
+
+      // ---------- matches ----------
+      match /matches/{matchId} {
+        allow read: if isAdmin()
+          || get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.status in ['active', 'completed'];
+
+        allow create, update: if isAdmin();
+        allow delete: if isSuperAdmin();
+
+        // ---------- results (per match) ----------
+        match /results/{teamId} {
+          // Publik boleh membaca hasil match yang SUDAH dipublikasikan.
+          allow read: if isAdmin()
+            || get(/databases/$(database)/documents/tournaments/$(tournamentId))
+                 .data.status in ['active', 'completed'];
+          allow write: if isAdmin();
+        }
+      }
+    }
+
+    // ---------- publicLeaderboards ----------
+    match /publicLeaderboards/{tournamentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------- scoringConfigurations ----------
+    match /scoringConfigurations/{configId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // ---------- broadcastSettings ----------
+    match /broadcastSettings/{tournamentId} {
+      allow read: if true;
+      // Catatan: stream key TIDAK pernah disimpan di dokumen ini.
+      allow write: if isAdmin();
+    }
+
+    // ---------- observerEvents ----------
+    // Publik hanya boleh membaca event yang DIKONFIRMASI panitia
+    // dan bila fitur timeline publik diaktifkan.
+    match /observerEvents/{tournamentId} {
+      match /events/{eventId} {
+        allow read: if isAdmin()
+          || (resource.data.status == 'confirmed'
+              && get(/databases/$(database)/documents/broadcastSettings/$(tournamentId)).data.showPublicTimeline == true);
+        // Event ditulis oleh admin (konfirmasi/koreksi operator).
+        allow create, update: if isAdmin();
+        allow delete: if isSuperAdmin();
+      }
+    }
+
+    // ---------- auditLogs ----------
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      // Log hanya dibuat oleh aplikasi admin terautentikasi; tidak bisa diedit/dihapus.
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // ---------- users ----------
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid;
+      allow delete: if isSuperAdmin();
+    }
+
+    // ---------- Default: tolak semua ----------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}`;
+
+// ---------- Composite indexes resmi (identik firebase/firestore.indexes.json) ----------
+const INDEXES = [
+  { collectionGroup: "matches", queryScope: "COLLECTION", fields: [
+    { fieldPath: "tournamentId", order: "ASCENDING" }, { fieldPath: "matchNumber", order: "ASCENDING" } ] },
+  { collectionGroup: "matches", queryScope: "COLLECTION", fields: [
+    { fieldPath: "tournamentId", order: "ASCENDING" }, { fieldPath: "status", order: "ASCENDING" },
+    { fieldPath: "matchNumber", order: "ASCENDING" } ] },
+  { collectionGroup: "teams", queryScope: "COLLECTION", fields: [
+    { fieldPath: "tournamentId", order: "ASCENDING" }, { fieldPath: "number", order: "ASCENDING" } ] },
+];
+
+// ---------- UI helpers ----------
+const $ = (id) => document.getElementById(id);
+const logEl = $("log");
+function log(msg, cls = "") {
+  const line = document.createElement("div");
+  if (cls) line.className = cls;
+  const t = new Date().toLocaleTimeString("id-ID", { hour12: false });
+  line.textContent = "[" + t + "] " + msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function emsg(e) {
+  return (e && (e.message || e.description || e.name)) || String(e);
+}
+function setProgress(pct) {
+  $("pbar").parentElement.style.display = "block";
+  $("pbar").style.width = pct + "%";
+}
+function busy(btn, on, labelOn) {
+  btn.disabled = on;
+  if (on) { btn.dataset.old = btn.textContent; btn.textContent = labelOn || "⏳ Diproses…"; }
+  else if (btn.dataset.old) btn.textContent = btn.dataset.old;
+}
+
+// ---------- Konfigurasi & service account ----------
+function cfg() {
+  return {
+    projectId: $("projId").value.trim(),
+    apiKey: $("apiKey").value.trim(),
+    adminEmail: $("adminEmail").value.trim(),
+    adminPassword: $("adminPassword").value,
+  };
+}
+function getSA() {
+  try { return JSON.parse(localStorage.getItem("zeroid.setup.sa") || "null"); }
+  catch { return null; }
+}
+function refreshSaStatus() {
+  const sa = getSA();
+  const el = $("saStatus");
+  if (sa && sa.client_email) {
+    el.textContent = "✅ Service account siap: " + sa.client_email;
+    el.className = "sa-status on";
+  } else {
+    el.textContent = "Belum ada service account — tempel dulu di atas!";
+    el.className = "sa-status off";
+  }
+}
+$("btnSaSave").onclick = () => {
+  try {
+    const sa = JSON.parse($("saText").value);
+    if (!sa.private_key || !sa.client_email) throw new Error("JSON bukan service account (butuh private_key & client_email)");
+    localStorage.setItem("zeroid.setup.sa", JSON.stringify(sa));
+    log("💾 Service account disimpan di perangkat ini (" + sa.client_email + ")", "ok");
+    refreshSaStatus();
+  } catch (e) { log("❌ JSON tidak valid: " + e.message, "err"); }
+};
+$("btnSaClear").onclick = () => {
+  localStorage.removeItem("zeroid.setup.sa");
+  $("saText").value = "";
+  log("🗑 Service account dihapus dari perangkat", "warn");
+  refreshSaStatus();
+};
+
+// ---------- OAuth: JWT RS256 → access token ----------
+let accessToken = null, tokenExp = 0;
+function b64url(bytes) {
+  const bin = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let s = ""; bin.forEach((b) => (s += String.fromCharCode(b)));
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function pemToDer(pem) {
+  const body = pem.replace(/-----BEGIN PRIVATE KEY-----/, "").replace(/-----END PRIVATE KEY-----/, "").replace(/\s+/g, "");
+  const raw = atob(body);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr.buffer;
+}
+async function getToken(force = false) {
+  const sa = getSA();
+  if (!sa) throw new Error("Service account belum disimpan (Langkah 2).");
+  if (!force && accessToken && Date.now() < tokenExp - 60000) return accessToken;
+  log("🔐 Menandatangani JWT RS256 dengan Web Crypto…");
+  const iat = Math.floor(Date.now() / 1000);
+  const header = b64url(new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
+  const claims = b64url(new TextEncoder().encode(JSON.stringify({
+    iss: sa.client_email,
+    scope: "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/identitytoolkit https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/firebase",
+    aud: sa.token_uri || "https://oauth2.googleapis.com/token",
+    iat, exp: iat + 3600,
+  })));
+  const key = await crypto.subtle.importKey("pkcs8", pemToDer(sa.private_key),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key,
+    new TextEncoder().encode(header + "." + claims));
+  const jwt = header + "." + claims + "." + b64url(sig);
+  log("🌐 Menukar JWT dengan access token Google…");
+  const res = await fetch(sa.token_uri || "https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "grant_type=" + encodeURIComponent("urn:ietf:params:oauth:grant-type:jwt-bearer") + "&assertion=" + encodeURIComponent(jwt),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.access_token) {
+    throw new Error("Gagal OAuth: " + (data.error_description || data.error || res.status));
+  }
+  accessToken = data.access_token;
+  tokenExp = Date.now() + (data.expires_in || 3600) * 1000;
+  log("✅ Access token didapat (berlaku ±1 jam)", "ok");
+  return accessToken;
+}
+
+// ---------- REST helpers ----------
+function apiError(prefix, data) {
+  return prefix + ": " + ((data && data.error && data.error.message) || JSON.stringify(data).slice(0, 300));
+}
+async function gfetch(url, body, method) {
+  const token = await getToken();
+  const res = await fetch(url, {
+    method: method || (body ? "POST" : "GET"),
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(apiError("API " + res.status, data));
+  return data;
+}
+function docName(proj, path) {
+  return "projects/" + proj + "/databases/(default)/documents/" + path;
+}
+const S = (v) => ({ stringValue: v });
+const I = (v) => ({ integerValue: String(v) });
+const B = (v) => ({ booleanValue: v });
+const NUL = { nullValue: null };
+function A(vals) { return { arrayValue: { values: vals } }; }
+function F(obj) { return { fields: obj }; }
+const TS = { fieldPath: "updatedAt", setToServerValue: "REQUEST_TIME" };
+
+function updateWrite(proj, path, fields) {
+  return { update: { name: docName(proj, path), fields }, updateTransforms: [TS] };
+}
+
+// ---------- Langkah: aktifkan login Email/Password ----------
+async function enablePasswordSignIn() {
+  const { projectId } = cfg();
+  try {
+    await gfetch(
+      "https://identitytoolkit.googleapis.com/v1/projects/" + projectId + "/config?updateMask=signIn.allowPassword",
+      { signIn: { allowPassword: true } }, "PATCH");
+    log("🔓 Login Email/Password diaktifkan", "ok");
+  } catch (e) {
+    log("⚠ Aktifkan login Email/Password: " + e.message + " — lanjut, mungkin sudah aktif", "warn");
+  }
+}
+
+// ---------- Langkah: buat super admin ----------
+async function ensureAdmin() {
+  const { projectId, adminEmail, adminPassword } = cfg();
+  if (!adminEmail || !adminPassword) throw new Error("Email/password admin wajib diisi.");
+  let localId = null;
+  try {
+    const look = await gfetch("https://identitytoolkit.googleapis.com/v1/projects/" + projectId + "/accounts:lookup",
+      { email: [adminEmail] });
+    if (look.users && look.users.length) localId = look.users[0].localId;
+  } catch { /* lanjut coba create */ }
+  if (!localId) {
+    try {
+      const created = await gfetch("https://identitytoolkit.googleapis.com/v1/projects/" + projectId + "/accounts",
+        { email: adminEmail, password: adminPassword, displayName: "Super Admin ZEROID" });
+      localId = created.localId;
+      log("👤 Super admin dibuat: " + adminEmail, "ok");
+    } catch (e) {
+      if (String(e.message).includes("OPERATION_NOT_ALLOWED")) {
+        log("⚠ Login Email/Password belum aktif — mencoba aktifkan otomatis…", "warn");
+        await enablePasswordSignIn();
+        const created = await gfetch("https://identitytoolkit.googleapis.com/v1/projects/" + projectId + "/accounts",
+          { email: adminEmail, password: adminPassword, displayName: "Super Admin ZEROID" });
+        localId = created.localId;
+        log("👤 Super admin dibuat (setelah aktifkan provider): " + adminEmail, "ok");
+      } else throw e;
+    }
+  } else {
+    log("ℹ Super admin sudah ada: " + adminEmail + " (uid " + localId + ")", "ok");
+  }
+  // Tulis adminRoles/{uid}
+  await gfetch("https://firestore.googleapis.com/v1/projects/" + projectId + "/databases/(default)/documents:commit", {
+    writes: [{
+      update: { name: docName(projectId, "adminRoles/" + localId), fields: F({
+        uid: S(localId), email: S(adminEmail), role: S("superadmin"), createdAt: NUL }) },
+      updateTransforms: [{ fieldPath: "createdAt", setToServerValue: "REQUEST_TIME" }],
+    }],
+  });
+  log("🛡 adminRoles/" + localId + " → role: superadmin", "ok");
+  return localId;
+}
+
+// ---------- Langkah: seed data turnamen ----------
+function buildStandings() {
+  const accum = new Map();
+  for (const list of Object.values(RESULTS)) {
+    for (const [teamId, placement, kills] of list) {
+      const team = TEAMS.find((t) => t[0] === teamId);
+      const cur = accum.get(teamId) ?? {
+        teamId, teamName: team[1], teamTag: team[2], teamNumber: Number(teamId.slice(1)),
+        matchesPlayed: 0, kills: 0, placementPoints: 0, killPoints: 0, totalPoints: 0,
+      };
+      cur.matchesPlayed += 1;
+      cur.kills += kills;
+      cur.placementPoints += placementPointsFor(placement);
+      cur.killPoints += kills * KILL_POINT;
+      cur.totalPoints = cur.placementPoints + cur.killPoints;
+      accum.set(teamId, cur);
+    }
+  }
+  return [...accum.values()]
+    .sort((a, b) => b.totalPoints - a.totalPoints || b.placementPoints - a.placementPoints || a.teamNumber - b.teamNumber)
+    .map((r, i) => ({ ...r, lastPlacement: null, rank: i + 1, movement: "same" }));
+}
+
+async function seedData() {
+  const { projectId } = cfg();
+  const writes = [];
+  const base = "tournaments/" + TOURNAMENT_ID;
+
+  // Konfigurasi poin
+  writes.push(updateWrite(projectId, "scoringConfigurations/bof-official-v1", F({
+    placementPoints: A(PLACEMENT_POINTS.map(I)), killPointPerKill: I(KILL_POINT),
+    version: S(SCORING_VERSION), isOfficial: B(true) })));
+
+  // Turnamen
+  writes.push(updateWrite(projectId, base, F({
+    id: S(TOURNAMENT_ID), name: S("BATTLE OFF FRIENDS"), shortName: S("BOF"),
+    institution: S("SMK TI BALI GLOBAL KARANGASEM"), developer: S("SAPUTRA DEVELOPER"),
+    status: S("active"), format: S("BO7"), totalMatches: I(7), teamCapacity: I(12),
+    currentMatchId: S("match-04"), liveStatus: S("offline"), scoringVersion: S(SCORING_VERSION) })));
+
+  // 12 tim
+  for (const [id, name, tag] of TEAMS) {
+    writes.push(updateWrite(projectId, base + "/teams/" + id, F({
+      id: S(id), tournamentId: S(TOURNAMENT_ID), name: S(name), tag: S(tag),
+      number: I(Number(id.slice(1))), status: S("active") })));
+  }
+
+  // 7 match + hasil 3 match pertama
+  for (let i = 1; i <= 7; i++) {
+    const id = "match-0" + i;
+    const published = RESULTS[id] != null;
+    writes.push(updateWrite(projectId, base + "/matches/" + id, F({
+      id: S(id), tournamentId: S(TOURNAMENT_ID), matchNumber: I(i), map: S(MAPS[i - 1]),
+      format: S("BO7"), status: S(published ? "completed" : i === 4 ? "live" : "scheduled"),
+      isCurrent: B(i === 4), resultsPublished: B(published), scoringVersion: S(SCORING_VERSION) })));
+    if (published) {
+      for (const [teamId, placement, kills] of RESULTS[id]) {
+        const team = TEAMS.find((t) => t[0] === teamId);
+        writes.push(updateWrite(projectId, base + "/matches/" + id + "/results/" + teamId, F({
+          teamId: S(teamId), teamName: S(team[1]), teamTag: S(team[2]),
+          placement: I(placement), kills: I(kills),
+          placementPoints: I(placementPointsFor(placement)), killPoints: I(kills * KILL_POINT),
+          totalPoints: I(placementPointsFor(placement) + kills * KILL_POINT) })));
+      }
+    }
+  }
+
+  // Klasemen publik
+  const standings = buildStandings();
+  writes.push(updateWrite(projectId, "publicLeaderboards/" + TOURNAMENT_ID, F({
+    tournamentId: S(TOURNAMENT_ID),
+    standings: A(standings.map((r) => ({ mapValue: F({
+      teamId: S(r.teamId), teamName: S(r.teamName), teamTag: S(r.teamTag),
+      teamNumber: I(r.teamNumber), matchesPlayed: I(r.matchesPlayed), kills: I(r.kills),
+      placementPoints: I(r.placementPoints), killPoints: I(r.killPoints),
+      totalPoints: I(r.totalPoints), lastPlacement: NUL, rank: I(r.rank), movement: S(r.movement) }) }))),
+    publishedMatchCount: I(Object.keys(RESULTS).length),
+    totalKills: I(standings.reduce((a, r) => a + r.kills, 0)),
+    scoringVersion: S(SCORING_VERSION) })));
+
+  // Broadcast settings
+  writes.push(updateWrite(projectId, "broadcastSettings/" + TOURNAMENT_ID, F({
+    tournamentId: S(TOURNAMENT_ID), streamMode: S("offline"),
+    streamTitle: S("BATTLE OFF FRIENDS — Siaran Resmi"), showPublicTimeline: B(true),
+    announcements: A([S("Selamat datang di BATTLE OFF FRIENDS — SMK TI Bali Global Karangasem!")]) })));
+
+  // Audit log seed (ID acak)
+  writes.push(updateWrite(projectId, "auditLogs/" + (crypto.randomUUID ? crypto.randomUUID() : "seed-" + Date.now()), F({
+    action: S("SEED_DATABASE"), actorUid: S("system"), actorEmail: S("system@zeroid"),
+    targetType: S("database"), targetId: S(TOURNAMENT_ID),
+    details: { mapValue: F({ teams: I(TEAMS.length), matches: I(7), published: I(Object.keys(RESULTS).length) }) } })));
+  // createdAt transform khusus untuk audit log (field createdAt, bukan updatedAt)
+  writes[writes.length - 1].updateTransforms = [{ fieldPath: "createdAt", setToServerValue: "REQUEST_TIME" }];
+
+  // Kirim dalam potongan ≤450 writes
+  for (let i = 0; i < writes.length; i += 450) {
+    const chunk = writes.slice(i, i + 450);
+    const res = await gfetch("https://firestore.googleapis.com/v1/projects/" + projectId +
+      "/databases/(default)/documents:commit", { writes: chunk });
+    const errs = (res.writeResults || []).filter((w) => w.status && w.status !== "OK" && w.status.code);
+    if (errs.length) throw new Error(errs.length + " write gagal: " + JSON.stringify(errs[0]));
+    log("📦 Commit " + chunk.length + " dokumen OK", "ok");
+  }
+  log("🏆 Seed selesai: turnamen, 12 tim, 7 match, 3 hasil resmi, klasemen " + standings.length + " tim (total " +
+    standings.reduce((a, r) => a + r.kills, 0) + " kill)", "ok");
+}
+
+// ---------- Langkah: pasang security rules ----------
+async function deployRules() {
+  const { projectId } = cfg();
+  const rs = await gfetch("https://firebaserules.googleapis.com/v1/projects/" + projectId + "/rulesets", {
+    source: { files: [{ name: "firestore.rules", content: FIRESTORE_RULES }] } });
+  log("📜 Ruleset dibuat: " + (rs.name || "").split("/").pop(), "ok");
+  const releases = await gfetch("https://firebaserules.googleapis.com/v1/projects/" + projectId + "/releases");
+  const list = (releases.release || []).map((r) => r.name.split("/").pop());
+  const relId = list.find((n) => n.toLowerCase().includes("firestore"));
+  if (relId) {
+    await gfetch("https://firebaserules.googleapis.com/v1/projects/" + projectId + "/releases/" + relId +
+      "?updateMask=rulesetName", { rulesetName: rs.name }, "PATCH");
+    log("🔓 Release '" + relId + "' diperbarui — security rules AKTIF", "ok");
+  } else {
+    await gfetch("https://firebaserules.googleapis.com/v1/projects/" + projectId + "/releases", {
+      name: "firebase.firestore", rulesetName: rs.name });
+    log("🔓 Release 'firebase.firestore' dibuat — security rules AKTIF", "ok");
+  }
+}
+
+// ---------- Langkah: buat composite indexes ----------
+async function createIndexes() {
+  const { projectId } = cfg();
+  const url = "https://firestore.googleapis.com/v1/projects/" + projectId + "/databases/(default)/indexes?pageSize=100";
+  const existing = await gfetch(url);
+  const have = (existing.indexes || []).map((ix) => JSON.stringify({
+    c: ix.collectionGroup, f: (ix.fields || []).map((f) => [f.fieldPath, f.order]) }));
+  let made = 0;
+  for (const ix of INDEXES) {
+    const key = JSON.stringify({ c: ix.collectionGroup, f: ix.fields.map((f) => [f.fieldPath, f.order]) });
+    if (have.includes(key)) { log("ℹ Index " + ix.collectionGroup + " (" + ix.fields.map((f) => f.fieldPath).join("+") + ") sudah ada", "warn"); continue; }
+    await gfetch(url, ix);
+    made++;
+    log("🧱 Index dibuat: " + ix.collectionGroup + " (" + ix.fields.map((f) => f.fieldPath).join("+") + ")", "ok");
+  }
+  log(made ? "⏳ " + made + " index baru sedang dibangun Google (2–5 menit, otomatis)" : "✔ Semua composite index sudah siap", made ? "warn" : "ok");
+}
+
+// ---------- Langkah: cek status database ----------
+async function checkStatus() {
+  const { projectId, apiKey } = cfg();
+  const url = "https://firestore.googleapis.com/v1/projects/" + projectId +
+    "/databases/(default)/documents/tournaments/" + TOURNAMENT_ID + (apiKey ? "?key=" + encodeURIComponent(apiKey) : "");
+  const res = await fetch(url);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    log("❌ DB belum terbaca publik: " + ((data.error && data.error.message) || res.status), "err");
+    log("→ Jalankan 'BUAT SEMUA' dulu (seed + rules). Kalau sudah, tunggu index & cek rules di console.", "warn");
+    return;
+  }
+  const f = (data.fields || {});
+  log("✔ Turnamen: " + ((f.name && f.name.stringValue) || "?") + " · status: " +
+    ((f.status && f.status.stringValue) || "?") + " · format: " + ((f.format && f.format.stringValue) || "?"), "ok");
+  const lb = await fetch("https://firestore.googleapis.com/v1/projects/" + projectId +
+    "/databases/(default)/documents/publicLeaderboards/" + TOURNAMENT_ID + (apiKey ? "?key=" + encodeURIComponent(apiKey) : ""));
+  if (lb.ok) {
+    const lbData = await lb.json();
+    const n = lbData.fields && lbData.fields.standings && lbData.fields.standings.arrayValue &&
+      lbData.fields.standings.arrayValue.values ? lbData.fields.standings.arrayValue.values.length : 0;
+    log("✔ Klasemen publik: " + n + " tim terdata", "ok");
+  } else log("⚠ Klasemen publik belum terbaca", "warn");
+}
+
+// ---------- Langkah: reset password admin ----------
+async function resetAdminPassword() {
+  const { projectId, adminEmail, adminPassword } = cfg();
+  const look = await gfetch("https://identitytoolkit.googleapis.com/v1/projects/" + projectId + "/accounts:lookup",
+    { email: [adminEmail] });
+  const u = look.users && look.users[0];
+  if (!u) throw new Error("Admin belum ada — buat dulu lewat BUAT SEMUA.");
+  await gfetch("https://identitytoolkit.googleapis.com/v1/projects/" + projectId + "/accounts:update",
+    { localId: u.localId, password: adminPassword });
+  log("🔑 Password admin direset ke nilai di kolom password", "ok");
+}
+
+// ---------- Orkestrasi sekali-pencet ----------
+async function runAll() {
+  const btn = $("btnAll");
+  busy(btn, true, "⏳ Sedang membuat… jangan tutup halaman");
+  logEl.innerHTML = "";
+  setProgress(5);
+  const steps = [
+    ["① Token & service account", async () => { await getToken(true); }],
+    ["② Aktifkan login Email/Password", async () => { await enablePasswordSignIn(); }],
+    ["③ Buat super admin + adminRoles", async () => { await ensureAdmin(); }],
+    ["④ Seed data turnamen BOF", async () => { await seedData(); }],
+    ["⑤ Pasang security rules", async () => { await deployRules(); }],
+    ["⑥ Buat composite indexes", async () => { await createIndexes(); }],
+    ["⑦ Cek status database", async () => { await checkStatus(); }],
+  ];
+  try {
+    for (let i = 0; i < steps.length; i++) {
+      log("▶ " + steps[i][0], "big");
+      await steps[i][1]();
+      setProgress(Math.round(((i + 1) / steps.length) * 100));
+    }
+    log("🎉 SEMUA BERHASIL DIBUAT! Website siap dipakai.", "big");
+    $("doneEmail").textContent = cfg().adminEmail;
+    $("doneCard").style.display = "block";
+  } catch (e) {
+    log("❌ GAGAL di tahap ini: " + emsg(e), "err");
+    log("→ Perbaiki penyebabnya lalu pakai tombol per-langkah untuk lanjut dari tahap yang gagal.", "warn");
+  } finally {
+    busy(btn, false);
+  }
+}
+async function runStep(name, fn) {
+  const map = { btnToken: "1·Uji Kunci SA", btnAdmin: "2·Buat Admin", btnSeed: "4·Seed Data",
+    btnRules: "5·Pasang Rules", btnIndexes: "6·Buat Indexes", btnStatus: "✔ Cek Status DB",
+    btnResetPw: "🔑 Reset Password", btnEnablePw: "🔓 Aktifkan Login" };
+  const btn = $(name);
+  busy(btn, true);
+  try {
+    log("▶ " + (map[name] || name), "big");
+    await fn();
+  } catch (e) {
+    log("❌ " + emsg(e), "err");
+  } finally {
+    busy(btn, false);
+  }
+}
+
+$("btnAll").onclick = runAll;
+$("btnToken").onclick = () => runStep("btnToken", () => getToken(true));
+$("btnAdmin").onclick = () => runStep("btnAdmin", ensureAdmin);
+$("btnSeed").onclick = () => runStep("btnSeed", seedData);
+$("btnRules").onclick = () => runStep("btnRules", deployRules);
+$("btnIndexes").onclick = () => runStep("btnIndexes", createIndexes);
+$("btnStatus").onclick = () => runStep("btnStatus", checkStatus);
+$("btnResetPw").onclick = () => runStep("btnResetPw", resetAdminPassword);
+$("btnEnablePw").onclick = () => runStep("btnEnablePw", enablePasswordSignIn);
+
+log("Selamat datang! Isi Langkah 2 (service account) lalu tekan tombol BIRU BESAR.", "big");
+refreshSaStatus();
+</script>
+</body>
+</html>
