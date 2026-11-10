@@ -24,6 +24,12 @@ service cloud.firestore {
       return signedIn() && myRole() in ['admin', 'superadmin'];
     }
 
+    // Staff turnamen: superadmin / admin / operator / judge / scoring
+    // (Tournament Rules & Disciplinary Management).
+    function isStaff() {
+      return signedIn() && myRole() in ['superadmin', 'admin', 'operator', 'judge', 'scoring'];
+    }
+
     function isSuperAdmin() {
       return signedIn() && myRole() == 'superadmin';
     }
@@ -147,6 +153,57 @@ service cloud.firestore {
     match /interactiveSessions/{sessionId} {
       allow read: if signedIn();
       allow write: if isAdmin();
+    }
+
+    // ---------- Tournament Rules & Disciplinary Management ----------
+    // Laporan pelanggaran: staff mencatat/mengubah status; delete hanya superadmin.
+    match /disciplinaryViolations/{id} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Sanksi: staff membuat/mengusulkan; penerapan & pembatalan divalidasi
+    // di aplikasi (peran) DAN seluruh perubahan poin hanya lewat rebuild board.
+    match /disciplinaryPenalties/{id} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Status disiplin per tim (WARNING/SUSPENDED/BANNED/DISQUALIFIED/...).
+    match /disciplinaryTeams/{teamId} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Bukti pelanggaran: staff unggah/memperbarui metadata; hapus terkunci
+    // setelah keputusan (ditegakkan juga di aplikasi).
+    match /disciplinaryEvidence/{id} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Keberatan (appeals).
+    match /disciplinaryAppeals/{id} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Audit log disiplin: create-only — TIDAK bisa diedit/dihapus admin mana pun.
+    match /disciplinaryLogs/{id} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if false;
+    }
+
+    // Konfigurasi penalti (ber-versi): baca staff, ubah superadmin.
+    match /disciplinaryConfig/{id} {
+      allow read: if isStaff();
+      allow write: if isSuperAdmin();
     }
 
     // ---------- users ----------

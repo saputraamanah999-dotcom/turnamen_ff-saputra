@@ -98,7 +98,7 @@ export interface PresentationState {
   updatedAt?: number;
 }
 
-export type AdminRoleName = "superadmin" | "admin" | "operator";
+export type AdminRoleName = "superadmin" | "admin" | "operator" | "judge" | "scoring";
 export type ObserverEventStatus =
   | "pending"
   | "confirmed"
@@ -188,12 +188,16 @@ export interface StandingsRow {
   kills: number;
   placementPoints: number;
   killPoints: number;
-  totalPoints: number;
+  totalPoints: number; // FINAL — sudah memperhitungkan sanksi (spec §M)
   lastPlacement: number | null;
   rank: number;
   previousRank?: number | null;
   movement: "up" | "down" | "same" | "new";
   needsManualReview?: boolean;
+  /** Transparansi sanksi (Tournament Rules & Disciplinary Management): */
+  rawPoints?: number; // poin sebelum penalti
+  violationPenalty?: number; // total pengurangan
+  disciplineStatus?: string | null; // REGISTERED..DISQUALIFIED
 }
 
 export interface PublicLeaderboard {

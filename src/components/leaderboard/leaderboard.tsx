@@ -227,6 +227,15 @@ export function LeaderboardTable({
                           {row.needsManualReview ? (
                             <ShieldQuestion className="ml-1 inline h-3.5 w-3.5 text-amber-600" aria-label="Perlu review manual" />
                           ) : null}
+                          {row.disciplineStatus === "DISQUALIFIED" ? (
+                            <span className="ml-1.5 inline-block border border-red-500/70 bg-red-500/15 px-1 py-px align-middle font-display text-[9px] font-black uppercase tracking-[0.12em] text-red-400" title="Tim didiskualifikasi — seluruh poin dihapus (juknis §G)">
+                              DISQUALIFIED
+                            </span>
+                          ) : row.disciplineStatus === "SUSPENDED" ? (
+                            <span className="ml-1.5 inline-block border border-amber-500/70 bg-amber-500/15 px-1 py-px align-middle font-display text-[9px] font-black uppercase tracking-[0.12em] text-amber-400">
+                              SUSPENDED
+                            </span>
+                          ) : null}
                         </p>
                         {row.teamTag ? (
                           <p className="text-[10px] font-bold uppercase tracking-wider text-fs-text/50">
@@ -244,6 +253,14 @@ export function LeaderboardTable({
                       value={row.totalPoints}
                       className="font-display text-base font-black"
                     />
+                    {row.violationPenalty ? (
+                      <span
+                        className="ml-1 align-middle text-[10px] font-black text-red-400"
+                        title={`Raw ${row.rawPoints ?? "?"} poin − penalti ${row.violationPenalty} poin (sanksi tercatat)`}
+                      >
+                        −{row.violationPenalty}
+                      </span>
+                    ) : null}
                   </td>
                 </motion.tr>
               ))}

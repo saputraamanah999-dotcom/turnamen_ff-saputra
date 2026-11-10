@@ -10,9 +10,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  BarChart3, Boxes, CalendarRange, ChevronLeft, Clapperboard, ClipboardList, Cpu, ExternalLink,
-  Gamepad2, Gauge, LayoutDashboard, ListOrdered, ListVideo, LogOut, Map, Menu, MonitorPlay,
-  Radio, ScrollText, Settings, ShieldCheck, Siren, Sparkles, Trophy, Users, Wifi, X,
+  Ban, BarChart3, Boxes, CalendarRange, ChevronLeft, Clapperboard, ClipboardList, Clock, Cpu,
+  ExternalLink, FileBarChart, Gamepad2, Gauge, History, LayoutDashboard, ListOrdered, ListVideo,
+  LogOut, Map, Menu, MessageSquare, MonitorPlay, Paperclip, Radio, ScrollText, Settings, Settings2,
+  ShieldCheck, Siren, Sparkles, Trophy, Users, Wifi, X, XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BoButton } from "@/components/common/bo";
@@ -50,6 +51,23 @@ const NAV_GROUPS: { label: string; items: { href: string; label: string; icon: t
       { href: "/admin/emergency", label: "Emergency", icon: Siren },
       { href: "/admin/local-network", label: "Local Network", icon: Wifi },
       { href: "/admin/interactive-stream", label: "Interactive Stream", icon: Gamepad2 },
+    ],
+  },
+  {
+    label: "Disiplin",
+    items: [
+      { href: "/admin/rules", label: "Tournament Rules", icon: ScrollText },
+      { href: "/admin/violations", label: "Violations", icon: ShieldCheck },
+      { href: "/admin/team-warnings", label: "Team Warnings", icon: Siren },
+      { href: "/admin/penalties", label: "Point Penalties", icon: ListOrdered },
+      { href: "/admin/suspensions", label: "Suspensions", icon: Clock },
+      { href: "/admin/bans", label: "Ban & DQ", icon: Ban },
+      { href: "/admin/zero-points", label: "Match Zero Points", icon: XCircle },
+      { href: "/admin/evidence", label: "Evidence", icon: Paperclip },
+      { href: "/admin/appeals", label: "Appeals", icon: MessageSquare },
+      { href: "/admin/disciplinary-history", label: "Riwayat Disiplin", icon: History },
+      { href: "/admin/penalty-config", label: "Penalty Config", icon: Settings2 },
+      { href: "/admin/disciplinary-reports", label: "Laporan Disiplin", icon: FileBarChart },
     ],
   },
   {
