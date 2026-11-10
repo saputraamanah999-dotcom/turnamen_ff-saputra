@@ -67,6 +67,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "^16.1.1",
+    "firebase-admin": "^14.5.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "tw-animate-css": "^1.3.6",
