@@ -1,12 +1,13 @@
 "use client";
 // ============================================================
 // /admin/broadcast — Broadcast Control Center
-// Hanya mengaktifkan kontrol yang benar-benar terhubung.
+// Status bridge/gateway/MediaMTX LIVE (dari laptop ini ATAU perangkat lain
+// via heartbeat), link penonton + QR otomatis, pairing penonton otomatis.
 // ============================================================
 
 import { useEffect, useRef, useState } from "react";
 import {
-  Copy, MonitorPlay, Plug, PlugZap, RefreshCw, Save, Settings2, Tv, Wifi,
+  Copy, Link2, MonitorPlay, Plug, PlugZap, QrCode, RefreshCw, Radio, Save, Settings2, Tv, Wifi,
 } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import { useActiveTournament, useBroadcast } from "@/services/firestore/hooks";
@@ -14,11 +15,47 @@ import {
   autoConnectBridge, bootstrapBridge, buildStreamUrls, connectBridge, disconnectBridge, getBridgeToken, getBridgeUrl,
   sendBridgeCommand, setBridgeToken, setBridgeUrl, subscribeBridge, type BridgeState,
 } from "@/services/broadcast/bridge";
+import {
+  useBridgeHeartbeat, useGatewayProbe, useQr, type GatewayProbe,
+} from "@/services/broadcast/heartbeat";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "@/services/firebase/client";
 import { useAdminSession } from "@/services/auth/admin";
 import { useToast } from "@/hooks/use-toast";
 import type { BroadcastSettings, StreamMode } from "@/lib/types";
+
+interface PairingInfo {
+  code: string;
+  expiresAt: number;
+}
+
+function Dot({ ok, unknown }: { ok: boolean | null; unknown?: boolean }) {
+  const color = unknown || ok === null ? "bg-zinc-500" : ok ? "bg-emerald-400" : "bg-red-500";
+  return <span className={`inline-block h-2.5 w-2.5 rounded-full ${color}`} />;
+}
+
+function StatusRow({ label, ok, unknown, detail }: { label: string; ok: boolean | null; unknown?: boolean; detail?: string | null }) {
+  return (
+    <li className="flex flex-wrap items-center gap-2 text-sm font-bold">
+      <Dot ok={ok} unknown={unknown} /> {label}:
+      <BoBadge className={unknown || ok === null ? "bg-zinc-600 text-white" : ok ? "bg-emerald-300" : "bg-zb-yellow"}>
+        {unknown || ok === null ? "TIDAK DIKETAHUI" : ok ? "BERJALAN" : "TIDAK AKTIF"}
+      </BoBadge>
+      {detail ? <span className="text-xs font-semibold text-fs-text/50">{detail}</span> : null}
+    </li>
+  );
+}
+
+function QrImg({ src, caption }: { src: string | null; caption: string }) {
+  if (!src) return null;
+  return (
+    <div className="flex flex-col items-center gap-1">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={caption} className="h-[150px] w-[150px] rounded-md border border-fs-edge bg-white p-1" />
+      <span className="text-[10px] font-black uppercase tracking-wider text-fs-text/50">{caption}</span>
+    </div>
+  );
+}
 
 export default function AdminBroadcastPage() {
   const { tournament } = useActiveTournament();
@@ -34,7 +71,9 @@ export default function AdminBroadcastPage() {
   const [busy, setBusy] = useState(false);
   const [chosenIp, setChosenIp] = useState<string | null>(null);
   const [autoFill, setAutoFill] = useState(true);
+  const [pairing, setPairing] = useState<PairingInfo | null>(null);
   const lastAutoSaved = useRef<string>("");
+  const lastAutoPaired = useRef<string>("");
 
   useEffect(() => {
     setUrl(getBridgeUrl());
@@ -59,13 +98,64 @@ export default function AdminBroadcastPage() {
     return () => disconnectBridge();
   }, []);
 
-  // ---------- Deteksi jaringan otomatis ----------
-  const detectedIp = chosenIp ?? bridge.lanIp ?? null;
-  const gwPort = bridge.gatewayPort ?? bridge.bootstrap?.gatewayPort ?? 8080;
+  // ---------- Status live ----------
+  const heartbeat = useBridgeHeartbeat(tid ?? "bof-main");
+  const probe: GatewayProbe | null = useGatewayProbe(8080, 6000);
+
+  const detectedIp = chosenIp ?? bridge.lanIp ?? heartbeat.data?.lanIp ?? null;
+  const gwPort = bridge.gatewayPort ?? bridge.bootstrap?.gatewayPort ?? heartbeat.data?.gatewayPort ?? 8080;
   const streamPath = bridge.bootstrap?.mediamtxPath ?? "bof-main";
   const suggested = detectedIp ? buildStreamUrls(detectedIp, gwPort, streamPath) : null;
 
-  /** Terapkan URL hasil deteksi ke form (dan simpan ke Firestore bila diminta). */
+  // Di laptop bridge? (probe localhost berhasil, atau bootstrap terbaca, atau WS tersambung)
+  const onLaptop = Boolean(probe?.ok || bridge.bootstrap || bridge.connected);
+  // Gateway berjalan menurut sumber manapun:
+  const gatewayRunning = Boolean(
+    probe?.ok || (heartbeat.fresh && heartbeat.data?.gatewayUp) || bridge.connected,
+  );
+  const mediamtxUp = probe?.data?.mediamtx ?? heartbeat.data?.mediamtxUp ?? bridge.mediamtx ?? null;
+  const obsUp = bridge.connected ? bridge.obsConnected : (heartbeat.fresh ? heartbeat.data?.obsConnected : null);
+  const viewerCount = bridge.viewers ?? (heartbeat.fresh ? heartbeat.data?.viewers : null);
+
+  // ---------- Pairing otomatis (hanya di laptop bridge — token hanya lewat bootstrap loopback) ----------
+  useEffect(() => {
+    if (!gatewayRunning || !onLaptop) return;
+    const t = getBridgeToken();
+    if (!t || pairing) return;
+    const key = `${gwPort}|${t.slice(0, 8)}`;
+    if (lastAutoPaired.current === key) return;
+    lastAutoPaired.current = key;
+    void (async () => {
+      try {
+        const res = await fetch(`http://127.0.0.1:${gwPort}/api/pairing`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${t}` },
+          signal: AbortSignal.timeout(4000),
+        });
+        if (!res.ok) return;
+        const j = (await res.json()) as { code?: string; expiresAt?: number };
+        if (j.code && j.expiresAt) setPairing({ code: j.code, expiresAt: j.expiresAt });
+      } catch { /* gateway tidak terjangkau — abaikan */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gatewayRunning, onLaptop, gwPort, pairing]);
+
+  // Countdown umur kode pairing (re-render tiap detik saat pairing ada)
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    if (!pairing) return;
+    const iv = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(iv);
+  }, [pairing]);
+
+  const displayUrl = suggested?.displayUrl ?? null;
+  const liveUrl = suggested?.liveUrl ?? null;
+  const pairUrl = liveUrl && pairing ? `${liveUrl}?pair=${pairing.code}` : null;
+  const displayQr = useQr(displayUrl);
+  const liveQr = useQr(liveUrl);
+  const pairQr = useQr(pairUrl);
+
+  // ---------- Deteksi jaringan otomatis (isi & simpan URL stream) ----------
   async function applyDetected(opts: { forceMode?: boolean; silent?: boolean } = {}) {
     if (!suggested || !tid || !db) return;
     const patch: Partial<BroadcastSettings> = {
@@ -88,7 +178,6 @@ export default function AdminBroadcastPage() {
     }
   }
 
-  // Mode MediaMTX + IP terdeteksi + URL tersimpan berbeda → perbarui otomatis (sekali per kombinasi).
   useEffect(() => {
     if (!autoFill || !suggested || !broadcast.data || broadcast.data.streamMode !== "mediamtx") return;
     const saved = broadcast.data;
@@ -128,6 +217,25 @@ export default function AdminBroadcastPage() {
     }
   }
 
+  async function revokePairing() {
+    if (!pairing) return;
+    const t = getBridgeToken();
+    try {
+      await fetch(`http://127.0.0.1:${gwPort}/api/pairing/${pairing.code}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${t}` },
+        signal: AbortSignal.timeout(4000),
+      });
+    } catch { /* abaikan */ }
+    setPairing(null);
+    lastAutoPaired.current = ""; // boleh dibuat ulang
+    toast({ title: "Kode pairing dicabut" });
+  }
+
+  const hbDetail = heartbeat.fresh && heartbeat.data
+    ? `dilaporkan bridge ${heartbeat.ageSec}s lalu${heartbeat.data.lanIp ? ` · ${heartbeat.data.lanIp}:${heartbeat.data.gatewayPort ?? gwPort}` : ""}`
+    : null;
+
   return (
     <div>
       <h1 className="font-display text-2xl font-black uppercase">Broadcast Control</h1>
@@ -136,11 +244,50 @@ export default function AdminBroadcastPage() {
         benar-benar terhubung.
       </p>
 
-      {/* Jaringan terdeteksi otomatis */}
+      {/* Status siaran lokal — live, dari laptop ini ATAU heartbeat dari perangkat mana pun */}
       <BoCard className="mt-4 bg-fs-panel p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 font-display text-base font-black uppercase">
-            <Wifi className="h-4 w-4" /> Jaringan Terdeteksi Otomatis
+            <Radio className="h-4 w-4" /> Status Siaran Lokal <span className="animate-pulse text-fs-cyan">●</span>
+          </h2>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-fs-text/50">
+            {onLaptop ? "Browser ini di LAPTOP BRIDGE" : "Browser ini bukan di laptop bridge — status via heartbeat"}
+          </span>
+        </div>
+        <ul className="mt-3 space-y-2">
+          <StatusRow label="Gateway (port & HTTP)" ok={gatewayRunning ? true : probe ? false : null} unknown={!probe && !heartbeat.data && !bridge.connected} detail={probe?.ok ? `loopback ${probe.ms}ms · port ${gwPort}` : hbDetail} />
+          <StatusRow label="MediaMTX (video stream)" ok={mediamtxUp === null ? null : Boolean(mediamtxUp)} unknown={mediamtxUp === null} detail={!mediamtxUp && gatewayRunning ? "menunggu publish — start bridge/OBS dulu" : null} />
+          <StatusRow label="OBS Studio (kontrol scene)" ok={obsUp === null ? null : Boolean(obsUp)} unknown={obsUp === null} />
+          <li className="flex flex-wrap items-center gap-2 text-sm font-bold">
+            <Dot ok={gatewayRunning} /> Satu jaringan dengan bridge:
+            <BoBadge className={gatewayRunning ? "bg-emerald-300" : "bg-zb-yellow"}>
+              {gatewayRunning ? (onLaptop ? "YA — DI LAPTOP INI" : "YA — TERJANGKAU") : "BELUM TERDETEKSI"}
+            </BoBadge>
+            {!onLaptop && heartbeat.fresh ? (
+              <span className="text-xs font-semibold text-fs-text/50">
+                Browser HP memblokir probe http LAN — tes dengan buka link penonton di bawah.
+              </span>
+            ) : null}
+          </li>
+          {typeof viewerCount === "number" ? (
+            <li className="flex flex-wrap items-center gap-2 text-sm font-bold">
+              <Dot ok={viewerCount > 0} /> Perangkat penonton terhubung: <BoBadge className="bg-fs-cyan/15 text-fs-cyan">{viewerCount} NYATA</BoBadge>
+            </li>
+          ) : null}
+        </ul>
+        {!heartbeat.data && !onLaptop ? (
+          <p className="mt-3 text-xs font-semibold text-fs-text/50">
+            Belum ada laporan heartbeat. Jalankan <code>start-bridge.bat</code> di laptop produksi —
+            status akan muncul otomatis di sini (perangkat mana pun) dalam ±30 detik.
+          </p>
+        ) : null}
+      </BoCard>
+
+      {/* Jaringan terdeteksi otomatis + link penonton + QR */}
+      <BoCard className="mt-4 bg-fs-panel p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 font-display text-base font-black uppercase">
+            <Wifi className="h-4 w-4" /> Jaringan &amp; Link Penonton Otomatis
           </h2>
           <label className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider">
             <input type="checkbox" checked={autoFill} onChange={(e) => toggleAutoFill(e.target.checked)} />
@@ -153,19 +300,42 @@ export default function AdminBroadcastPage() {
               <li className="flex flex-wrap items-center gap-2">
                 IP laptop: <span className="font-stat text-fs-cyan">{detectedIp}</span>
                 {bridge.bootstrap?.interface ? <span className="text-xs text-fs-text/50">({bridge.bootstrap.interface})</span> : null}
+                <span className="text-xs text-fs-text/50">port {gwPort}</span>
               </li>
               <li className="flex flex-wrap items-center gap-2">
-                MediaMTX:
-                <BoBadge className={bridge.mediamtx ? "bg-emerald-300" : "bg-zb-yellow"}>{bridge.mediamtx ? "BERJALAN" : "BELUM JALAN"}</BoBadge>
-              </li>
-              <li className="flex flex-wrap items-center gap-2">
-                Link TV / HP penonton:
-                <code className="font-mono text-xs">{suggested.displayUrl}</code>
-                <BoButton variant="white" className="!px-2 !py-1 !text-[11px]" onClick={() => void copy(suggested.displayUrl)}>
+                Link TV: <code className="font-mono text-xs">{displayUrl}</code>
+                <BoButton variant="white" className="!px-2 !py-1 !text-[11px]" onClick={() => displayUrl && void copy(displayUrl)}>
                   <Copy className="h-3 w-3" /> Salin
                 </BoButton>
+                <a href={displayUrl ?? "#"} target="_blank" rel="noreferrer" className="text-[11px] font-black uppercase tracking-wider text-fs-cyan underline">
+                  Buka
+                </a>
+              </li>
+              <li className="flex flex-wrap items-center gap-2">
+                Link HP penonton: <code className="font-mono text-xs">{liveUrl}</code>
+                <BoButton variant="white" className="!px-2 !py-1 !text-[11px]" onClick={() => liveUrl && void copy(liveUrl)}>
+                  <Copy className="h-3 w-3" /> Salin
+                </BoButton>
+                <a href={liveUrl ?? "#"} target="_blank" rel="noreferrer" className="text-[11px] font-black uppercase tracking-wider text-fs-cyan underline">
+                  Buka
+                </a>
               </li>
             </ul>
+            <div className="mt-4 flex flex-wrap items-start gap-6">
+              <QrImg src={displayQr} caption="QR — TV Display" />
+              <QrImg src={liveQr} caption="QR — HP Penonton" />
+              <div className="max-w-xs">
+                <p className="text-[11px] font-semibold text-fs-text/50">
+                  Scan QR dari HP/TV (satu Wi-Fi/hotspot dengan laptop) — halaman siaran langsung terbuka,
+                  sudah termasuk pairing bila aktif. Semua link &amp; URL stream otomatis terisi ke pengaturan.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <BoButton variant="primary" className="!px-3 !py-2 !text-xs" disabled={!tid} onClick={() => void applyDetected({ forceMode: true })}>
+                    <Wifi className="h-3.5 w-3.5" /> Pakai jaringan ini (isi &amp; simpan otomatis)
+                  </BoButton>
+                </div>
+              </div>
+            </div>
             {(bridge.bootstrap?.lanIps?.length ?? 0) > 1 ? (
               <label className="mt-3 block text-[11px] font-black uppercase tracking-wider">
                 Beberapa jaringan ditemukan — pilih yang dipakai HP/TV penonton
@@ -178,11 +348,6 @@ export default function AdminBroadcastPage() {
                 </select>
               </label>
             ) : null}
-            <div className="mt-3 flex flex-wrap gap-2">
-              <BoButton variant="primary" className="!px-3 !py-2 !text-xs" disabled={!tid} onClick={() => void applyDetected({ forceMode: true })}>
-                <Wifi className="h-3.5 w-3.5" /> Pakai jaringan ini (isi &amp; simpan otomatis)
-              </BoButton>
-            </div>
             {!(settings.streamMode === "mediamtx") ? (
               <p className="mt-2 text-[11px] font-semibold text-fs-text/50">
                 Mode stream belum MediaMTX — tombol di atas sekaligus mengaturnya.
@@ -191,9 +356,55 @@ export default function AdminBroadcastPage() {
           </>
         ) : (
           <p className="mt-3 text-sm font-semibold text-fs-text/60">
-            Belum terdeteksi. Jalankan <code>start-bridge.bat</code> di laptop produksi, lalu buka halaman ini
-            di <b>browser laptop yang sama</b> (Chrome bisa menampilkan izin &ldquo;akses jaringan lokal&rdquo; — pilih Izinkan).
-            IP, token, dan URL stream akan terisi sendiri.
+            {heartbeat.fresh && heartbeat.data?.lanIp ? (
+              <>
+                Bridge berjalan di <span className="font-stat text-fs-cyan">{heartbeat.data.lanIp}:{heartbeat.data.gatewayPort ?? 8080}</span>
+                {" "}(laporan {heartbeat.ageSec}s lalu) — tapi halaman ini dibuka di perangkat lain.
+                Untuk link + QR otomatis, buka halaman ini di browser laptop bridge sekali.
+              </>
+            ) : (
+              <>
+                Belum terdeteksi. Jalankan <code>start-bridge.bat</code> di laptop produksi, lalu buka halaman ini
+                di <b>browser laptop yang sama</b> (Chrome bisa menampilkan izin &ldquo;akses jaringan lokal&rdquo; — pilih Izinkan).
+                IP, token, dan URL stream akan terisi sendiri.
+              </>
+            )}
+          </p>
+        )}
+      </BoCard>
+
+      {/* Pairing penonton — otomatis */}
+      <BoCard className="mt-4 bg-fs-panel p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 font-display text-base font-black uppercase">
+            <Link2 className="h-4 w-4" /> Pairing Penonton <span className="text-[10px] font-bold text-fs-text/40">(otomatis)</span>
+          </h2>
+          {pairing ? (
+            <BoButton variant="white" className="!px-2 !py-1 !text-[11px]" onClick={() => void revokePairing()}>
+              Cabut kode
+            </BoButton>
+          ) : null}
+        </div>
+        {pairing ? (
+          <div className="mt-3 flex flex-wrap items-center gap-6">
+            <div className="flex flex-col items-center">
+              <span className="font-stat text-4xl font-bold tracking-[0.3em] text-fs-gold">{pairing.code}</span>
+              <span className="mt-1 text-[11px] font-bold uppercase tracking-wider text-fs-text/50">
+                berlaku {Math.max(0, Math.floor((pairing.expiresAt - nowTick) / 1000))} detik
+              </span>
+            </div>
+            <QrImg src={pairQr} caption="QR — Live + Pairing" />
+            <p className="max-w-sm text-[11px] font-semibold text-fs-text/50">
+              Penonton cukup scan QR ini (atau buka link live dengan <code>?pair={pairing.code}</code>) —
+              halaman HP otomatis menukar kode menjadi status <b>PAIRED</b>. Tanpa mengetik apa pun.
+              Menonton tetap terbuka walau kode kedaluwarsa.
+            </p>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm font-semibold text-fs-text/60">
+            {onLaptop
+              ? "Menunggu gateway berjalan — kode pairing dibuat otomatis begitu bridge aktif."
+              : "Pairing dibuat di laptop bridge (token hanya lewat koneksi loopback — keamanan). Di laptop: buka halaman ini dan kode muncul sendiri."}
           </p>
         )}
       </BoCard>

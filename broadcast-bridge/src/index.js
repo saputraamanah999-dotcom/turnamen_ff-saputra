@@ -20,6 +20,7 @@ import { getWhitelist, reloadConfig } from './security/whitelist.js';
 import { runFirstTimeSetup, ROOT_DIR } from './setup.js';
 import { MediaMTXManager } from './mediamtx.js';
 import { listLanInterfaces, bestLanIp } from './netinfo.js';
+import { Heartbeat } from './heartbeat.js';
 import path from 'node:path';
 
 // Auto-setup: buat .env + token + baca password OBS + config.json bila belum ada.
@@ -82,6 +83,23 @@ const mediamtx = new MediaMTXManager({
 });
 if (gateway) gateway.mtx = mediamtx;
 
+// ---------- Heartbeat status → Firestore (admin dari perangkat mana pun bisa lihat running/belum) ----------
+let heartbeat = null;
+if (GATEWAY_ENABLED) {
+  heartbeat = new Heartbeat({
+    tournamentId: MEDIAMTX_PATH,
+    snapshot: () => ({
+      lanIp: bestLanIp()?.address ?? null,
+      gatewayPort: GATEWAY_PORT,
+      gatewayUp: Boolean(gateway),
+      mediamtxUp: Boolean(gateway?.mediamtxUp),
+      obsConnected: obs.connected,
+      streaming: Boolean(obs.streaming ?? false),
+      viewers: gateway ? gateway.viewers.size : 0,
+    }),
+  });
+}
+
 // Ketahanan proses: jangan sampai bridge mati di tengah pertunjukan karena error tak terduga.
 // (Error OBS ditangani rapi di obs/client.js; ini lapisan tambahan.)
 process.on('unhandledRejection', (reason) => {
@@ -100,6 +118,7 @@ obs.on('changed', async (reason) => {
     if (obs.connected) {
       try {
         outputs = await obs.getOutputStatus();
+        obs.streaming = Boolean(outputs?.stream?.active); // cache untuk heartbeat
       } catch {
         /* abaikan */
       }
@@ -115,6 +134,7 @@ await obs.start(); // aman walau OBS belum aktif (akan reconnect otomatis)
 server.start();
 if (gateway) gateway.start();
 if (AUTO_START_MEDIAMTX) await mediamtx.start();
+if (heartbeat) heartbeat.start();
 
 logger.info(
   `Website konek ke ws://${BRIDGE_HOST}:${BRIDGE_PORT}?token=... (token dari BRIDGE_TOKEN di .env)`
@@ -162,6 +182,11 @@ async function shutdown(signal) {
   }
   try {
     mediamtx.stop();
+  } catch {
+    /* abaikan */
+  }
+  try {
+    if (heartbeat) heartbeat.stop();
   } catch {
     /* abaikan */
   }

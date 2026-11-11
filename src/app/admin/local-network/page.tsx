@@ -18,6 +18,7 @@ import {
   type BridgeState,
 } from "@/services/broadcast/bridge";
 import { useNotifications } from "@/components/broadcast/notification-center";
+import { useBridgeHeartbeat } from "@/services/broadcast/heartbeat";
 import { cn } from "@/lib/utils";
 
 type TestState = "idle" | "testing" | "ok" | "fail";
@@ -215,6 +216,8 @@ export default function AdminLocalNetworkPage() {
           diambil dari kondisi jaringan nyata — bukan simulasi.
         </p>
       </div>
+
+      <LocalHeartbeatBanner />
 
       {/* Status ringkas */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -516,6 +519,29 @@ function TestCard({ label, state, note }: { label: string; state: TestState; not
             <span className="text-[10px] font-bold text-fs-muted">IDLE</span>}
       </p>
       <p className="mt-1 text-[10px] font-semibold text-fs-muted">{note}</p>
+    </div>
+  );
+}
+
+/** Banner heartbeat bridge: status running dari perangkat MANA PUN (via Firestore). */
+function LocalHeartbeatBanner() {
+  const { data, ageSec, fresh } = useBridgeHeartbeat("bof-main");
+  const running = fresh && (data?.gatewayUp ?? false);
+  return (
+    <div className={cn(
+      "flex flex-wrap items-center justify-between gap-2 border p-3 text-xs font-bold",
+      running ? "border-fs-ok/60 bg-fs-ok/10" : data ? "border-fs-err/60 bg-fs-err/10" : "border-fs-edge bg-fs-bg/60",
+    )}>
+      <span className="flex items-center gap-2">
+        <span className={cn("inline-block h-2.5 w-2.5 rounded-full", running ? "animate-pulse bg-fs-ok" : "bg-fs-err")} />
+        BRIDGE LOKAL: {running ? "RUNNING" : data ? "TIDAK AKTIF (laporan terakhir sudah basi)" : "BELUM ADA LAPORAN"}
+        {running && data?.lanIp ? (
+          <span className="font-stat text-fs-cyan">
+            {data.lanIp}:{data.gatewayPort ?? 8080} · MediaMTX {data.mediamtxUp ? "UP" : "DOWN"} · OBS {data.obsConnected ? "OK" : "-"} · {data.viewers} penonton
+          </span>
+        ) : null}
+      </span>
+      {ageSec != null ? <span className="text-[10px] font-semibold text-fs-muted">laporan {ageSec}s lalu (heartbeat tiap 30s)</span> : null}
     </div>
   );
 }
