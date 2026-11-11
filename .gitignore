@@ -30,6 +30,9 @@ calibration.json
 logs/
 config.json
 
+# Binary MediaMTX — hanya di laptop produksi, TIDAK di-commit ke repo Vercel
+broadcast-bridge/mediamtx/bin/
+
 # OS & editor
 .DS_Store
 Thumbs.db

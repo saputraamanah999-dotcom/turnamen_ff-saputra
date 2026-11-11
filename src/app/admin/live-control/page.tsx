@@ -23,7 +23,7 @@ import { setLiveState, publishBroadcastEvent } from "@/services/scoring/publish"
 import { useAdminSession } from "@/services/auth/admin";
 import { useToast } from "@/hooks/use-toast";
 import {
-  connectBridge, disconnectBridge, sendBridgeCommand, subscribeBridge, type BridgeState,
+  autoConnectBridge, disconnectBridge, sendBridgeCommand, subscribeBridge, type BridgeState,
 } from "@/services/broadcast/bridge";
 import { cn } from "@/lib/utils";
 import type { BroadcastEventType, BroadcastState, BroadcastDestination } from "@/lib/types";
@@ -103,7 +103,7 @@ export default function AdminLiveControlPage() {
 
   // Bridge status (OBS + viewer count nyata)
   useEffect(() => {
-    connectBridge();
+    void autoConnectBridge();
     return subscribeBridge((s) => setBridge(s));
   }, []);
   useEffect(() => () => disconnectBridge(), []);
