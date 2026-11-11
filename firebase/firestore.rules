@@ -93,6 +93,19 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ---------- Heartbeat bridge lokal ----------
+    // Ditulis oleh Broadcast Bridge di laptop produksi (Firebase Auth ANONYMOUS).
+    // Isi: IP/port gateway, MediaMTX, OBS, jumlah penonton, updatedAt.
+    // Dipakai admin dari perangkat mana pun untuk melihat bridge running/belum —
+    // browser HTTPS tidak bisa men-probe http LAN langsung (mixed content).
+    // TIDAK ada token/password di dokumen ini.
+    match /bridgeHeartbeats/{tournamentId} {
+      allow read: if isStaff();
+      allow create, update: if request.auth != null
+        && request.resource.data.tournamentId == tournamentId;
+      allow delete: if false;
+    }
+
     // ---------- observerEvents ----------
     // Publik hanya boleh membaca event yang DIKONFIRMASI panitia
     // dan bila fitur timeline publik diaktifkan.

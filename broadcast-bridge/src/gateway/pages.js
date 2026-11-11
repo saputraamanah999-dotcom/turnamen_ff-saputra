@@ -382,6 +382,19 @@ function onLost(msg){
   setTimeout(()=>{ if (!$('#video').srcObject && !$('#video').src) connectStream(1); }, 15000);
 }
 
+// ---------- Pairing otomatis dari URL (?pair=123456) ----------
+async function autoPair(){
+  const el = $('#pairbadge');
+  try {
+    const code = new URLSearchParams(location.search).get('pair');
+    if (!code || !el) return;
+    const r = await fetch('/api/pairing/redeem', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code: code}), signal: AbortSignal.timeout(7000)});
+    const j = await r.json().catch(()=>({}));
+    if (r.ok && j.ok) { el.textContent = 'PAIRED \u2713'; el.style.color='var(--ok)'; el.style.borderColor='var(--ok)'; el.style.display='inline-block'; }
+    else { el.textContent = 'KODE PAIRING KEDALUWARSA \u2014 TETAP BISA NONTON'; el.style.color='var(--gold)'; el.style.borderColor='var(--gold)'; el.style.display='inline-block'; }
+  } catch { if (el) el.style.display='none'; }
+}
+
 // ---------- Jam broadcast ----------
 setInterval(()=>{
   const el = $('#clock');
@@ -391,6 +404,7 @@ setInterval(()=>{
 window.addEventListener('load', ()=>{
   pollData();
   connectStream(1);
+  autoPair();
   const pb = $('#playbtn');
   if (pb) pb.addEventListener('click', ()=>{
     const v = $('#video');
@@ -439,6 +453,7 @@ export function renderDisplayPage({ tid, projectId = 'turnamenffbof', mediamtxPa
       <div class="m"><span id="matchround">ROUND —</span> · <b id="matchmap">NOT SET</b></div>
     </div>
     <div class="rightinfo">
+      <span id="pairbadge" class="badge" style="display:none"></span>
       <span id="connstatus" class="badge">CONNECTING</span>
       <span id="livebadge" class="off">STANDBY</span>
       <span class="clock stat" id="clock">--:--:--</span>
@@ -492,7 +507,7 @@ export function renderLivePage({ tid, projectId = 'turnamenffbof', mediamtxPath 
     <div class="matchinfo cond">
       <div class="m"><span id="matchround">ROUND —</span> · <b id="matchmap">NOT SET</b></div>
     </div>
-    <div class="rightinfo"><span id="livebadge" class="off">STANDBY</span></div>
+    <div class="rightinfo"><span id="pairbadge" class="badge" style="display:none"></span><span id="livebadge" class="off">STANDBY</span></div>
   </header>
   <main style="flex-direction:column">
     <section class="stage" style="min-height:54vh">
