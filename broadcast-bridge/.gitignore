@@ -4,3 +4,4 @@ node_modules/
 logs/
 config.json
 npm-debug.log*
+mediamtx/mediamtx.generated.yml

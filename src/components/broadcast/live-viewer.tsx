@@ -21,6 +21,29 @@ import { ORG } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { BroadcastState } from "@/lib/types";
 
+/** Ajakan membuka siaran lokal bagi penonton yang sedang di venue (browser memblokir deteksi otomatis HTTPS→HTTP LAN). */
+function LocalStreamBanner({ url }: { url: string }) {
+  const [here, setHere] = useState(false);
+  useEffect(() => {
+    try { setHere(window.location.origin === new URL(url).origin); } catch { /* abaikan */ }
+  }, [url]);
+  if (here) return null;
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border border-fs-cyan/40 bg-fs-cyan/10 px-4 py-3">
+      <p className="flex items-center gap-2 text-sm font-bold text-fs-cyan">
+        <Smartphone className="h-4 w-4 shrink-0" />
+        Sedang di lokasi turnamen (Wi-Fi yang sama dengan laptop panitia)? Siaran lokal lebih lancar dan tanpa internet.
+      </p>
+      <a
+        href={`${url.replace(/\/$/, "")}/live`}
+        className="border border-fs-cyan px-3 py-1.5 font-display text-xs font-black uppercase tracking-[0.15em] text-fs-cyan hover:bg-fs-cyan/20"
+      >
+        Buka siaran lokal
+      </a>
+    </div>
+  );
+}
+
 export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
   const active = useActiveTournament();
   const tid = tidOverride ?? active.tournament?.id ?? null;
@@ -95,6 +118,10 @@ export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
               Stream sedang dipulihkan operator — video akan kembali otomatis.
             </p>
           </div>
+        ) : null}
+
+        {broadcast.data?.streamMode === "mediamtx" && broadcast.data.localGatewayUrl ? (
+          <LocalStreamBanner url={broadcast.data.localGatewayUrl} />
         ) : null}
 
         {/* Video + leaderboard */}

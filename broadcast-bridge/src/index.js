@@ -17,9 +17,16 @@ import { OBSClient } from './obs/client.js';
 import { BridgeServer } from './websocket/server.js';
 import { LocalGateway } from './gateway/http.js';
 import { getWhitelist, reloadConfig } from './security/whitelist.js';
+import { runFirstTimeSetup, ROOT_DIR } from './setup.js';
+import { MediaMTXManager } from './mediamtx.js';
+import { listLanInterfaces, bestLanIp } from './netinfo.js';
+import path from 'node:path';
+
+// Auto-setup: buat .env + token + baca password OBS + config.json bila belum ada.
+runFirstTimeSetup();
 
 // Muat variabel .env: OBS_WS_URL, OBS_PASSWORD, BRIDGE_PORT, BRIDGE_TOKEN, dst.
-dotenv.config();
+dotenv.config({ path: path.join(ROOT_DIR, '.env') });
 
 logger.info('==========================================');
 logger.info('  STIKAR BROADCAST BRIDGE — mulai');
@@ -34,6 +41,10 @@ const BRIDGE_PORT = Number.parseInt(process.env.BRIDGE_PORT || '8078', 10) || 80
 const GATEWAY_ENABLED = process.env.GATEWAY_ENABLED !== 'false';
 const GATEWAY_PORT = Number.parseInt(process.env.GATEWAY_PORT || '8080', 10) || 8080;
 const MEDIAMTX_PATH = process.env.MEDIAMTX_PATH || 'bof-main';
+const AUTO_START_MEDIAMTX = process.env.AUTO_START_MEDIAMTX !== 'false';
+// Website resmi yang boleh mengambil token otomatis lewat /api/bootstrap (dari browser di laptop ini).
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://turnamen-ff-saputra.vercel.app')
+  .split(',').map((x) => x.trim().replace(/\/$/, '')).filter(Boolean);
 
 let BRIDGE_TOKEN = process.env.BRIDGE_TOKEN || '';
 if (!BRIDGE_TOKEN) {
@@ -58,8 +69,18 @@ const server = new BridgeServer({ port: BRIDGE_PORT, host: BRIDGE_HOST, token: B
 // ---------- Local Broadcast Gateway (Mode A — TV & HP di LAN) ----------
 let gateway = null;
 if (GATEWAY_ENABLED) {
-  gateway = new LocalGateway({ port: GATEWAY_PORT, token: BRIDGE_TOKEN, bridge: server, defaultPath: MEDIAMTX_PATH });
+  gateway = new LocalGateway({
+    port: GATEWAY_PORT, token: BRIDGE_TOKEN, bridge: server, defaultPath: MEDIAMTX_PATH,
+    wsPort: BRIDGE_PORT, allowedOrigins: ALLOWED_ORIGINS, mediamtxManager: null,
+  });
 }
+
+// ---------- MediaMTX otomatis (dijalankan bridge, tidak perlu klik manual) ----------
+const mediamtx = new MediaMTXManager({
+  streamPath: MEDIAMTX_PATH,
+  getHosts: () => listLanInterfaces().filter((i) => !i.virtual).map((i) => i.address),
+});
+if (gateway) gateway.mtx = mediamtx;
 
 // Ketahanan proses: jangan sampai bridge mati di tengah pertunjukan karena error tak terduga.
 // (Error OBS ditangani rapi di obs/client.js; ini lapisan tambahan.)
@@ -93,12 +114,32 @@ obs.on('changed', async (reason) => {
 await obs.start(); // aman walau OBS belum aktif (akan reconnect otomatis)
 server.start();
 if (gateway) gateway.start();
+if (AUTO_START_MEDIAMTX) await mediamtx.start();
 
 logger.info(
   `Website konek ke ws://${BRIDGE_HOST}:${BRIDGE_PORT}?token=... (token dari BRIDGE_TOKEN di .env)`
 );
 if (gateway) {
   logger.info(`Local Gateway aktif di port ${GATEWAY_PORT} — TV buka http://<ip-laptop>:${GATEWAY_PORT}/display/${MEDIAMTX_PATH}`);
+}
+
+// ---------- Ringkasan untuk operator ----------
+{
+  const best = bestLanIp();
+  const ip = best ? best.address : null;
+  const line = '─'.repeat(64);
+  console.log(`\n${line}`);
+  console.log('  STIKAR BROADCAST BRIDGE — SIAP');
+  console.log(line);
+  console.log(`  IP laptop (terdeteksi) : ${ip ?? '(belum tersambung ke jaringan!)'}${best ? `  [${best.name}]` : ''}`);
+  if (ip && gateway) {
+    console.log(`  Link TV / HP penonton  : http://${ip}:${GATEWAY_PORT}/display`);
+  }
+  console.log(`  Website admin          : buka halaman Admin → Broadcast di BROWSER LAPTOP INI`);
+  console.log(`                           (konek otomatis, tidak perlu isi token manual)`);
+  console.log(`  Token bridge           : ${BRIDGE_TOKEN}`);
+  console.log(`  Firewall Windows       : izinkan Node.js (Private network) saat popup muncul`);
+  console.log(`${line}\n`);
 }
 
 // ---------- Graceful shutdown ----------
@@ -116,6 +157,11 @@ async function shutdown(signal) {
   }
   try {
     obs.stop();
+  } catch {
+    /* abaikan */
+  }
+  try {
+    mediamtx.stop();
   } catch {
     /* abaikan */
   }

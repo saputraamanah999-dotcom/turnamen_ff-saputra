@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import {
-  connectBridge, disconnectBridge, getBridgeToken, getBridgeUrl, subscribeBridge,
+  autoConnectBridge, disconnectBridge, getBridgeToken, getBridgeUrl, subscribeBridge,
   type BridgeState,
 } from "@/services/broadcast/bridge";
 import { useNotifications } from "@/components/broadcast/notification-center";
@@ -88,7 +88,7 @@ export default function AdminLocalNetworkPage() {
   const token = getBridgeToken();
 
   useEffect(() => {
-    connectBridge();
+    void autoConnectBridge();
     return subscribeBridge((s) => setBridge(s));
   }, []);
   useEffect(() => () => disconnectBridge(), []);
@@ -339,7 +339,7 @@ export default function AdminLocalNetworkPage() {
                   ) : (
                     <span className="flex items-center gap-1.5 text-sm font-bold text-fs-err"><WifiOff className="h-4 w-4" /> SERVER OFFLINE</span>
                   )}
-                  <BoButton variant="white" className="!px-2.5 !py-1.5 !text-[11px]" onClick={() => { disconnectBridge(); connectBridge(); }}>
+                  <BoButton variant="white" className="!px-2.5 !py-1.5 !text-[11px]" onClick={() => { disconnectBridge(); void autoConnectBridge(); }}>
                     <RefreshCcw className="h-3.5 w-3.5" /> Restart Koneksi
                   </BoButton>
                 </div>

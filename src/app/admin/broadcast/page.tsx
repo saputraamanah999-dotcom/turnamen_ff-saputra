@@ -4,14 +4,14 @@
 // Hanya mengaktifkan kontrol yang benar-benar terhubung.
 // ============================================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  MonitorPlay, Plug, PlugZap, RefreshCw, Save, Settings2, Tv,
+  Copy, MonitorPlay, Plug, PlugZap, RefreshCw, Save, Settings2, Tv, Wifi,
 } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import { useActiveTournament, useBroadcast } from "@/services/firestore/hooks";
 import {
-  connectBridge, disconnectBridge, getBridgeToken, getBridgeUrl,
+  autoConnectBridge, bootstrapBridge, buildStreamUrls, connectBridge, disconnectBridge, getBridgeToken, getBridgeUrl,
   sendBridgeCommand, setBridgeToken, setBridgeUrl, subscribeBridge, type BridgeState,
 } from "@/services/broadcast/bridge";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
@@ -32,11 +32,22 @@ export default function AdminBroadcastPage() {
   const [token, setToken] = useState("");
   const [settings, setSettings] = useState<Partial<BroadcastSettings>>({});
   const [busy, setBusy] = useState(false);
+  const [chosenIp, setChosenIp] = useState<string | null>(null);
+  const [autoFill, setAutoFill] = useState(true);
+  const lastAutoSaved = useRef<string>("");
 
   useEffect(() => {
     setUrl(getBridgeUrl());
     setToken(getBridgeToken());
-    return subscribeBridge((s) => setBridge(s));
+    try { if (localStorage.getItem("stikar.broadcast.autofill") === "off") setAutoFill(false); } catch { /* abaikan */ }
+    return subscribeBridge((s) => {
+      setBridge(s);
+      // Hasil deteksi otomatis: tampilkan URL & token yang dipakai.
+      if (s.bootstrap) {
+        setUrl(getBridgeUrl());
+        setToken(getBridgeToken());
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -44,9 +55,61 @@ export default function AdminBroadcastPage() {
   }, [broadcast.data]);
 
   useEffect(() => {
-    connectBridge();
+    void autoConnectBridge();
     return () => disconnectBridge();
   }, []);
+
+  // ---------- Deteksi jaringan otomatis ----------
+  const detectedIp = chosenIp ?? bridge.lanIp ?? null;
+  const gwPort = bridge.gatewayPort ?? bridge.bootstrap?.gatewayPort ?? 8080;
+  const streamPath = bridge.bootstrap?.mediamtxPath ?? "bof-main";
+  const suggested = detectedIp ? buildStreamUrls(detectedIp, gwPort, streamPath) : null;
+
+  /** Terapkan URL hasil deteksi ke form (dan simpan ke Firestore bila diminta). */
+  async function applyDetected(opts: { forceMode?: boolean; silent?: boolean } = {}) {
+    if (!suggested || !tid || !db) return;
+    const patch: Partial<BroadcastSettings> = {
+      hlsUrl: suggested.hlsUrl,
+      wheUrl: suggested.wheUrl,
+      whipUrl: suggested.whipUrl,
+      localGatewayUrl: suggested.localGatewayUrl,
+      ...(opts.forceMode ? { streamMode: "mediamtx" as StreamMode } : {}),
+    };
+    setSettings((cur) => ({ ...cur, ...patch }));
+    try {
+      await setDoc(
+        doc(db, `broadcastSettings/${tid}`),
+        { ...patch, tournamentId: tid, updatedAt: serverTimestamp() },
+        { merge: true },
+      );
+      if (!opts.silent) toast({ title: "URL siaran terisi otomatis", description: suggested.localGatewayUrl });
+    } catch (e) {
+      if (!opts.silent) toast({ title: "Gagal menyimpan", description: String((e as Error).message ?? e), variant: "destructive" });
+    }
+  }
+
+  // Mode MediaMTX + IP terdeteksi + URL tersimpan berbeda → perbarui otomatis (sekali per kombinasi).
+  useEffect(() => {
+    if (!autoFill || !suggested || !broadcast.data || broadcast.data.streamMode !== "mediamtx") return;
+    const saved = broadcast.data;
+    const same =
+      saved.hlsUrl === suggested.hlsUrl && saved.wheUrl === suggested.wheUrl &&
+      saved.whipUrl === suggested.whipUrl && saved.localGatewayUrl === suggested.localGatewayUrl;
+    const key = `${suggested.localGatewayUrl}|${streamPath}`;
+    if (same || lastAutoSaved.current === key) return;
+    lastAutoSaved.current = key;
+    void applyDetected({ silent: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFill, suggested?.localGatewayUrl, broadcast.data?.streamMode, broadcast.data?.hlsUrl, broadcast.data?.wheUrl, broadcast.data?.whipUrl, broadcast.data?.localGatewayUrl]);
+
+  function toggleAutoFill(v: boolean) {
+    setAutoFill(v);
+    try { localStorage.setItem("stikar.broadcast.autofill", v ? "on" : "off"); } catch { /* abaikan */ }
+  }
+
+  async function copy(text: string) {
+    try { await navigator.clipboard.writeText(text); toast({ title: "Disalin", description: text }); } catch { /* abaikan */ }
+  }
 
   async function saveSettings() {
     if (!tid || !db) return;
@@ -72,6 +135,68 @@ export default function AdminBroadcastPage() {
         Pusat produksi siaran — OBS, overlay, dan streaming. Kontrol hanya aktif saat service
         benar-benar terhubung.
       </p>
+
+      {/* Jaringan terdeteksi otomatis */}
+      <BoCard className="mt-4 bg-fs-panel p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 font-display text-base font-black uppercase">
+            <Wifi className="h-4 w-4" /> Jaringan Terdeteksi Otomatis
+          </h2>
+          <label className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider">
+            <input type="checkbox" checked={autoFill} onChange={(e) => toggleAutoFill(e.target.checked)} />
+            Isi URL stream otomatis
+          </label>
+        </div>
+        {suggested ? (
+          <>
+            <ul className="mt-3 space-y-2 text-sm font-bold">
+              <li className="flex flex-wrap items-center gap-2">
+                IP laptop: <span className="font-stat text-fs-cyan">{detectedIp}</span>
+                {bridge.bootstrap?.interface ? <span className="text-xs text-fs-text/50">({bridge.bootstrap.interface})</span> : null}
+              </li>
+              <li className="flex flex-wrap items-center gap-2">
+                MediaMTX:
+                <BoBadge className={bridge.mediamtx ? "bg-emerald-300" : "bg-zb-yellow"}>{bridge.mediamtx ? "BERJALAN" : "BELUM JALAN"}</BoBadge>
+              </li>
+              <li className="flex flex-wrap items-center gap-2">
+                Link TV / HP penonton:
+                <code className="font-mono text-xs">{suggested.displayUrl}</code>
+                <BoButton variant="white" className="!px-2 !py-1 !text-[11px]" onClick={() => void copy(suggested.displayUrl)}>
+                  <Copy className="h-3 w-3" /> Salin
+                </BoButton>
+              </li>
+            </ul>
+            {(bridge.bootstrap?.lanIps?.length ?? 0) > 1 ? (
+              <label className="mt-3 block text-[11px] font-black uppercase tracking-wider">
+                Beberapa jaringan ditemukan — pilih yang dipakai HP/TV penonton
+                <select className="bo-input mt-1" value={detectedIp ?? ""} onChange={(e) => setChosenIp(e.target.value)}>
+                  {bridge.bootstrap!.lanIps.map((i) => (
+                    <option key={`${i.name}-${i.address}`} value={i.address}>
+                      {i.address} — {i.name}{i.virtual ? " (virtual)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <BoButton variant="primary" className="!px-3 !py-2 !text-xs" disabled={!tid} onClick={() => void applyDetected({ forceMode: true })}>
+                <Wifi className="h-3.5 w-3.5" /> Pakai jaringan ini (isi &amp; simpan otomatis)
+              </BoButton>
+            </div>
+            {!(settings.streamMode === "mediamtx") ? (
+              <p className="mt-2 text-[11px] font-semibold text-fs-text/50">
+                Mode stream belum MediaMTX — tombol di atas sekaligus mengaturnya.
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <p className="mt-3 text-sm font-semibold text-fs-text/60">
+            Belum terdeteksi. Jalankan <code>start-bridge.bat</code> di laptop produksi, lalu buka halaman ini
+            di <b>browser laptop yang sama</b> (Chrome bisa menampilkan izin &ldquo;akses jaringan lokal&rdquo; — pilih Izinkan).
+            IP, token, dan URL stream akan terisi sendiri.
+          </p>
+        )}
+      </BoCard>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         {/* Status OBS via bridge */}
@@ -111,7 +236,14 @@ export default function AdminBroadcastPage() {
             </label>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <BoButton variant="black" className="!px-3 !py-2 !text-xs" onClick={() => { setBridgeUrl(url); setBridgeToken(token); disconnectBridge(); connectBridge(); }}>
+            <BoButton variant="black" className="!px-3 !py-2 !text-xs" onClick={async () => {
+              disconnectBridge();
+              const info = await bootstrapBridge();
+              if (!info) { setBridgeUrl(url); setBridgeToken(token); } // bukan laptop bridge → pakai isian manual
+              setUrl(getBridgeUrl());
+              setToken(getBridgeToken());
+              connectBridge();
+            }}>
               <PlugZap className="h-3.5 w-3.5" /> Hubungkan Ulang
             </BoButton>
             <BoButton variant="white" className="!px-3 !py-2 !text-xs" disabled={!bridge.connected} onClick={() => sendBridgeCommand("getScenes")}>
@@ -179,11 +311,11 @@ export default function AdminBroadcastPage() {
                 </label>
                 <label className="block text-[11px] font-black uppercase tracking-wider">
                   URL WHIP — tujuan publish dari Live Control
-                  <input className="bo-input mt-1 font-mono" value={settings.whipUrl ?? ""} onChange={(e) => setSettings({ ...settings, whipUrl: e.target.value })} placeholder="http://127.0.0.1:8078/mediamtx/bof-main/whip" />
+                  <input className="bo-input mt-1 font-mono" value={settings.whipUrl ?? ""} onChange={(e) => setSettings({ ...settings, whipUrl: e.target.value })} placeholder="http://127.0.0.1:8080/mediamtx/bof-main/whip" />
                 </label>
                 <p className="text-[11px] font-semibold text-fs-text/50">
                   Alur resmi PHASE 2: capture browser (Live Control) → WHIP → MediaMTX → WHE/HLS ke TV & penonton.
-                  Gateway lokal (port 8078/8080) mem-proxy MediaMTX agar bebas masalah CORS.
+                  Gateway lokal (port 8080) mem-proxy MediaMTX agar bebas masalah CORS. Port 8078 khusus WebSocket bridge.
                 </p>
               </>
             ) : null}

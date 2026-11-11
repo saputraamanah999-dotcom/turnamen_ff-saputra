@@ -236,6 +236,8 @@ export interface BroadcastSettings {
   whipUrl?: string;
   /** URL WHE (WebRTC playback endpoint) untuk pemirsa/LAN. */
   wheUrl?: string;
+  /** Alamat gateway lokal laptop produksi (http://IP:8080) — terdeteksi otomatis oleh admin. */
+  localGatewayUrl?: string;
   /** Mesin status siaran (Live Control). */
   live?: BroadcastLiveState;
   /** Event broadcast terakhir (LIVE NOW, dst.) untuk TV & /live. */

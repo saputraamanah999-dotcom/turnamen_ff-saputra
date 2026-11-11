@@ -144,7 +144,7 @@ export class StreamPublisher {
 
   /**
    * Publikasikan stream ke endpoint WHIP.
-   * Contoh whipUrl: http://127.0.0.1:8078/mediamtx/bof/whip (via gateway lokal)
+   * Contoh whipUrl: http://127.0.0.1:8080/mediamtx/bof-main/whip (via gateway lokal)
    * atau langsung http://127.0.0.1:8889/bof (endpoint WHIP MediaMTX).
    */
   async publish(stream: MediaStream, whipUrl: string): Promise<void> {
