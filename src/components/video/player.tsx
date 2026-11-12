@@ -10,8 +10,9 @@
 // ============================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Play, Radio, Volume2, VolumeX, WifiOff, RefreshCw } from "lucide-react";
+import { AlertTriangle, Maximize, Minimize, Play, Radio, Volume2, VolumeX, WifiOff, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { enterFullscreen, exitFullscreen, isFullscreenActive } from "@/lib/fullscreen";
 import { playWHE } from "@/services/broadcast/stream";
 import type { BroadcastSettings } from "@/lib/types";
 
@@ -39,6 +40,7 @@ export function LiveVideoPlayer({
   idleContent?: React.ReactNode;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<{ destroy: () => void } | null>(null);
   const wheRef = useRef<{ pc: RTCPeerConnection; close: () => void } | null>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -47,6 +49,19 @@ export function LiveVideoPlayer({
   const [needsPlay, setNeedsPlay] = useState(false);
   const [muted, setMuted] = useState(true);
   const [attempt, setAttempt] = useState(0);
+  const [fs, setFs] = useState(false);
+
+  // Sinkron status layar penuh (mis. keluar via tombol ESC/remote TV)
+  useEffect(() => {
+    const onChange = () => setFs(isFullscreenActive());
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (isFullscreenActive()) void exitFullscreen();
+    else void enterFullscreen(boxRef.current).catch(() => {});
+  }
 
   const mode = broadcast?.streamMode ?? "offline";
   const ytId = broadcast?.youtubeVideoId?.trim() ?? "";
@@ -170,7 +185,7 @@ export function LiveVideoPlayer({
   const showVideo = mode === "mediamtx" && (wheUrl || hlsUrl) && !showIdle;
 
   return (
-    <div className={cn("relative overflow-hidden border border-fs-edge bg-black", className)}>
+    <div ref={boxRef} className={cn("relative overflow-hidden border border-fs-edge bg-black", className)}>
       <div className="relative aspect-video w-full">
         {isYouTube ? (
           <iframe
@@ -267,15 +282,27 @@ export function LiveVideoPlayer({
           </div>
         ) : null}
 
-        {/* Kontrol audio */}
-        {showVideo && status === "live" ? (
-          <button
-            onClick={() => setMuted((m) => !m)}
-            className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center border border-white/25 bg-black/55 text-white/85 hover:bg-black/75"
-            aria-label={muted ? "Bunyikan audio" : "Bisukan audio"}
-          >
-            {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-          </button>
+        {/* Kontrol audio + layar penuh */}
+        {showVideo || isYouTube ? (
+          <div className="absolute right-3 top-3 z-10 flex gap-2">
+            {showVideo && status === "live" ? (
+              <button
+                onClick={() => setMuted((m) => !m)}
+                className="flex h-9 w-9 items-center justify-center border border-white/25 bg-black/55 text-white/85 hover:bg-black/75"
+                aria-label={muted ? "Bunyikan audio" : "Bisukan audio"}
+              >
+                {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </button>
+            ) : null}
+            <button
+              onClick={toggleFullscreen}
+              className="flex h-9 w-9 items-center justify-center border border-white/25 bg-black/55 text-white/85 hover:bg-black/75"
+              aria-label={fs ? "Keluar layar penuh" : "Layar penuh"}
+              title="Layar penuh (F) — mode TV"
+            >
+              {fs ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+            </button>
+          </div>
         ) : null}
       </div>
 

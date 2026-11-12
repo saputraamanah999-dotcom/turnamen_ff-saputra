@@ -149,9 +149,11 @@ export default function AdminBroadcastPage() {
   }, [pairing]);
 
   const displayUrl = suggested?.displayUrl ?? null;
+  // TV: link + QR selalu memakai ?fs=1 → halaman display langsung masuk layar penuh.
+  const displayUrlFs = displayUrl ? `${displayUrl}${displayUrl.includes("?") ? "&" : "?"}fs=1` : null;
   const liveUrl = suggested?.liveUrl ?? null;
   const pairUrl = liveUrl && pairing ? `${liveUrl}?pair=${pairing.code}` : null;
-  const displayQr = useQr(displayUrl);
+  const displayQr = useQr(displayUrlFs);
   const liveQr = useQr(liveUrl);
   const pairQr = useQr(pairUrl);
 
@@ -303,11 +305,11 @@ export default function AdminBroadcastPage() {
                 <span className="text-xs text-fs-text/50">port {gwPort}</span>
               </li>
               <li className="flex flex-wrap items-center gap-2">
-                Link TV: <code className="font-mono text-xs">{displayUrl}</code>
-                <BoButton variant="white" className="!px-2 !py-1 !text-[11px]" onClick={() => displayUrl && void copy(displayUrl)}>
+                Link TV (layar penuh otomatis): <code className="font-mono text-xs">{displayUrlFs}</code>
+                <BoButton variant="white" className="!px-2 !py-1 !text-[11px]" onClick={() => displayUrlFs && void copy(displayUrlFs)}>
                   <Copy className="h-3 w-3" /> Salin
                 </BoButton>
-                <a href={displayUrl ?? "#"} target="_blank" rel="noreferrer" className="text-[11px] font-black uppercase tracking-wider text-fs-cyan underline">
+                <a href={displayUrlFs ?? "#"} target="_blank" rel="noreferrer" className="text-[11px] font-black uppercase tracking-wider text-fs-cyan underline">
                   Buka
                 </a>
               </li>
@@ -322,12 +324,13 @@ export default function AdminBroadcastPage() {
               </li>
             </ul>
             <div className="mt-4 flex flex-wrap items-start gap-6">
-              <QrImg src={displayQr} caption="QR — TV Display" />
+              <QrImg src={displayQr} caption="QR — TV Display (langsung layar penuh)" />
               <QrImg src={liveQr} caption="QR — HP Penonton" />
               <div className="max-w-xs">
                 <p className="text-[11px] font-semibold text-fs-text/50">
-                  Scan QR dari HP/TV (satu Wi-Fi/hotspot dengan laptop) — halaman siaran langsung terbuka,
-                  sudah termasuk pairing bila aktif. Semua link &amp; URL stream otomatis terisi ke pengaturan.
+                  Scan QR dari HP/TV (satu Wi-Fi/hotspot dengan laptop) — halaman siaran langsung terbuka.
+                  Link TV sudah memakai <code>?fs=1</code>: TV masuk layar penuh otomatis (kalau browser TV minta
+                  sentuhan, satu ketukan langsung layar penuh). Semua link &amp; URL stream otomatis terisi ke pengaturan.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <BoButton variant="primary" className="!px-3 !py-2 !text-xs" disabled={!tid} onClick={() => void applyDetected({ forceMode: true })}>

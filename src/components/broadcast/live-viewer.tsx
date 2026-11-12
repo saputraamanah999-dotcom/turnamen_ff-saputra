@@ -14,6 +14,7 @@ import { motion } from "framer-motion";
 import { Info, MapPin, RadioTower, Signal, Smartphone } from "lucide-react";
 import { BroadcastLeaderboard } from "@/components/leaderboard/broadcast-board";
 import { LiveVideoPlayer, type PlayerStatus } from "@/components/video/player";
+import { useAutoFullscreen } from "@/lib/fullscreen";
 import {
   useActiveTournament, useBroadcast, useMatches, useStandings, useTeams, useTournament,
 } from "@/services/firestore/hooks";
@@ -64,6 +65,9 @@ export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
     }, 0);
     return () => clearTimeout(t);
   }, []);
+
+  // Buka /live?fs=1 → layar penuh otomatis (dipakai link/QR mode TV).
+  useAutoFullscreen();
 
   const currentMatch =
     matches.data?.find((m) => m.isCurrent) ?? matches.data?.find((m) => m.status === "live") ?? null;

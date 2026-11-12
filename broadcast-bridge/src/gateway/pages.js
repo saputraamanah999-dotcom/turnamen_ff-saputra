@@ -99,6 +99,18 @@ footer{border-top:1px solid var(--edge);background:#0C1117}
   .matchinfo .m{font-size:16px}
   .brand h1{font-size:15px}
 }
+/* ---------- Layar penuh & Mode TV (fullscreen) ---------- */
+.fscbar{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:8px;z-index:22;background:rgba(8,11,16,.85);border:1px solid var(--edge);padding:6px;transition:opacity .35s;box-shadow:0 6px 24px rgba(0,0,0,.5)}
+.fscbar.live{bottom:56px}
+.fscbar.hide{opacity:0;pointer-events:none}
+.fsbtn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--edge);background:#141B24;color:var(--text);padding:9px 14px;font-weight:800;font-size:11.5px;letter-spacing:.14em;cursor:pointer;font-family:inherit;text-transform:uppercase}
+.fsbtn:hover{border-color:var(--fire);color:var(--fire)}
+.fsbtn.primary{background:linear-gradient(135deg,var(--fire),var(--flame));border-color:transparent;color:#fff}
+.fsbtn.primary:hover{color:#fff;filter:brightness(1.12)}
+.fshint{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:22;display:none;background:rgba(255,90,31,.94);color:#fff;padding:9px 18px;font-size:12px;font-weight:800;letter-spacing:.16em;animation:fs-live 1.5s infinite;pointer-events:none;text-transform:uppercase}
+body.video-only header,body.video-only footer,body.video-only .side{display:none}
+body.video-only .stage{flex:1 1 100% !important;min-height:0 !important}
+@media (max-width:860px){ .fscbar{bottom:10px;padding:5px} .fscbar.live{bottom:48px} .fsbtn{padding:8px 12px} }
 `;
 
 function esc(s) {
@@ -395,6 +407,74 @@ async function autoPair(){
   } catch { if (el) el.style.display='none'; }
 }
 
+// ---------- Layar penuh & Mode TV (fullscreen) ----------
+let fsIdleTimer = null;
+let fsPending = false;
+function showFsControls(){
+  const bar = $('#fscbar'); if (!bar) return;
+  bar.classList.remove('hide');
+  if (fsIdleTimer) clearTimeout(fsIdleTimer);
+  fsIdleTimer = setTimeout(()=>{ bar.classList.add('hide'); }, 3500);
+}
+async function enterFullscreen(){
+  try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen({navigationUI:'hide'}); return true; } catch {}
+  try {
+    const v = $('#video');
+    if (v && typeof v.webkitEnterFullscreen === 'function') { v.webkitEnterFullscreen(); return true; }
+  } catch {}
+  return false;
+}
+async function toggleFullscreen(){
+  if (document.fullscreenElement) { try { await document.exitFullscreen(); } catch {} return; }
+  const ok = await enterFullscreen();
+  if (!ok) showFsHint('KETUK LAGI DI MANA SAJA \u2192 LAYAR PENUH');
+}
+function toggleVideoOnly(){
+  const on = document.body.classList.toggle('video-only');
+  const b = $('#vonlybtn'); if (b) b.textContent = on ? 'MODE LENGKAP' : 'MODE VIDEO';
+}
+function showFsHint(msg){
+  const h = $('#fshint'); if (!h) return;
+  h.textContent = msg; h.style.display = 'block';
+  setTimeout(()=>{ h.style.display = 'none'; }, 6000);
+}
+async function autoFullscreen(){
+  let v = null;
+  try { v = new URLSearchParams(location.search).get('fs'); } catch {}
+  if (v === null || v === '0' || v === 'false') return;
+  fsPending = true;
+  showFsControls();
+  const ok = await enterFullscreen();
+  if (ok) { fsPending = false; return; }
+  // Browser TV/HP sering menuntut sentuhan dulu — pasang satu penangkap gestur.
+  showFsHint('TAP / KETUK DI MANA SAJA \u2192 LAYAR PENUH');
+  const grab = () => {
+    if (!fsPending) return;
+    enterFullscreen().then((done)=>{ if (done) fsPending = false; });
+  };
+  document.addEventListener('pointerdown', grab, true);
+  document.addEventListener('touchstart', grab, true);
+  document.addEventListener('keydown', grab, true);
+  setTimeout(()=>{ fsPending = false; }, 30000);
+}
+document.addEventListener('keydown', (e)=>{
+  if (e.key==='f'||e.key==='F') void toggleFullscreen();
+  if (e.key==='v'||e.key==='V') toggleVideoOnly();
+});
+['pointermove','pointerdown','touchstart','keydown'].forEach((evt)=>document.addEventListener(evt, showFsControls, {passive:true}));
+const fsVideoEl = $('#video');
+if (fsVideoEl) fsVideoEl.addEventListener('dblclick', ()=>void toggleFullscreen());
+let wakeLock = null;
+async function keepAwake(){
+  try {
+    if ('wakeLock' in navigator && !wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', ()=>{ wakeLock = null; });
+    }
+  } catch { /* browser TV tanpa wakeLock — abaikan */ }
+}
+document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='visible') void keepAwake(); });
+
 // ---------- Jam broadcast ----------
 setInterval(()=>{
   const el = $('#clock');
@@ -405,6 +485,9 @@ window.addEventListener('load', ()=>{
   pollData();
   connectStream(1);
   autoPair();
+  showFsControls();
+  autoFullscreen();
+  void keepAwake();
   const pb = $('#playbtn');
   if (pb) pb.addEventListener('click', ()=>{
     const v = $('#video');
@@ -469,6 +552,11 @@ export function renderDisplayPage({ tid, projectId = 'turnamenffbof', mediamtxPa
       </div>
       <button class="playbtn" id="playbtn" style="display:none;position:absolute;z-index:5">▶</button>
       <div class="eventbanner" id="eventbanner"></div>
+      <div class="fshint cond" id="fshint"></div>
+      <div class="fscbar hide cond" id="fscbar">
+        <button class="fsbtn primary" id="fsbtn" onclick="toggleFullscreen()">⛶ Layar Penuh</button>
+        <button class="fsbtn" id="vonlybtn" onclick="toggleVideoOnly()">Mode Video</button>
+      </div>
       <div class="emg" id="emergency" style="display:none">
         <h1 class="cond" id="emg-title">TECHNICAL DIFFICULTIES</h1>
         <p id="emg-msg"></p>
@@ -518,6 +606,11 @@ export function renderLivePage({ tid, projectId = 'turnamenffbof', mediamtxPath 
         <div class="sm">Tonton lewat jaringan lokal — video muncul saat siaran aktif.</div>
       </div>
       <div class="eventbanner" id="eventbanner"></div>
+      <div class="fshint cond" id="fshint"></div>
+      <div class="fscbar live hide cond" id="fscbar">
+        <button class="fsbtn primary" id="fsbtn" onclick="toggleFullscreen()">⛶ Layar Penuh</button>
+        <button class="fsbtn" id="vonlybtn" onclick="toggleVideoOnly()">Mode Video</button>
+      </div>
     </section>
     <aside class="side" style="flex:none;border-top:1px solid var(--edge);border-left:0;max-height:44vh">
       <div class="lb-head cond"><h2>LIVE STANDINGS</h2><span id="dbstatus" class="badge">…</span></div>
@@ -529,7 +622,7 @@ export function renderLivePage({ tid, projectId = 'turnamenffbof', mediamtxPath 
 }
 
 export function renderInfoPage({ port, lanIp, mediamtx }) {
-  const disp = lanIp ? `http://${lanIp}:${port}/display` : '(IP LAN belum terdeteksi)';
+  const disp = lanIp ? `http://${lanIp}:${port}/display?fs=1` : '(IP LAN belum terdeteksi)';
   return `<!DOCTYPE html>
 <html lang="id"><head><meta charset="UTF-8"><title>STIKAR Local Gateway</title><style>${CSS}</style></head>
 <body>
@@ -544,7 +637,7 @@ export function renderInfoPage({ port, lanIp, mediamtx }) {
   </div>
   <div class="card links">
     <h2 class="cond">TAUTAN SIARAN</h2>
-    <div class="rowl"><span>TV Display (utama)</span><a href="/display">${esc(disp)}</a></div>
+    <div class="rowl"><span>TV Display (utama · layar penuh otomatis)</span><a href="/display?fs=1">${esc(disp)}</a></div>
     <div class="rowl"><span>Live viewer</span><a href="/live">/live</a></div>
     <div class="rowl"><span>Status API</span><a href="/api/status">/api/status</a></div>
   </div>

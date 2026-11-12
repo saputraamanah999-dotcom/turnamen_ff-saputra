@@ -13,6 +13,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Crown, Maximize, Swords } from "lucide-react";
 import { BroadcastLeaderboard } from "@/components/leaderboard/broadcast-board";
 import { LiveVideoPlayer, type PlayerStatus } from "@/components/video/player";
+import { enterFullscreen, exitFullscreen, isFullscreenActive, useAutoFullscreen } from "@/lib/fullscreen";
 import {
   useActiveTournament, useBroadcast, useMatches, usePublicObserverEvents, useStandings, useTeams,
 } from "@/services/firestore/hooks";
@@ -43,6 +44,9 @@ function TvDisplayInner({ tidOverride }: { tidOverride?: string }) {
   const [clock, setClock] = useState("");
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>("idle");
   const [shownEvent, setShownEvent] = useState<BroadcastEvent | null>(null);
+
+  // Link/QR TV memakai ?fs=1 → TV masuk layar penuh otomatis saat halaman dibuka.
+  useAutoFullscreen();
 
   const currentMatch =
     matches.data?.find((m) => m.isCurrent) ?? matches.data?.find((m) => m.status === "live") ?? null;
@@ -352,19 +356,30 @@ function PresentationScene({ scene, tid }: { scene: string; tid: string | null }
 function FullscreenButton() {
   const [fs, setFs] = useState(false);
   useEffect(() => {
-    const onChange = () => setFs(Boolean(document.fullscreenElement));
+    const onChange = () => setFs(isFullscreenActive());
     document.addEventListener("fullscreenchange", onChange);
-    return () => document.removeEventListener("fullscreenchange", onChange);
+    // Tombol F pada keyboard (dan beberapa remote TV yang mengirim "F")
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "f" || e.key === "F") {
+        if (isFullscreenActive()) void exitFullscreen();
+        else void enterFullscreen().catch(() => {});
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      document.removeEventListener("keydown", onKey);
+    };
   }, []);
   return (
     <button
       onClick={() => {
-        if (document.fullscreenElement) void document.exitFullscreen();
-        else void document.documentElement.requestFullscreen().catch(() => {});
+        if (isFullscreenActive()) void exitFullscreen();
+        else void enterFullscreen().catch(() => {});
       }}
-      className="hidden h-9 w-9 items-center justify-center border border-fs-edge text-fs-muted transition hover:border-fs-fire hover:text-fs-fire sm:flex"
+      className="flex h-9 w-9 items-center justify-center border border-fs-edge bg-black/30 text-fs-muted transition hover:border-fs-fire hover:text-fs-fire"
       aria-label={fs ? "Keluar layar penuh" : "Masuk layar penuh"}
-      title="Fullscreen (F)"
+      title="Layar penuh (F)"
     >
       <Maximize className="h-4 w-4" />
     </button>
