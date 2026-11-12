@@ -281,6 +281,13 @@ export interface BroadcastSettings {
   p2pMaxViewers?: number;
   /** Mesin status siaran (Live Control). */
   live?: BroadcastLiveState;
+  /** Pengaturan panggung/presentasi (TV & /live). */
+  presentation?: {
+    /** Sembunyikan judul video & nama channel pada embed YouTube (strip branding di atas video). Default true. */
+    cleanYouTube?: boolean;
+    /** Animasi & efek panggung (countdown besar, burst GAME START, dsb.). Default true. */
+    effects?: boolean;
+  };
   /** Event broadcast terakhir (LIVE NOW, dst.) untuk TV & /live. */
   event?: BroadcastEvent | null;
   showPublicTimeline: boolean;

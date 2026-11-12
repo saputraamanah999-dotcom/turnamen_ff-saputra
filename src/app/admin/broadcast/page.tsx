@@ -10,6 +10,7 @@ import {
   Copy, Link2, MonitorPlay, Plug, PlugZap, QrCode, RefreshCw, Radio, Save, Settings2, Tv, Wifi,
 } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
+import { parseYouTubeId } from "@/components/video/player";
 import { useActiveTournament, useBroadcast } from "@/services/firestore/hooks";
 import {
   autoConnectBridge, bootstrapBridge, buildStreamUrls, connectBridge, disconnectBridge, getBridgeToken, getBridgeUrl,
@@ -32,6 +33,30 @@ interface PairingInfo {
 function Dot({ ok, unknown }: { ok: boolean | null; unknown?: boolean }) {
   const color = unknown || ok === null ? "bg-zinc-500" : ok ? "bg-emerald-400" : "bg-red-500";
   return <span className={`inline-block h-2.5 w-2.5 rounded-full ${color}`} />;
+}
+
+/** Petunjuk langsung di bawah input YouTube: ID terdeteksi / peringatan tautan tak dikenali. */
+function YtIdHint({ raw }: { raw: string }) {
+  const s = raw.trim();
+  if (!s) {
+    return (
+      <p className="text-[11px] font-semibold leading-relaxed text-fs-text/50">
+        Boleh tempel URL langsung: youtube.com/watch?v=…, youtu.be/…, youtube.com/live/…, /shorts/… —
+        atau ID video 11 karakter. ID otomatis diekstrak saat disimpan.
+      </p>
+    );
+  }
+  const parsed = parseYouTubeId(s);
+  if (parsed === s) return null;
+  return parsed ? (
+    <p className="text-[11px] font-bold text-fs-ok">
+      ID terdeteksi: <span className="font-mono">{parsed}</span> — otomatis disimpan sebagai ID.
+    </p>
+  ) : (
+    <p className="text-[11px] font-bold text-fs-err">
+      Tautan tidak dikenali. Pakai URL watch?v=… / youtu.be/… / /live/… / /shorts/… atau ID video 11 karakter.
+    </p>
+  );
 }
 
 function StatusRow({ label, ok, unknown, detail }: { label: string; ok: boolean | null; unknown?: boolean; detail?: string | null }) {
@@ -211,11 +236,21 @@ export default function AdminBroadcastPage() {
 
   async function saveSettings() {
     if (!tid || !db) return;
+    // YouTube: terima URL apa pun, simpan selalu sebagai ID video 11 karakter.
+    const ytRaw = (settings.youtubeVideoId ?? "").trim();
+    if ((settings.streamMode ?? "offline") === "youtube" && ytRaw && !parseYouTubeId(ytRaw)) {
+      toast({
+        title: "ID YouTube tidak dikenali",
+        description: "Tempel URL youtube.com/watch?v=…, youtu.be/…, /live/… atau ID video 11 karakter.",
+        variant: "destructive",
+      });
+      return;
+    }
     setBusy(true);
     try {
       await setDoc(
         doc(db, `broadcastSettings/${tid}`),
-        { ...settings, tournamentId: tid, updatedAt: serverTimestamp() },
+        { ...settings, youtubeVideoId: parseYouTubeId(ytRaw), tournamentId: tid, updatedAt: serverTimestamp() },
         { merge: true },
       );
       toast({ title: "Pengaturan broadcast tersimpan" });
@@ -551,10 +586,18 @@ export default function AdminBroadcastPage() {
               </>
             ) : null}
             {(settings.streamMode ?? "offline") === "youtube" ? (
-              <label className="block text-[11px] font-black uppercase tracking-wider">
-                YouTube Video ID (bukan stream key!)
-                <input className="bo-input mt-1" value={settings.youtubeVideoId ?? ""} onChange={(e) => setSettings({ ...settings, youtubeVideoId: e.target.value })} placeholder="mis. jfKfPfyJRdk" />
-              </label>
+              <>
+                <label className="block text-[11px] font-black uppercase tracking-wider">
+                  YouTube — URL atau Video ID (bukan stream key!)
+                  <input
+                    className="bo-input mt-1"
+                    value={settings.youtubeVideoId ?? ""}
+                    onChange={(e) => setSettings({ ...settings, youtubeVideoId: e.target.value })}
+                    placeholder="Tempel URL YouTube atau ID, mis. jfKfPfyJRdk"
+                  />
+                </label>
+                <YtIdHint raw={settings.youtubeVideoId ?? ""} />
+              </>
             ) : null}
             {(settings.streamMode ?? "offline") === "mediamtx" ? (
               <>

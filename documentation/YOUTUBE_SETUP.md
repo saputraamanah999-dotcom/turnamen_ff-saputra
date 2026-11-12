@@ -76,11 +76,12 @@ Sebelum mulai, isi metadata siaran:
 
 Tayangan YouTube bisa ditampilkan langsung di halaman live website.
 
-1. Setelah siaran berjalan, ambil **video ID**: bagian belakang URL tayangan, contoh `https://www.youtube.com/watch?v=abc123XYz` → video ID-nya `abc123XYz`. Untuk siaran berjalan, gunakan ID dari URL "Watch on YouTube" di Studio.
-2. Buka website → login di `/admin`.
-3. Buka pengaturan turnamen → **Broadcast Settings** → isi kolom **youtubeVideoId** dengan video ID tersebut.
-4. Simpan. Halaman `/live/:tournamentId` kini menampilkan tayangan YouTube di dalam website — penonton tidak perlu keluar dari website.
-5. Jika video tidak muncul di website: periksa **embed disabled** pada siaran (Studio → siaran → Visibility/embedding harus mengizinkan embed) dan pastikan siaran tidak offline — detail di [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+1. Setelah siaran berjalan, buka **Broadcast Settings** di `/admin` (website → login → pengaturan turnamen).
+2. Isi kolom **YouTube — URL atau Video ID**. Boleh **tempel URL lengkap langsung** — `https://www.youtube.com/watch?v=abc123XYz`, `youtu.be/…`, `youtube.com/live/…`, bahkan link share HP — sistem otomatis mengambil video ID-nya (`abc123XYz`). Menempel ID 11 karakter juga tetap bisa.
+3. Simpan. Halaman `/live/:tournamentId` kini menampilkan tayangan YouTube di dalam website — penonton tidak perlu keluar dari website.
+4. Video **mulai otomatis dalam kondisi tanpa suara** (kebijakan autoplay browser). Penonton cukup klik **ikon speaker di kanan atas** pemutar untuk mengaktifkan suara.
+5. Judul video & nama channel YouTube **otomatis ditutup strip branding** "BATTLE OFF FRIENDS" di bagian atas video. Bisa dimatikan lewat kartu **Panggung TV & Countdown** (opsi "Sembunyikan judul YouTube").
+6. Jika video tidak muncul di website: periksa **embed disabled** pada siaran (Studio → siaran → Visibility/embedding harus mengizinkan embed) dan pastikan siaran tidak offline — detail di [TROUBLESHOOTING.md](TROUBLESHOOTING.md). Jika tautan tidak dikenali, aplikasi menampilkan peringatan merah di bawah kolom dan tidak menyimpan.
 
 📸 [Tempel screenshot: kolom youtubeVideoId pada Broadcast Settings di /admin]
 
