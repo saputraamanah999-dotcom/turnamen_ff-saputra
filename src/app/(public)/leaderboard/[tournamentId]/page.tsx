@@ -4,8 +4,10 @@ import { useParams, useRouter } from "next/navigation";
 import { BoCard } from "@/components/common/bo";
 import { DataStatusBanner, EmptyState } from "@/components/common/stat";
 import { LeaderboardTable } from "@/components/leaderboard/leaderboard";
+import { ChampionCertificates } from "@/components/leaderboard/certificate";
 import { useStandings, useTournament } from "@/services/firestore/hooks";
 import { OFFICIAL_PLACEMENT_POINTS } from "@/lib/constants";
+import { computeChampion } from "@/lib/scoring";
 
 export default function LeaderboardDetailPage() {
   const params = useParams<{ tournamentId: string }>();
@@ -41,6 +43,26 @@ export default function LeaderboardDetailPage() {
           </div>
         ))}
       </div>
+
+      {/* SERTIFIKAT JUARA — muncul otomatis saat SEMUA match selesai (bawah-tengah). */}
+      {standings.data ? (
+        <div className="mt-10 flex justify-center">
+          <div className="w-full max-w-5xl">
+            <ChampionCertificates
+              standings={standings.data.standings}
+              tournamentName={tournament.data?.name ?? "BATTLE OFF FRIENDS"}
+              ready={
+                tournament.data?.status === "completed" ||
+                computeChampion(
+                  standings.data.standings,
+                  tournament.data?.totalMatches ?? 0,
+                  standings.data.publishedMatchCount ?? 0,
+                ).confirmed
+              }
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

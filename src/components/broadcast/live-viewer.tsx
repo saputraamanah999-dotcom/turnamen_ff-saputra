@@ -15,6 +15,7 @@ import { Info, MapPin, RadioTower, Signal, Smartphone } from "lucide-react";
 import { BroadcastLeaderboard } from "@/components/leaderboard/broadcast-board";
 import { LiveVideoPlayer, type PlayerStatus } from "@/components/video/player";
 import { PresenceBadge } from "@/components/broadcast/presence-badge";
+import { SmkLogoBadge } from "@/components/broadcast/brand-logo";
 import { useLivePresence } from "@/services/broadcast/presence";
 import { useAutoFullscreen } from "@/lib/fullscreen";
 import {
@@ -87,11 +88,15 @@ export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
       <div className="mx-auto max-w-7xl px-3 py-6 sm:px-6">
         {/* Header halaman */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="bo-kicker">Live Broadcast</p>
-            <h1 className="mt-2 font-display text-3xl font-black uppercase leading-none sm:text-4xl">
-              {tournament.data?.name ?? ORG.tournament}
-            </h1>
+          <div className="flex items-center gap-3">
+            {/* Logo resmi sekolah — konsisten dengan header siaran TV */}
+            <SmkLogoBadge size={44} className="hidden sm:inline-flex" />
+            <div>
+              <p className="bo-kicker">Live Broadcast</p>
+              <h1 className="mt-2 font-display text-3xl font-black uppercase leading-none sm:text-4xl">
+                {tournament.data?.name ?? ORG.tournament}
+              </h1>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {liveState === "live" ? (

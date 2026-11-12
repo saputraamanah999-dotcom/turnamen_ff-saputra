@@ -5,14 +5,15 @@
 // via heartbeat), link penonton + QR otomatis, pairing penonton otomatis.
 // ============================================================
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Ban, Copy, Link2, Megaphone, MonitorPlay, Plug, PlugZap, QrCode, RefreshCw, Radio, Save, Settings2, Sparkles, Timer, Tv, Wifi, Zap,
 } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import { parseYouTubeId } from "@/components/video/player";
 import { MusicPanel, ObsGuideHint, PodiumPanel, PresencePanel, SfxPanel } from "@/components/admin/broadcast-extras";
-import { useActiveTournament, useBroadcast } from "@/services/firestore/hooks";
+import { useActiveTournament, useBroadcast, useMatches } from "@/services/firestore/hooks";
+import { setCurrentMatch } from "@/services/scoring/publish";
 import {
   autoConnectBridge, bootstrapBridge, buildStreamUrls, connectBridge, disconnectBridge, getBridgeToken, getBridgeUrl,
   sendBridgeCommand, setBridgeToken, setBridgeUrl, subscribeBridge, type BridgeState,
@@ -87,6 +88,7 @@ export default function AdminBroadcastPage() {
   const { tournament } = useActiveTournament();
   const tid = tournament?.id ?? null;
   const broadcast = useBroadcast(tid, false);
+  const matches = useMatches(tid, false);
   const session = useAdminSession();
   const { toast } = useToast();
 
@@ -176,6 +178,54 @@ export default function AdminBroadcastPage() {
     const m = Math.floor(s / 60);
     return `${m}:${String(s % 60).padStart(2, "0")}`;
   }
+
+  // ---------- AUTO NEXT MATCH (dari data Match admin) ----------
+  const sortedMatches = useMemo(
+    () => [...(matches.data ?? [])].sort((a, b) => a.matchNumber - b.matchNumber),
+    [matches.data],
+  );
+  const currentMatchDoc = sortedMatches.find((m) => m.isCurrent) ?? null;
+  const nextMatch = useMemo(() => {
+    const usable = sortedMatches.filter((m) => m.status !== "completed" && m.status !== "cancelled");
+    if (!currentMatchDoc) return usable[0] ?? null;
+    return usable.find((m) => m.matchNumber > currentMatchDoc.matchNumber) ?? null;
+  }, [sortedMatches, currentMatchDoc]);
+
+  // Label sekuens otomatis mengikuti match berikutnya (bila panitia tidak mengubah manual).
+  const sgLabelTouched = useRef(false);
+  useEffect(() => {
+    if (sgLabelTouched.current || !nextMatch) return;
+    setSgLabel(`MATCH ${nextMatch.matchNumber} · ${nextMatch.map}`);
+  }, [nextMatch?.id, nextMatch?.matchNumber, nextMatch?.map]);
+
+  // Saat sekuens mulai game SELESAI (delay habis) + toggle aktif →
+  // match berikutnya otomatis menjadi match berjalan — TV & /live berganti
+  // "MATCH 2 · KALAHARI" realtime (onSnapshot), tanpa menyentuh apa pun.
+  const lastAutoAdvance = useRef("");
+  const seqDone = seqActive && seqRemainingMs <= 0;
+  useEffect(() => {
+    if (!settings.autoNextMatch || !seqDone || !tid) return;
+    const trigAt = settings.startSequence?.triggerAt ?? 0;
+    if (!trigAt) return;
+    const key = String(trigAt);
+    if (lastAutoAdvance.current === key) return;
+    lastAutoAdvance.current = key;
+    if (!nextMatch) {
+      toast({ title: "Auto-next match: tidak ada match berikutnya", description: "Buat match lanjutan di Admin → Match." });
+      return;
+    }
+    void (async () => {
+      try {
+        await setCurrentMatch(tid, nextMatch.id, { uid: session.user!.uid, email: session.user!.email ?? "" });
+        toast({
+          title: `Otomatis lanjut ke Match ${nextMatch.matchNumber} · ${nextMatch.map}`,
+          description: "Semua TV & /live berganti match secara realtime.",
+        });
+      } catch (e) {
+        toast({ title: "Gagal pindah match otomatis", description: String((e as Error).message ?? e), variant: "destructive" });
+      }
+    })();
+  }, [seqDone, settings.autoNextMatch, settings.startSequence?.triggerAt, nextMatch?.id, nextMatch?.matchNumber, nextMatch?.map, tid]);
 
   // ---------- Pairing otomatis (hanya di laptop bridge — token hanya lewat bootstrap loopback) ----------
   useEffect(() => {
@@ -771,7 +821,12 @@ export default function AdminBroadcastPage() {
               </p>
               <label className="mt-3 block text-[11px] font-black uppercase tracking-wider">
                 Label match
-                <input className="bo-input mt-1" value={sgLabel} onChange={(e) => setSgLabel(e.target.value)} placeholder="MATCH 3 · BERLIN" />
+                <input
+                  className="bo-input mt-1"
+                  value={sgLabel}
+                  onChange={(e) => { setSgLabel(e.target.value); sgLabelTouched.current = true; }}
+                  placeholder={nextMatch ? `MATCH ${nextMatch.matchNumber} · ${nextMatch.map}` : "MATCH 3 · BERLIN"}
+                />
               </label>
               <div className="mt-3 flex flex-wrap items-end gap-2">
                 <label className="block w-28 text-[11px] font-black uppercase tracking-wider">
@@ -792,6 +847,27 @@ export default function AdminBroadcastPage() {
                 TV &amp; /live menampilkan hitung mundur {Math.min(600, Math.max(5, Math.floor(sgDelay) || 0))} detik →
                 angka raksasa 10…1 → burst GAME START. Cocok untuk sinkronisasi semua HP player sebelum match dimulai.
               </p>
+              <label className="mt-3 flex items-start gap-2 border border-fs-cyan/35 bg-fs-cyan/5 p-2.5 text-xs font-bold">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-orange-500"
+                  checked={settings.autoNextMatch === true}
+                  onChange={(e) =>
+                    void patchSettings(
+                      { autoNextMatch: e.target.checked },
+                      e.target.checked ? "AUTO-NEXT MATCH aktif — delay habis, match otomatis lanjut" : "Auto-next match dimatikan",
+                    )
+                  }
+                />
+                <span>
+                  Otomatis pindah ke match berikutnya saat delay berakhir
+                  <span className="mt-0.5 block text-[10px] font-semibold leading-relaxed text-fs-text/55">
+                    {nextMatch
+                      ? `Lanjut otomatis ke MATCH ${nextMatch.matchNumber} · ${nextMatch.map} (diambil dari Admin → Match) — TV & /live ikut berganti realtime.`
+                      : "Belum ada match berikutnya — buat match lanjutan di Admin → Match."}
+                  </span>
+                </span>
+              </label>
             </div>
           </div>
 

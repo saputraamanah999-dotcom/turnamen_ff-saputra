@@ -14,7 +14,7 @@
 
 import { useState } from "react";
 import {
-  Eye, ListMusic, Music2, PartyPopper, Play, Plus, Trash2, Trophy, Volume2,
+  Eye, ListMusic, Music2, PartyPopper, Play, Plus, Trash2, Trophy, Volume2, Zap,
 } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import { parseYouTubeId } from "@/components/video/player";
@@ -42,6 +42,7 @@ export function MusicPanel({ tid, settings, patch }: { tid: string | null; setti
   const [vol, setVol] = useState<number | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [err, setErr] = useState("");
+  const [warn, setWarn] = useState("");
 
   const tracks = music?.tracks ?? [];
   const activeId = music?.activeTrackId ?? tracks[0]?.id ?? null;
@@ -49,7 +50,8 @@ export function MusicPanel({ tid, settings, patch }: { tid: string | null; setti
 
   async function addTrack() {
     setErr("");
-    const { track, error } = parseTrackInput(url, title);
+    setWarn("");
+    const { track, error, warning } = parseTrackInput(url, title);
     if (!track || error) {
       setErr(error ?? "Link tidak dikenali.");
       return;
@@ -65,6 +67,7 @@ export function MusicPanel({ tid, settings, patch }: { tid: string | null; setti
       enabled: music?.enabled ?? true,
     });
     await patch({ music: next }, `Lagu "${track.title}" ditambahkan${tracks.length === 0 ? " & mulai diputar (loop)" : ""}`);
+    if (warning) setWarn(warning);
     setUrl("");
     setTitle("");
   }
@@ -108,8 +111,11 @@ export function MusicPanel({ tid, settings, patch }: { tid: string | null; setti
         </label>
       </div>
       <p className="mt-1 text-[11px] font-semibold text-fs-text/50">
-        Terima link <b>MP3 langsung</b> (…/lagu.mp3) atau <b>YouTube / YT Music</b> (music.youtube.com). Lagu diputar
-        berulang di TV &amp; halaman penonton; suara baru keluar setelah penonton menyentuh halaman (kebijakan autoplay browser).
+        Terima <b>link audio apa pun</b> — MP3, M4A, OGG, WAV, AAC, OPUS dari host mana pun (hosting
+        “audio to URL”, server sekolah, dsb.). Link <b>Google Drive / Dropbox</b> otomatis dikonversi ke link
+        langsung. Juga menerima <b>YouTube / YT Music</b>. Musik diputar berulang (loop) di TV &amp; halaman
+        penonton dan menyala otomatis — bila browser memblokir, cukup satu sentuhan di mana pun (tidak perlu
+        menekan chip musik).
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -117,7 +123,7 @@ export function MusicPanel({ tid, settings, patch }: { tid: string | null; setti
           className="bo-input min-w-0 flex-1"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://music.youtube.com/watch?v=… atau https://…/lagu.mp3"
+          placeholder="Link audio apa pun / Google Drive / music.youtube.com/watch?v=…"
         />
         <input
           className="bo-input w-44"
@@ -130,6 +136,7 @@ export function MusicPanel({ tid, settings, patch }: { tid: string | null; setti
         </BoButton>
       </div>
       {err ? <p className="mt-1.5 text-[11px] font-bold text-fs-err">{err}</p> : null}
+      {warn ? <p className="mt-1.5 text-[11px] font-bold text-fs-gold">{warn}</p> : null}
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <label className="flex min-w-56 flex-1 items-center gap-2 text-[11px] font-black uppercase tracking-wider">
@@ -259,8 +266,8 @@ export function PresencePanel({ tid }: { tid: string | null }) {
         <Eye className="h-4 w-4" /> Penonton Online <span className="animate-pulse text-fs-cyan">●</span>
       </h2>
       <p className="mt-1 text-[11px] font-semibold text-fs-text/50">
-        Dihitung dari halaman /live, TV /display &amp; halaman interaktif (heartbeat tiap 20 detik; dianggap offline
-        setelah ±1 menit menutup halaman). Admin tidak ikut terhitung.
+        Dihitung dari halaman /live, TV /display &amp; halaman interaktif (heartbeat tiap 20 detik + saat tab kembali
+        terlihat; dianggap offline setelah ±1,5 menit menutup halaman). Admin tidak ikut terhitung.
       </p>
       <div className="mt-3">
         <div className="flex items-baseline gap-3">
@@ -269,6 +276,13 @@ export function PresencePanel({ tid }: { tid: string | null }) {
             {status === "online" ? "perangkat menonton" : status === "connecting" ? "menghubungkan…" : "database tidak terjangkau"}
           </span>
         </div>
+        {status === "online" && count === 0 ? (
+          <p className="mt-2 border border-fs-gold/40 bg-fs-gold/5 px-2.5 py-1.5 text-[10px] font-semibold leading-relaxed text-fs-gold">
+            Terhubung ke database, tapi belum ada penonton terdeteksi. Bila halaman /live pasti sedang terbuka di
+            perangkat lain dan angka tetap 0 → jalankan <code>npm run deploy:rules</code> dari laptop panitia
+            (rules koleksi <code>livePresence</code> harus ter-deploy; panduan: documentation/SERTIFIKAT_JUARA.md).
+          </p>
+        ) : null}
         {viewers.length ? (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {viewers.slice(0, 24).map((v) => (
@@ -291,6 +305,30 @@ export function PresencePanel({ tid }: { tid: string | null }) {
 // ============================================================
 export function PodiumPanel({ tid, settings, patch }: { tid: string | null; settings: Partial<BroadcastSettings>; patch: PatchFn }) {
   const on = settings.presentation?.podium === true;
+  const [booyahTeam, setBooyahTeam] = useState("");
+  const [booyahBusy, setBooyahBusy] = useState(false);
+
+  async function fireBooyah() {
+    if (!tid || booyahBusy) return;
+    setBooyahBusy(true);
+    try {
+      await patch(
+        {
+          booyah: {
+            active: true,
+            teamName: booyahTeam.trim() || (settings.booyah?.teamName ?? "MATCH SURVIVOR"),
+            matchNumber: settings.booyah?.matchNumber ?? null,
+            at: Date.now(),
+          },
+        },
+        "BOOYAH! meledak di semua TV & /live penonton",
+      );
+      setBooyahTeam("");
+    } finally {
+      setBooyahBusy(false);
+    }
+  }
+
   return (
     <BoCard className="bg-fs-panel p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -312,6 +350,30 @@ export function PodiumPanel({ tid, settings, patch }: { tid: string | null; sett
         shimmer, confetti) berdasarkan klasemen realtime + status juara resmi. Cocok di akhir turnamen atau sesi
         pengumuman juara. Nonaktifkan untuk kembali ke siaran.
       </p>
+
+      {/* BOOYAH! — momen juara match, gaya turnamen resmi Free Fire */}
+      <div className="mt-3 border border-fs-gold/40 bg-fs-gold/5 p-3">
+        <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-fs-gold">
+          <Zap className="h-3.5 w-3.5" /> BOOYAH! — ledakan juara match (±8 detik, auto-tutup)
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            className="bo-input min-w-0 flex-1"
+            value={booyahTeam}
+            onChange={(e) => setBooyahTeam(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") void fireBooyah(); }}
+            placeholder={`Nama tim juara match (kosong = "${settings.booyah?.teamName ?? "MATCH SURVIVOR"}")`}
+          />
+          <BoButton variant="primary" className="!px-3 !py-2 !text-xs" disabled={!tid || booyahBusy} onClick={() => void fireBooyah()}>
+            <Zap className="h-3.5 w-3.5" /> {booyahBusy ? "Mengirim…" : "BOOYAH Sekarang"}
+          </BoButton>
+        </div>
+        <p className="mt-1.5 text-[10px] font-semibold text-fs-text/45">
+          Suara fanfare BOOYAH + confetti + teks emas raksasa di semua perangkat penonton seketika —
+          bareng tombol SFX “Match Selesai” untuk penutupan match.
+        </p>
+      </div>
+
       {!tid ? <p className="mt-2 text-[11px] font-bold text-fs-gold">Belum ada turnamen aktif.</p> : null}
     </BoCard>
   );

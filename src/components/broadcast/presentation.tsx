@@ -227,6 +227,74 @@ export function StartSequenceOverlay({ broadcast }: { broadcast: BroadcastSettin
   );
 }
 
+// ------------------------------------------------------------
+// OVERLAY BOOYAH! (momen juara match — dipicu panitia sekali klik)
+// ------------------------------------------------------------
+export function BooyahOverlay({ broadcast }: { broadcast: BroadcastSettings | null }) {
+  const b = broadcast?.booyah;
+  const at = typeof b?.at === "number" ? b.at : 0;
+  const active = b?.active === true && at > 0;
+  const [show, setShow] = useState(false);
+  const lastAt = useRef(0);
+
+  // Tampil ±8 detik sejak ditekan; perintah basi (>8 dtk) diabaikan
+  // agar halaman yang baru dibuka di tengah siaran tidak ikut meledak.
+  useEffect(() => {
+    if (!active) {
+      setShow(false);
+      return;
+    }
+    const age = Date.now() - at;
+    if (age > 8000) return;
+    if (lastAt.current !== at) {
+      lastAt.current = at;
+      playSfx("booyah", 1);
+    }
+    setShow(true);
+    const t = setTimeout(() => setShow(false), 8000 - age);
+    return () => clearTimeout(t);
+  }, [active, at]);
+
+  if (!show) return null;
+  const effects = broadcast?.presentation?.effects !== false;
+
+  return (
+    <div className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 overflow-hidden bg-gradient-to-b from-black/70 via-black/55 to-black/70 px-6 text-center">
+      {effects ? <ConfettiBurst trigger={`booyah-${at}`} count={220} /> : null}
+      {effects ? (
+        <div className="pointer-events-none absolute inset-0">
+          <div className="fs-pulse-glow absolute left-1/2 top-1/2 h-[62%] w-[62%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fs-gold/15 blur-3xl" />
+        </div>
+      ) : null}
+      <motion.p
+        initial={effects ? { scale: 0.4, opacity: 0, rotate: -3 } : false}
+        animate={{ scale: 1, opacity: 1, rotate: 0 }}
+        transition={{ type: "spring", stiffness: 240, damping: 13 }}
+        className="fs-shimmer-gold bg-clip-text font-display text-7xl font-black uppercase leading-none tracking-[0.04em] text-transparent drop-shadow-[0_0_40px_rgba(255,194,71,.55)] sm:text-[11rem]"
+        style={{
+          backgroundImage:
+            "linear-gradient(180deg,#FFF3C4 0%,#FFC247 45%,#B97E14 100%)",
+        }}
+      >
+        BOOYAH!
+      </motion.p>
+      {b?.teamName ? (
+        <motion.p
+          initial={effects ? { opacity: 0, y: 14 } : false}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.18 }}
+          className="max-w-full truncate font-display text-2xl font-black uppercase tracking-[0.08em] text-white sm:text-4xl"
+        >
+          {b.teamName}
+        </motion.p>
+      ) : null}
+      <p className="text-[11px] font-bold uppercase tracking-[0.34em] text-fs-gold/90">
+        Match Survivor{b?.matchNumber ? ` · Match ${b.matchNumber}` : ""} · {ORG.tournament}
+      </p>
+    </div>
+  );
+}
+
 /** Gabungan overlay panggung: sekuens mulai game menang atas countdown;
  *  Panggung Juara di atas segalanya (kendali toggle admin). */
 export function PresentationOverlays({ broadcast }: { broadcast: BroadcastSettings | null }) {
@@ -236,6 +304,7 @@ export function PresentationOverlays({ broadcast }: { broadcast: BroadcastSettin
     <>
       {!podium && !seqActive ? <CountdownOverlay broadcast={broadcast} /> : null}
       {!podium ? <StartSequenceOverlay broadcast={broadcast} /> : null}
+      {!podium ? <BooyahOverlay broadcast={broadcast} /> : null}
       {podium ? <ChampionsStageOverlay broadcast={broadcast} /> : null}
     </>
   );

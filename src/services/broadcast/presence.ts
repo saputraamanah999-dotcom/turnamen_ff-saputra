@@ -5,8 +5,11 @@
 //   { name, lastSeen: serverTimestamp, clientMs, sinceMs }
 // - Setiap halaman penonton (TV /display, /live, halaman interaktif)
 //   menulis heartbeat tiap 20 detik (singleton per tab — refcount,
-//   komponen mana pun boleh memanggil ensurePresenceHeartbeat).
-// - Dianggap "online" bila heartbeat ≤ 65 detik lalu.
+//   komponen mana pun boleh memanggil ensurePresenceHeartbeat) + SEKALI
+//   lagi saat tab kembali terlihat (visibilitychange).
+// - Dianggap "online" bila heartbeat ≤ 105 detik lalu (tab latar belakang
+//   di HP/Chrome dibatasi ±1 tick/menit — 105 dtk menjaga penonton tetap
+//   terhitung sampai benar-benar menutup halaman).
 // - Tab ditutup → best-effort deleteDoc (pagehide/beforeunload).
 // - Admin memakai useLivePresence TANPA heartbeat agar tidak ikut terhitung.
 // Nama penonton anonim: "Penonton-XXX" (disimpan di localStorage).
@@ -30,7 +33,7 @@ export interface PresenceViewer {
   ms: number;
 }
 
-const FRESH_MS = 65_000;
+const FRESH_MS = 105_000;
 const TICK_MS = 20_000;
 
 function getViewerId(): string {
@@ -86,11 +89,17 @@ export function ensurePresenceHeartbeat(tid: string | null | undefined) {
         ...(first ? { sinceMs: Date.now() } : {}),
       },
       { merge: true },
-    ).catch(() => { /* offline — dicoba lagi di tick berikutnya */ });
+    ).catch(() => { /* offline / rules belum di-deploy — dicoba lagi di tick berikutnya */ });
     first = false;
   };
   write();
   const iv = setInterval(write, TICK_MS);
+  // Tab disematukan kembali (dari latar belakang) → tulis SEKARANG supaya
+  // penonton tidak sempat "hilang" dari daftar online saat balik membuka layar.
+  const onVisible = () => {
+    if (document.visibilityState === "visible") write();
+  };
+  document.addEventListener("visibilitychange", onVisible);
   const leave = () => {
     if (!db) return;
     void deleteDoc(doc(db, `livePresence/${tid}/viewers/${vid}`)).catch(() => { /* abaikan */ });
@@ -101,6 +110,7 @@ export function ensurePresenceHeartbeat(tid: string | null | undefined) {
     refs: 1,
     stop: () => {
       clearInterval(iv);
+      document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("pagehide", leave);
       window.removeEventListener("beforeunload", leave);
       leave();

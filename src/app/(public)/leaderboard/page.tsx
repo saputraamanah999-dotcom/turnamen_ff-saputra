@@ -7,8 +7,10 @@ import { DataStatusBanner, EmptyState } from "@/components/common/stat";
 import { LeaderboardTable } from "@/components/leaderboard/leaderboard";
 import { Top3Podium } from "@/components/leaderboard/top3";
 import { ChampionBanner } from "@/components/leaderboard/champion";
+import { ChampionCertificates } from "@/components/leaderboard/certificate";
 import { useActiveTournament, useStandings } from "@/services/firestore/hooks";
 import { OFFICIAL_PLACEMENT_POINTS } from "@/lib/constants";
+import { computeChampion } from "@/lib/scoring";
 
 export default function LeaderboardIndexPage() {
   const router = useRouter();
@@ -54,6 +56,26 @@ export default function LeaderboardIndexPage() {
           description="Klasemen resmi akan muncul setelah panitia mempublikasikan hasil match pertama."
         />
       )}
+
+      {/* SERTIFIKAT JUARA — muncul otomatis saat SEMUA match selesai (bawah-tengah). */}
+      {standings.data ? (
+        <div className="flex justify-center">
+          <div className="w-full max-w-5xl">
+            <ChampionCertificates
+              standings={standings.data.standings}
+              tournamentName={tournament?.name ?? "BATTLE OFF FRIENDS"}
+              ready={
+                tournament?.status === "completed" ||
+                computeChampion(
+                  standings.data.standings,
+                  tournament?.totalMatches ?? 0,
+                  standings.data.publishedMatchCount ?? 0,
+                ).confirmed
+              }
+            />
+          </div>
+        </div>
+      ) : null}
 
       <section className="mt-8">
         <h2 className="font-display text-xl font-black uppercase">Sistem Poin Resmi BOF</h2>

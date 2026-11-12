@@ -315,6 +315,20 @@ export interface BroadcastSettings {
   music?: MusicSettings;
   /** Perintah sound effect terakhir — semua penonton membunyikannya saat field berubah. */
   sfx?: SfxCommand | null;
+  /** Overlay BOOYAH! besar di TV & /live — momen juara match (muncul ±8 detik lalu
+   *  menutup sendiri; perintah lebih tua dari 8 detik diabaikan halaman baru). */
+  booyah?: {
+    active: boolean;
+    /** Nama tim yang BOOYAH (ditampilkan di bawah teks BOOYAH!). */
+    teamName?: string;
+    matchNumber?: number | null;
+    /** Epoch ms saat tombol ditekan. */
+    at?: number;
+  } | null;
+  /** Otomatis pindah ke match berikutnya (dari data Match admin) saat sekuens
+   *  mulai game selesai — panitia hanya menekan satu tombol, TV & /live
+   *  berganti "MATCH 2 · KALAHARI" realtime. */
+  autoNextMatch?: boolean;
   /** Pengaturan panggung/presentasi (TV & /live). */
   presentation?: {
     /** Sembunyikan judul video & nama channel pada embed YouTube (strip branding di atas video). Default true. */

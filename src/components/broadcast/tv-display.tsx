@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { CountdownOverlay } from "@/components/broadcast/presentation";
 import { ChampionPodium } from "@/components/leaderboard/champion-podium";
 import { PresenceBadge } from "@/components/broadcast/presence-badge";
+import { SmkLogoBadge } from "@/components/broadcast/brand-logo";
 import { useLivePresence } from "@/services/broadcast/presence";
 import type { BroadcastEvent, BroadcastSettings, PresentationState, Tournament } from "@/lib/types";
 
@@ -127,13 +128,14 @@ function TvDisplayInner({ tidOverride }: { tidOverride?: string }) {
       {/* ---------- TOP BROADCAST HEADER ---------- */}
       <header className="relative flex items-center justify-between gap-4 border-b border-fs-edge bg-[#0C1117] px-4 py-2.5 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="fs-cut-sm flex h-11 w-11 shrink-0 items-center justify-center bg-gradient-to-br from-fs-fire to-fs-flame font-display text-xl font-black text-white shadow-[0_0_16px_rgba(255,90,31,.45)]">Z</span>
+          {/* Logo resmi sekolah (menggantikan kotak "Z") — medali putih + cincin emas */}
+          <SmkLogoBadge size={46} className="fs-cut-sm" />
           <div className="min-w-0">
             <p className="font-display text-lg font-black uppercase leading-none tracking-[0.12em] sm:text-xl">
               STIKAR <span className="text-fs-fire">ESPORTS</span>
             </p>
             <p className="truncate text-[9.5px] font-bold uppercase tracking-[0.26em] text-fs-muted">
-              {ORG.tournament} · {tournament.data?.name ?? "—"}
+              SMK TI BALI GLOBAL KARANGASEM · {tournament.data?.name ?? "—"}
             </p>
           </div>
         </div>
