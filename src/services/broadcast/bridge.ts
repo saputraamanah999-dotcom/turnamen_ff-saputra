@@ -44,6 +44,7 @@ export function buildStreamUrls(ip: string, port: number, path: string) {
   return {
     localGatewayUrl: base,
     displayUrl: `${base}/display/${path}`,
+    liveUrl: `${base}/live/${path}`,
     hlsUrl: `${base}/hls/${path}/index.m3u8`,
     wheUrl: `${base}/mediamtx/${path}/whe`,
     whipUrl: `http://127.0.0.1:${port}/mediamtx/${path}/whip`,
