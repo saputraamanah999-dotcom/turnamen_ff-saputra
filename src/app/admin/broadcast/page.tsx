@@ -102,10 +102,17 @@ export default function AdminBroadcastPage() {
   const heartbeat = useBridgeHeartbeat(tid ?? "bof-main");
   const probe: GatewayProbe | null = useGatewayProbe(8080, 6000);
 
-  const detectedIp = chosenIp ?? bridge.lanIp ?? heartbeat.data?.lanIp ?? null;
-  const gwPort = bridge.gatewayPort ?? bridge.bootstrap?.gatewayPort ?? heartbeat.data?.gatewayPort ?? 8080;
+  // Data heartbeat HANYA dipakai kalau MASIH SEGAR (<90 dtk). Data lama (bridge mati /
+  // IP berubah) tidak boleh jadi dasar link penonton — sebelumnya IP lama yang tidak
+  // terjangkau ikut dipakai sehingga TV/HP gagal membuka halaman siaran (timeout).
+  const hbIp = heartbeat.fresh ? heartbeat.data?.lanIp ?? null : null;
+  const hbPort = heartbeat.fresh ? heartbeat.data?.gatewayPort ?? null : null;
+  const hbMediamtx = heartbeat.fresh ? heartbeat.data?.mediamtxUp ?? null : null;
+  const detectedIp = chosenIp ?? bridge.lanIp ?? hbIp ?? null;
+  const gwPort = bridge.gatewayPort ?? bridge.bootstrap?.gatewayPort ?? hbPort ?? 8080;
   const streamPath = bridge.bootstrap?.mediamtxPath ?? "bof-main";
   const suggested = detectedIp ? buildStreamUrls(detectedIp, gwPort, streamPath) : null;
+  const hbStale = Boolean(heartbeat.data && !heartbeat.fresh);
 
   // Di laptop bridge? (probe localhost berhasil, atau bootstrap terbaca, atau WS tersambung)
   const onLaptop = Boolean(probe?.ok || bridge.bootstrap || bridge.connected);
@@ -113,7 +120,7 @@ export default function AdminBroadcastPage() {
   const gatewayRunning = Boolean(
     probe?.ok || (heartbeat.fresh && heartbeat.data?.gatewayUp) || bridge.connected,
   );
-  const mediamtxUp = probe?.data?.mediamtx ?? heartbeat.data?.mediamtxUp ?? bridge.mediamtx ?? null;
+  const mediamtxUp = probe?.data?.mediamtx ?? hbMediamtx ?? bridge.mediamtx ?? null;
   const obsUp = bridge.connected ? bridge.obsConnected : (heartbeat.fresh ? heartbeat.data?.obsConnected : null);
   const viewerCount = bridge.viewers ?? (heartbeat.fresh ? heartbeat.data?.viewers : null);
 
@@ -257,7 +264,7 @@ export default function AdminBroadcastPage() {
           </span>
         </div>
         <ul className="mt-3 space-y-2">
-          <StatusRow label="Gateway (port & HTTP)" ok={gatewayRunning ? true : probe ? false : null} unknown={!probe && !heartbeat.data && !bridge.connected} detail={probe?.ok ? `loopback ${probe.ms}ms · port ${gwPort}` : hbDetail} />
+          <StatusRow label="Gateway (port & HTTP)" ok={gatewayRunning ? true : onLaptop && probe ? Boolean(probe?.ok) : null} unknown={!gatewayRunning && !onLaptop && !heartbeat.fresh && !bridge.connected} detail={probe?.ok ? `loopback ${probe.ms}ms · port ${gwPort}` : hbDetail} />
           <StatusRow label="MediaMTX (video stream)" ok={mediamtxUp === null ? null : Boolean(mediamtxUp)} unknown={mediamtxUp === null} detail={!mediamtxUp && gatewayRunning ? "menunggu publish — start bridge/OBS dulu" : null} />
           <StatusRow label="OBS Studio (kontrol scene)" ok={obsUp === null ? null : Boolean(obsUp)} unknown={obsUp === null} />
           <li className="flex flex-wrap items-center gap-2 text-sm font-bold">
@@ -277,6 +284,18 @@ export default function AdminBroadcastPage() {
             </li>
           ) : null}
         </ul>
+        {hbStale ? (
+          <div className="mt-3 border border-fs-gold/50 bg-fs-gold/10 px-4 py-3">
+            <p className="text-sm font-bold text-fs-gold">
+              Ada status LAMA ({Math.max(1, Math.round((heartbeat.ageSec ?? 0) / 60))} menit lalu · IP {heartbeat.data?.lanIp ?? "—"}).
+              Bridge kemungkinan sudah mati atau IP berubah — link lama otomatis TIDAK dipakai lagi.
+            </p>
+            <p className="mt-1 text-xs font-semibold text-fs-text/60">
+              Jalankan <code>start-bridge.bat</code> di laptop produksi. Saat bridge berjalan, status &amp; link baru
+              muncul otomatis di sini dalam ±30–90 detik. Jangan buka link lama yang sudah kedaluwarsa.
+            </p>
+          </div>
+        ) : null}
         {!heartbeat.data && !onLaptop ? (
           <p className="mt-3 text-xs font-semibold text-fs-text/50">
             Belum ada laporan heartbeat. Jalankan <code>start-bridge.bat</code> di laptop produksi —
@@ -369,7 +388,8 @@ export default function AdminBroadcastPage() {
               <>
                 Belum terdeteksi. Jalankan <code>start-bridge.bat</code> di laptop produksi, lalu buka halaman ini
                 di <b>browser laptop yang sama</b> (Chrome bisa menampilkan izin &ldquo;akses jaringan lokal&rdquo; — pilih Izinkan).
-                IP, token, dan URL stream akan terisi sendiri.
+                IP, token, dan URL stream akan terisi sendiri. Status lama (termasuk IP yang sudah tidak berlaku)
+                otomatis diabaikan agar tidak ada link mati.
               </>
             )}
           </p>

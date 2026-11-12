@@ -20,6 +20,8 @@ import {
   captureSource, StreamPublisher, type SourceQuality, type StreamStats,
 } from "@/services/broadcast/stream";
 import { setLiveState, publishBroadcastEvent } from "@/services/scoring/publish";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { db } from "@/services/firebase/client";
 import { useAdminSession } from "@/services/auth/admin";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -174,6 +176,19 @@ export default function AdminLiveControlPage() {
       setWhipProbe("ok");
     } catch {
       setWhipProbe("fail");
+    }
+  }
+
+  // Isi WHIP default gateway lokal & simpan ke Firestore (merge) — valid di laptop bridge.
+  async function quickSetWhip() {
+    if (!tid || !db) return;
+    const path = bridge?.bootstrap?.mediamtxPath ?? "bof-main";
+    const whip = `http://127.0.0.1:8080/mediamtx/${path}/whip`;
+    try {
+      await setDoc(doc(db, `broadcastSettings/${tid}`), { whipUrl: whip, tournamentId: tid, updatedAt: serverTimestamp() }, { merge: true });
+      toast({ title: "WHIP tersimpan", description: `${whip} — jalankan MediaMTX (start-bridge.bat) lalu PREPARE lagi.` });
+    } catch (e) {
+      toast({ title: "Gagal menyimpan WHIP", description: String((e as Error).message ?? e), variant: "destructive" as never });
     }
   }
 
@@ -382,6 +397,28 @@ export default function AdminLiveControlPage() {
             <BoButton variant="fire" className="mt-3 w-full" disabled={busy || Boolean(source) === false} onClick={prepare}>
               <Loader2 className={cn("h-4 w-4", busy && "animate-spin")} /> PREPARE BROADCAST
             </BoButton>
+
+            {/* WHIP belum diatur → panduan + isi otomatis (bukan sekadar pesan merah) */}
+            {!whipUrl ? (
+              <div className="mt-3 border border-fs-err/60 bg-fs-err/10 p-3">
+                <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-fs-err">
+                  <AlertTriangle className="h-3.5 w-3.5" /> WHIP belum diatur — wajib sebelum START LIVE
+                </p>
+                <p className="mt-2 text-[11px] font-semibold leading-relaxed text-fs-muted">
+                  WHIP = alamat server lokal tempat video dikirim (browser → MediaMTX → TV/HP). Caranya:
+                  jalankan <code>start-bridge.bat</code> di laptop produksi, lalu tekan tombol di bawah
+                  <b className="text-fs-text"> di browser laptop yang sama</b>.
+                </p>
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                  <BoButton variant="fire" className="!px-3 !py-2 !text-[11px]" disabled={!tid} onClick={() => void quickSetWhip()}>
+                    <Plug className="h-3.5 w-3.5" /> Isi otomatis (gateway laptop ini: 127.0.0.1:8080)
+                  </BoButton>
+                  <a href="/admin/broadcast" className="text-[11px] font-black uppercase tracking-wider text-fs-cyan underline">
+                    Buka Broadcast →
+                  </a>
+                </div>
+              </div>
+            ) : null}
           </BoCard>
 
           <BoCard className="p-4">
