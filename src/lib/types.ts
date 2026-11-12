@@ -7,7 +7,44 @@ export type TournamentStatus = "draft" | "active" | "completed";
 export type MatchFormat = "BO3" | "BO5" | "BO7" | "CUSTOM";
 export type MatchStatus = "scheduled" | "live" | "completed" | "cancelled";
 export type TeamStatus = "active" | "inactive" | "banned";
-export type StreamMode = "youtube" | "mediamtx" | "offline";
+/** Mode sumber siaran. "p2p" = WebRTC langsung laptop → penonton, signaling Firestore (tanpa bridge/MediaMTX/OBS). */
+export type StreamMode = "youtube" | "mediamtx" | "p2p" | "offline";
+
+// ---------- P2P signaling (dokumen Firestore) ----------
+
+/** State sesi penonton P2P di p2pSessions/{tid}/viewers/{viewerId}. */
+export type P2PSessionState = "waiting" | "answered" | "rejected" | "closed";
+
+export interface P2PSdpMessage {
+  type: string;
+  sdp: string;
+}
+
+/** Dokumen sesi penonton P2P (dibuat penonton, dijawab admin). */
+export interface P2PViewerDoc {
+  viewerId: string;
+  createdAt?: unknown; // Timestamp Firestore (serverTimestamp saat create)
+  expiresAt?: unknown; // Timestamp Firestore — kebijakan TTL opsional (+6 jam)
+  state: P2PSessionState;
+  offer: P2PSdpMessage;
+  answer?: P2PSdpMessage;
+  reason?: string;
+}
+
+/** Dokumen ICE candidate di subkoleksi candidates. */
+export interface P2PCandidateDoc {
+  from: "viewer" | "host";
+  candidate: string; // JSON RTCIceCandidate
+  createdAt?: unknown;
+}
+
+/** Ringkasan satu slot penonton P2P untuk UI admin. */
+export interface P2PViewerInfo {
+  viewerId: string;
+  state: "connected" | "waiting" | "answered" | "rejected" | "closed";
+  reason?: string;
+  since: number; // epoch ms saat sesi diterima/dibuat
+}
 
 /** Mesin status siaran Live Control (§5 prompt PHASE 2). */
 export type BroadcastState =
@@ -238,6 +275,10 @@ export interface BroadcastSettings {
   wheUrl?: string;
   /** Alamat gateway lokal laptop produksi (http://IP:8080) — terdeteksi otomatis oleh admin. */
   localGatewayUrl?: string;
+  /** Mode P2P aktif: admin menyetel true saat START LIVE, false saat STOP (signaling hanya boleh dipakai bila true). */
+  p2pLive?: boolean;
+  /** Batas penonton P2P bersamaan (default 2, rentang 1–4) — laptop mengirim satu aliran per penonton. */
+  p2pMaxViewers?: number;
   /** Mesin status siaran (Live Control). */
   live?: BroadcastLiveState;
   /** Event broadcast terakhir (LIVE NOW, dst.) untuk TV & /live. */

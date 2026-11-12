@@ -14,6 +14,7 @@ import { AlertTriangle, Maximize, Minimize, Play, Radio, Volume2, VolumeX, WifiO
 import { cn } from "@/lib/utils";
 import { enterFullscreen, exitFullscreen, isFullscreenActive } from "@/lib/fullscreen";
 import { playWHE } from "@/services/broadcast/stream";
+import { P2PViewer, mapP2PStatusToPlayerStatus } from "@/services/broadcast/p2p";
 import type { BroadcastSettings } from "@/lib/types";
 
 export type PlayerStatus = "idle" | "connecting" | "live" | "reconnecting" | "signal-lost" | "blocked";
@@ -43,6 +44,7 @@ export function LiveVideoPlayer({
   const boxRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<{ destroy: () => void } | null>(null);
   const wheRef = useRef<{ pc: RTCPeerConnection; close: () => void } | null>(null);
+  const p2pRef = useRef<P2PViewer | null>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [status, setStatus] = useState<PlayerStatus>("idle");
   const [detail, setDetail] = useState<string>("");
@@ -67,6 +69,8 @@ export function LiveVideoPlayer({
   const ytId = broadcast?.youtubeVideoId?.trim() ?? "";
   const hlsUrl = broadcast?.hlsUrl?.trim() ?? "";
   const wheUrl = (wheUrlOverride ?? broadcast?.wheUrl?.trim() ?? "").trim();
+  const isP2P = mode === "p2p";
+  const p2pLive = broadcast?.p2pLive === true;
   const streamKey = `${mode}|${wheUrl}|${hlsUrl}|${ytId}`;
 
   const setStat = useCallback((s: PlayerStatus, msg = "") => {
@@ -121,6 +125,41 @@ export function LiveVideoPlayer({
     };
   }, [mode, wheUrl, setStat, streamKey]);
 
+  // ---------- Sumber P2P (WebRTC langsung laptop → penonton, signaling Firestore) ----------
+  useEffect(() => {
+    if (mode !== "p2p") return;
+    if (!p2pLive) {
+      p2pRef.current?.stop();
+      p2pRef.current = null;
+      setStat("idle"); // "Menunggu siaran" — panitia belum START LIVE
+      return;
+    }
+    const tid = broadcast?.tournamentId;
+    if (!tid) return;
+    const viewer = new P2PViewer({
+      tid,
+      onStream: (s) => {
+        const v = videoRef.current;
+        if (v && v.srcObject !== s) v.srcObject = s;
+        if (!s) setStat("connecting", "Menunggu siaran…");
+      },
+      onStatus: (s, msg) => {
+        setStat(mapP2PStatusToPlayerStatus(s), msg ?? "");
+        if (s === "live") {
+          const v = videoRef.current;
+          if (v) v.play().catch(() => setNeedsPlay(true)); // autoplay ditolak → tombol play
+        }
+      },
+    });
+    p2pRef.current = viewer;
+    void viewer.start();
+    return () => {
+      viewer.stop();
+      p2pRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, p2pLive, broadcast?.tournamentId, setStat]);
+
   // ---------- Fallback HLS ----------
   useEffect(() => {
     if (mode !== "mediamtx" || !hlsUrl) return;
@@ -167,6 +206,7 @@ export function LiveVideoPlayer({
   function manualRetry() {
     setAttempt((a) => a + 1);
     setStat("connecting", "Menyambung ulang…");
+    if (isP2P) void p2pRef.current?.retry();
   }
 
   function forcePlay() {
@@ -180,9 +220,12 @@ export function LiveVideoPlayer({
   }
 
   const showIdle =
-    mode === "offline" || (mode === "mediamtx" && !wheUrl && !hlsUrl) || (mode === "youtube" && !ytId);
+    mode === "offline"
+    || (mode === "mediamtx" && !wheUrl && !hlsUrl)
+    || (mode === "youtube" && !ytId)
+    || (isP2P && !p2pLive);
   const isYouTube = mode === "youtube" && Boolean(ytId);
-  const showVideo = mode === "mediamtx" && (wheUrl || hlsUrl) && !showIdle;
+  const showVideo = (mode === "mediamtx" && (wheUrl || hlsUrl) && !showIdle) || (isP2P && p2pLive);
 
   return (
     <div ref={boxRef} className={cn("relative overflow-hidden border border-fs-edge bg-black", className)}>
@@ -279,6 +322,14 @@ export function LiveVideoPlayer({
             <span className="fs-live-badge inline-flex items-center gap-1.5 bg-fs-err px-2.5 py-1 font-display text-xs font-black uppercase tracking-[0.2em] text-white">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-white" /> LIVE
             </span>
+            {isP2P && muted ? (
+              <button
+                onClick={() => setMuted(false)}
+                className="border border-white/30 bg-black/60 px-3 py-1 font-display text-[11px] font-black uppercase tracking-widest text-white/90 hover:bg-black/80"
+              >
+                Aktifkan Suara
+              </button>
+            ) : null}
           </div>
         ) : null}
 
@@ -317,9 +368,11 @@ export function LiveVideoPlayer({
           />
           {isYouTube
             ? "YouTube Live · Internet"
-            : showVideo
-              ? `Local Stream · ${status === "live" ? "WebRTC/HLS" : "MediaMTX"}`
-              : "Stream Offline"}
+            : showVideo && isP2P
+              ? "P2P · WebRTC langsung dari laptop panitia"
+              : showVideo
+                ? `Local Stream · ${status === "live" ? "WebRTC/HLS" : "MediaMTX"}`
+                : "Stream Offline"}
         </span>
         {broadcast?.streamTitle ? (
           <span className="truncate text-xs font-semibold text-fs-muted">{broadcast.streamTitle}</span>

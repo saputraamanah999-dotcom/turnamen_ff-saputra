@@ -226,6 +226,62 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    // ---------- p2pSessions (signaling WebRTC mode P2P — PHASE 4) ----------
+    // Video TIDAK PERNAH lewat Firestore — hanya tukar SDP/ICE (offer/answer/candidate).
+    // Penonton ANONIM boleh membuat dokumen sesinya SENDIRI hanya bila panitia
+    // benar-benar sedang siaran P2P (broadcastSettings.streamMode == 'p2p' && p2pLive == true),
+    // dengan validasi ketat: field terbatas, state awal 'waiting', SDP ≤ 12000 karakter.
+    // Menjawab/menolak/menghapus = HANYA admin. Tidak ada pelonggaran koleksi lain.
+    match /p2pSessions/{tournamentId} {
+      // Signaling hanya aktif saat siaran P2P sedang hidup (cegah spam saat fitur mati).
+      function p2pBroadcasting() {
+        return get(/databases/$(database)/documents/broadcastSettings/$(tournamentId)).data.streamMode == 'p2p'
+          && get(/databases/$(database)/documents/broadcastSettings/$(tournamentId)).data.p2pLive == true;
+      }
+
+      match /viewers/{viewerId} {
+        // get publik: penonton mendengarkan dokumennya sendiri (viewerId acak = kapasitasnya).
+        // list HANYA admin (query koleksi viewers).
+        allow get: if true;
+        allow list: if isAdmin();
+        // Create publik TIDAK bisa menulis field answer/reason (hasOnly) dan
+        // TIDAK bisa memalsukan state/viewerId/createdAt (validated di bawah).
+        allow create: if p2pBroadcasting()
+          && request.resource.data.keys().hasOnly(['viewerId', 'createdAt', 'expiresAt', 'state', 'offer'])
+          && request.resource.data.viewerId == viewerId
+          && request.resource.data.state == 'waiting'
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.expiresAt is timestamp
+          && request.resource.data.offer is map
+          && request.resource.data.offer.keys().hasOnly(['type', 'sdp'])
+          && request.resource.data.offer.type == 'offer'
+          && request.resource.data.offer.sdp is string
+          && request.resource.data.offer.sdp.size() > 0
+          && request.resource.data.offer.sdp.size() <= 12000;
+        // Jawaban (answer/state/reason) hanya admin — penonton tidak bisa mengubah.
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
+
+        match /candidates/{candidateId} {
+          // Candidate dibaca publik (kedua sisi saling menukar ICE).
+          allow read: if true;
+          // Penonton anonim hanya boleh mengirim candidate MILIKNYA (from == 'viewer'),
+          // ukuran wajar (≤ 2000 karakter), createdAt server-side.
+          allow create: if p2pBroadcasting()
+            && request.resource.data.keys().hasOnly(['from', 'candidate', 'createdAt'])
+            && request.resource.data.from == 'viewer'
+            && request.resource.data.candidate is string
+            && request.resource.data.candidate.size() > 0
+            && request.resource.data.candidate.size() <= 2000
+            && request.resource.data.createdAt == request.time;
+          // Candidate dari HOST ditulis admin.
+          allow create: if isAdmin()
+            && request.resource.data.from == 'host';
+          allow update, delete: if isAdmin();
+        }
+      }
+    }
+
     // ---------- Default: tolak semua ----------
     match /{document=**} {
       allow read, write: if false;

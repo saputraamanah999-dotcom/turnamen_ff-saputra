@@ -38,6 +38,27 @@ export type PublisherEvents = {
   onQuality?: (q: SourceQuality) => void;
 };
 
+// ---------- Konstanta kualitas mode P2P (ubah di sini bila venue berbeda) ----------
+
+/** Capture 720p30 untuk mode P2P. */
+export const P2P_CAPTURE_WIDTH = 1280;
+export const P2P_CAPTURE_HEIGHT = 720;
+export const P2P_CAPTURE_MAX_FRAMERATE = 30;
+
+/** Batas bitrate per penonton (bps): 2 penonton ≈ 7 Mbps upload total. */
+export const P2P_MAX_BITRATE_BPS = 3_500_000;
+/** Batas framerate per penonton (fps). */
+export const P2P_MAX_FRAMERATE = 30;
+/** Wi-Fi venue berat → jaga framerate, turunkan resolusi saat macet. */
+export const P2P_DEGRADATION_PREFERENCE = "maintain-framerate" as const;
+
+/** Backoff pemulihan penonton P2P (detik): 2 → 4 → 8 → 15 (cap). */
+export const P2P_RECOVERY_BACKOFF_MS = [2_000, 4_000, 8_000, 15_000] as const;
+/** Koneksi dianggap mati bila failed/disconnected lebih lama dari ini. */
+export const P2P_DISCONNECT_GRACE_MS = 5_000;
+/** Sesi tanpa jawaban lebih tua dari ini dibersihkan admin (waiting/closed). */
+export const P2P_STALE_SESSION_MS = 2 * 60_000;
+
 const STATS_INTERVAL_MS = 1000;
 const QUALITY_INTERVAL_MS = 2000;
 const MAX_RECONNECT = 5;
@@ -68,20 +89,31 @@ async function waitIce(pc: RTCPeerConnection, timeoutMs = 2500): Promise<void> {
   });
 }
 
-/** Minta izin capture layar/jendela dari operator. */
+/** Minta izin capture layar/jendela dari operator.
+ * Mode "p2p" memakai 1280x720@30: dua penonton = dua upload di Wi-Fi venue,
+ * 720p30 menjaga total bitrate tetap aman tanpa mengubah default mode lain. */
 export async function captureSource(opts?: {
   preferCurrentTab?: boolean;
   selfBrowserSurface?: "exclude" | "include";
+  /** true → capture 1280x720@30 (mode P2P, batas bandwidth venue). */
+  p2p?: boolean;
 }): Promise<{ stream: MediaStream; source: CaptureSourceInfo }> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getDisplayMedia) {
     throw new Error("Browser ini tidak mendukung capture layar. Gunakan Chrome/Edge di laptop produksi.");
   }
+  const videoConstraints: MediaTrackConstraints = opts?.p2p
+    ? {
+        frameRate: { ideal: P2P_CAPTURE_MAX_FRAMERATE, max: P2P_CAPTURE_MAX_FRAMERATE },
+        width: { ideal: P2P_CAPTURE_WIDTH },
+        height: { ideal: P2P_CAPTURE_HEIGHT },
+      }
+    : {
+        frameRate: { ideal: 60, max: 60 },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      };
   const stream = await navigator.mediaDevices.getDisplayMedia({
-    video: {
-      frameRate: { ideal: 60, max: 60 },
-      width: { ideal: 1920 },
-      height: { ideal: 1080 },
-    } as MediaTrackConstraints,
+    video: videoConstraints,
     audio: true,
     preferCurrentTab: opts?.preferCurrentTab,
     selfBrowserSurface: opts?.selfBrowserSurface ?? "exclude", // hindari menangkap tab admin sendiri
