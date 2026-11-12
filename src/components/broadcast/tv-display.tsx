@@ -19,7 +19,8 @@ import {
 } from "@/services/firestore/hooks";
 import { ORG } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import type { BroadcastEvent, PresentationState, Tournament } from "@/lib/types";
+import { CountdownOverlay } from "@/components/broadcast/presentation";
+import type { BroadcastEvent, BroadcastSettings, PresentationState, Tournament } from "@/lib/types";
 
 export function TvDisplayPage({ tidOverride }: { tidOverride?: string }) {
   return (
@@ -113,7 +114,7 @@ function TvDisplayInner({ tidOverride }: { tidOverride?: string }) {
             exit={{ opacity: 0 }}
             className="absolute inset-0 z-[90]"
           >
-            <PresentationScene scene={presScene} tid={tid} />
+            <PresentationScene scene={presScene} tid={tid} broadcast={broadcast.data} />
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -288,7 +289,7 @@ function Main({ children, className }: { children: React.ReactNode; className?: 
 }
 
 /** Scene presentasi fullscreen — konten sesuai perintah admin (§17). */
-function PresentationScene({ scene, tid }: { scene: string; tid: string | null }) {
+function PresentationScene({ scene, tid, broadcast }: { scene: string; tid: string | null; broadcast?: BroadcastSettings | null }) {
   const standings = useStandings(tid);
   const matches = useMatches(tid, false);
   const { tournament: active } = useActiveTournament();
@@ -296,10 +297,14 @@ function PresentationScene({ scene, tid }: { scene: string; tid: string | null }
   const rows = standings.data?.standings ?? [];
   const currentMatch = matches.data?.find((m) => m.isCurrent) ?? null;
   const t = tournament.data ?? active;
+  // Scene "countdown" menampilkan countdown NYATA bila panitia memulainya dari
+  // /admin/broadcast (Panggung TV & Countdown); kalau tidak, tampil Starting Soon.
+  const realCountdown = broadcast?.countdown?.active === true;
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center bg-fs-bg px-10 text-center">
-      {scene === "opening" ? (
+    <div className="relative flex h-full w-full flex-col items-center justify-center bg-fs-bg px-10 text-center">
+      {scene === "countdown" && realCountdown ? <CountdownOverlay broadcast={broadcast ?? null} /> : null}
+      {scene === "countdown" && realCountdown ? null : scene === "opening" ? (
         <>
           <p className="fs-live-in font-display text-6xl font-black uppercase tracking-[0.08em]">STIKAR <span className="text-fs-fire">ESPORTS</span></p>
           <p className="mt-3 font-display text-2xl font-black uppercase text-fs-muted">{ORG.tournament}</p>
@@ -319,12 +324,17 @@ function PresentationScene({ scene, tid }: { scene: string; tid: string | null }
           <BroadcastLeaderboard standings={rows} mode="tv" status={standings.status} updatedAt={standings.data?.updatedAt} />
         </div>
       ) : null}
-      {scene === "match-info" || scene === "starting-soon" || scene === "countdown" ? (
+      {(scene === "match-info" || scene === "starting-soon" || (scene === "countdown" && !realCountdown)) ? (
         <>
           <p className="fs-live-in font-display text-6xl font-black uppercase text-fs-fire">Starting Soon</p>
           <p className="mt-4 text-xl font-bold text-fs-muted">
             {currentMatch ? `Match ${currentMatch.matchNumber} · ${currentMatch.map}` : "Jadwal segera diumumkan"}
           </p>
+          {scene === "countdown" ? (
+            <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.3em] text-fs-muted/60">
+              Countdown nyata dijalankan dari Admin → Broadcast → Panggung TV &amp; Countdown
+            </p>
+          ) : null}
         </>
       ) : null}
       {scene === "champion" || scene === "mvp" ? (

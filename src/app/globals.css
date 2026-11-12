@@ -461,6 +461,19 @@ html[data-theme] .theme-accent { color: var(--fs-fire); }
   animation: fs-progress-fire .8s linear infinite;
 }
 
+/* Kilau pinggiran panggung (countdown / GAME START) — denyut lembut. */
+@keyframes fs-pulse-glow {
+  0%, 100% { opacity: .55; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+}
+.fs-pulse-glow { animation: fs-pulse-glow 2.2s ease-in-out infinite; }
+/* Varian tanpa translate untuk elemen non-absolute (ikon Zap). */
+@keyframes fs-pulse-glow-icon {
+  0%, 100% { opacity: .6; filter: drop-shadow(0 0 6px rgba(255,200,60,.5)); }
+  50% { opacity: 1; filter: drop-shadow(0 0 14px rgba(255,200,60,.9)); }
+}
+.fs-pulse-glow-icon { animation: fs-pulse-glow-icon 1.4s ease-in-out infinite; }
+
 /* ============================================================
    PREMIUM ESPORT LAYER — efek sinematik yang purposeful
    (stagger reveal, holo border, specular sweep, podium float)
@@ -526,5 +539,5 @@ html[data-theme] .theme-accent { color: var(--fs-fire); }
   .bo-skel, .flash-up, .rank-champion, .zb-rise, .fs-live-badge,
   .fs-scanline::after, .fs-onair, .fs-connecting, .fs-ticker-track,
   .fs-progress-fire, .fs-live-in, .fs-row-in, .fs-holo, .fs-shine::before,
-  .fs-float, .fs-count-tick, .fs-glow-text { animation: none !important; }
+  .fs-float, .fs-count-tick, .fs-glow-text, .fs-pulse-glow, .fs-pulse-glow-icon { animation: none !important; }
 }

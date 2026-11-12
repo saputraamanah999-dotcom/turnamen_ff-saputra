@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { enterFullscreen, exitFullscreen, isFullscreenActive } from "@/lib/fullscreen";
 import { playWHE } from "@/services/broadcast/stream";
 import { P2PViewer, mapP2PStatusToPlayerStatus } from "@/services/broadcast/p2p";
+import { PresentationOverlays } from "@/components/broadcast/presentation";
 import type { BroadcastSettings } from "@/lib/types";
 
 /**
@@ -500,6 +501,10 @@ export function LiveVideoPlayer({
             </button>
           </div>
         ) : null}
+
+        {/* Overlay panggung realtime: countdown besar + sekuens mulai game
+            (dikendalikan panitia dari /admin/broadcast → Panggung TV & Countdown). */}
+        <PresentationOverlays broadcast={broadcast} />
       </div>
 
       {/* Bar info sumber */}

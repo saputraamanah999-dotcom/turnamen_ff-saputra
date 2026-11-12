@@ -288,6 +288,25 @@ export interface BroadcastSettings {
     /** Animasi & efek panggung (countdown besar, burst GAME START, dsb.). Default true. */
     effects?: boolean;
   };
+  /** Countdown besar di TV & /live — dipicu panitia dari kartu "Panggung TV & Countdown". */
+  countdown?: {
+    active: boolean;
+    /** Epoch ms saat countdown selesai (dihitung dari laptop panitia). */
+    endsAt: number;
+    /** Label di atas angka, mis. "MENUJU SIARAN DIMULAI". */
+    label?: string;
+  };
+  /** Sekuens mulai game dengan delay yang diatur panitia — overlay besar di TV & /live:
+   *  hitung mundur -> 10..1 -> GAME START. */
+  startSequence?: {
+    active: boolean;
+    /** Epoch ms saat panitia menekan tombol mulai. */
+    triggerAt: number;
+    /** Jeda (detik) sebelum game benar-benar dimulai, 5–600. */
+    delaySeconds: number;
+    /** Label, mis. "MATCH 3 · BERLIN". */
+    matchLabel?: string;
+  };
   /** Event broadcast terakhir (LIVE NOW, dst.) untuk TV & /live. */
   event?: BroadcastEvent | null;
   showPublicTimeline: boolean;

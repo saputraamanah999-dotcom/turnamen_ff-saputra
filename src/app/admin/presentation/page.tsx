@@ -173,7 +173,12 @@ export default function AdminPresentationPage() {
           <div className="flex h-80 flex-col items-center justify-center">
             <p className="font-display text-8xl font-black tabular-nums text-zb-blue">{countdown}</p>
             <p className="mt-2 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-fs-text/50">
-              <Clock className="h-4 w-4" /> Countdown presentasi
+              <Clock className="h-4 w-4" /> Countdown presentasi (preview scene)
+            </p>
+            <p className="mt-3 max-w-md text-center text-xs font-semibold leading-relaxed text-fs-text/50">
+              Ini hanya preview scene. Untuk countdown <b>NYATA</b> yang tampil di TV &amp; halaman /live — dengan
+              durasi dan label yang diatur panitia — gunakan kartu <b>Panggung TV &amp; Countdown</b> di menu
+              <code> /admin/broadcast</code>.
             </p>
           </div>
         ) : null}

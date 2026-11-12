@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  Copy, Link2, MonitorPlay, Plug, PlugZap, QrCode, RefreshCw, Radio, Save, Settings2, Tv, Wifi,
+  Ban, Copy, Link2, Megaphone, MonitorPlay, Plug, PlugZap, QrCode, RefreshCw, Radio, Save, Settings2, Sparkles, Timer, Tv, Wifi, Zap,
 } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import { parseYouTubeId } from "@/components/video/player";
@@ -99,6 +99,14 @@ export default function AdminBroadcastPage() {
   const [pairing, setPairing] = useState<PairingInfo | null>(null);
   const lastAutoSaved = useRef<string>("");
   const lastAutoPaired = useRef<string>("");
+  // --- Panggung TV & Countdown (kendali presentasi realtime) ---
+  const [cdMin, setCdMin] = useState(5);
+  const [cdSec, setCdSec] = useState(0);
+  const [cdLabel, setCdLabel] = useState("Menuju Siaran Dimulai");
+  const [sgDelay, setSgDelay] = useState(30);
+  const [sgLabel, setSgLabel] = useState("");
+  const [quickAnn, setQuickAnn] = useState("");
+  const [stageNow, setStageNow] = useState(() => Date.now());
 
   useEffect(() => {
     setUrl(getBridgeUrl());
@@ -117,6 +125,12 @@ export default function AdminBroadcastPage() {
   useEffect(() => {
     if (broadcast.data) setSettings(broadcast.data);
   }, [broadcast.data]);
+
+  // Jam panggung untuk preview sisa countdown/sekuens di panel admin.
+  useEffect(() => {
+    const t = setInterval(() => setStageNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     void autoConnectBridge();
@@ -148,6 +162,19 @@ export default function AdminBroadcastPage() {
   const mediamtxUp = probe?.data?.mediamtx ?? hbMediamtx ?? bridge.mediamtx ?? null;
   const obsUp = bridge.connected ? bridge.obsConnected : (heartbeat.fresh ? heartbeat.data?.obsConnected : null);
   const viewerCount = bridge.viewers ?? (heartbeat.fresh ? heartbeat.data?.viewers : null);
+
+  // ---------- Preview panggung (countdown & sekuens mulai game) ----------
+  const cdActive = settings.countdown?.active === true && typeof settings.countdown?.endsAt === "number";
+  const cdRemainingMs = cdActive ? Math.max(0, (settings.countdown!.endsAt as number) - stageNow) : 0;
+  const seqActive = settings.startSequence?.active === true && typeof settings.startSequence?.triggerAt === "number";
+  const seqRemainingMs = seqActive
+    ? Math.max(0, (settings.startSequence!.triggerAt as number) + (settings.startSequence!.delaySeconds ?? 0) * 1000 - stageNow)
+    : 0;
+  function fmtStage(ms: number) {
+    const s = Math.ceil(ms / 1000);
+    const m = Math.floor(s / 60);
+    return `${m}:${String(s % 60).padStart(2, "0")}`;
+  }
 
   // ---------- Pairing otomatis (hanya di laptop bridge — token hanya lewat bootstrap loopback) ----------
   useEffect(() => {
@@ -259,6 +286,54 @@ export default function AdminBroadcastPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  // ---------- Panggung TV & Countdown (tulis langsung — tanpa tombol Simpan) ----------
+  async function patchSettings(patch: Partial<BroadcastSettings>, okMsg: string) {
+    if (!tid || !db) return;
+    try {
+      await setDoc(
+        doc(db, `broadcastSettings/${tid}`),
+        { ...patch, tournamentId: tid, updatedAt: serverTimestamp() },
+        { merge: true },
+      );
+      toast({ title: okMsg });
+    } catch (e) {
+      toast({ title: "Gagal menyimpan", description: String((e as Error).message ?? e), variant: "destructive" });
+    }
+  }
+
+  function startCountdown() {
+    const totalSec = Math.max(5, cdMin * 60 + cdSec);
+    void patchSettings(
+      { countdown: { active: true, endsAt: Date.now() + totalSec * 1000, label: cdLabel.trim() || "MENUJU SIARAN DIMULAI" } },
+      "Countdown dimulai — tampil realtime di TV & /live",
+    );
+  }
+  function stopCountdown() {
+    void patchSettings({ countdown: { active: false } }, "Countdown dihentikan");
+  }
+  function startGameSequence() {
+    const delay = Math.min(600, Math.max(5, Math.floor(sgDelay) || 0));
+    void patchSettings(
+      { startSequence: { active: true, triggerAt: Date.now(), delaySeconds: delay, matchLabel: sgLabel.trim() || "MATCH BERIKUTNYA" } },
+      `Sekuens mulai game ${delay}s dikirim — TV & /live mengikuti realtime`,
+    );
+  }
+  function cancelGameSequence() {
+    void patchSettings({ startSequence: { active: false } }, "Sekuens mulai game dibatalkan");
+  }
+  function pushAnnouncement() {
+    const text = quickAnn.trim();
+    if (!text) return;
+    void patchSettings(
+      { announcements: [text, ...(settings.announcements ?? [])].slice(0, 5) },
+      "Pengumuman terkirim ke TV & /live",
+    );
+    setQuickAnn("");
+  }
+  function clearAnnouncements() {
+    void patchSettings({ announcements: [] }, "Semua pengumuman dibersihkan");
   }
 
   async function revokePairing() {
@@ -639,6 +714,154 @@ export default function AdminBroadcastPage() {
             <span className="text-[11px] font-bold uppercase tracking-wider text-fs-text/40">
               <Settings2 className="inline h-3.5 w-3.5" /> Kunci stream TIDAK disimpan di sini
             </span>
+          </div>
+        </BoCard>
+
+        {/* ---------- PANGGUNG TV & COUNTDOWN — kendali presentasi realtime ---------- */}
+        <BoCard className="bg-fs-panel p-5">
+          <h2 className="flex items-center gap-2 font-display text-base font-black uppercase">
+            <Sparkles className="h-4 w-4" /> Panggung TV &amp; Countdown — kendali realtime
+          </h2>
+          <p className="mt-1 text-[11px] font-semibold text-fs-text/50">
+            Semua tombol di kartu ini LANGSUNG tampil di TV (/display) dan halaman /live penonton — tanpa perlu
+            menekan Simpan. Urutan scene presentasi lengkap ada di <code>/admin/presentation</code>.
+          </p>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            {/* Countdown besar */}
+            <div className="border border-fs-edge bg-fs-bg p-4">
+              <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-fs-gold">
+                <Timer className="h-4 w-4" /> Countdown Besar
+              </p>
+              <label className="mt-3 block text-[11px] font-black uppercase tracking-wider">
+                Label
+                <input className="bo-input mt-1" value={cdLabel} onChange={(e) => setCdLabel(e.target.value)} placeholder="MENUJU SIARAN DIMULAI" />
+              </label>
+              <div className="mt-3 flex flex-wrap items-end gap-2">
+                <label className="block w-24 text-[11px] font-black uppercase tracking-wider">
+                  Menit
+                  <input className="bo-input mt-1" type="number" min={0} max={180} value={cdMin} onChange={(e) => setCdMin(Math.max(0, Number(e.target.value) || 0))} />
+                </label>
+                <label className="block w-24 text-[11px] font-black uppercase tracking-wider">
+                  Detik
+                  <input className="bo-input mt-1" type="number" min={0} max={59} value={cdSec} onChange={(e) => setCdSec(Math.min(59, Math.max(0, Number(e.target.value) || 0)))} />
+                </label>
+                {cdActive ? (
+                  <BoButton variant="destructive" onClick={stopCountdown}>
+                    <Ban className="h-4 w-4" /> Stop ({fmtStage(cdRemainingMs)})
+                  </BoButton>
+                ) : (
+                  <BoButton variant="primary" onClick={startCountdown} disabled={!tid}>
+                    <Timer className="h-4 w-4" /> Mulai Countdown
+                  </BoButton>
+                )}
+              </div>
+              {cdActive ? (
+                <p className="mt-2 text-[11px] font-bold text-fs-ok">
+                  BERJALAN — sisa {fmtStage(cdRemainingMs)} · label “{settings.countdown?.label}” tampil di TV &amp; /live.
+                </p>
+              ) : null}
+            </div>
+
+            {/* Sekuens mulai game */}
+            <div className="border border-fs-edge bg-fs-bg p-4">
+              <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-fs-cyan">
+                <Zap className="h-4 w-4" /> Mulai Game (Delay Diatur)
+              </p>
+              <label className="mt-3 block text-[11px] font-black uppercase tracking-wider">
+                Label match
+                <input className="bo-input mt-1" value={sgLabel} onChange={(e) => setSgLabel(e.target.value)} placeholder="MATCH 3 · BERLIN" />
+              </label>
+              <div className="mt-3 flex flex-wrap items-end gap-2">
+                <label className="block w-28 text-[11px] font-black uppercase tracking-wider">
+                  Delay (detik)
+                  <input className="bo-input mt-1" type="number" min={5} max={600} value={sgDelay} onChange={(e) => setSgDelay(Number(e.target.value) || 0)} />
+                </label>
+                {seqActive ? (
+                  <BoButton variant="destructive" onClick={cancelGameSequence}>
+                    <Ban className="h-4 w-4" /> Batalkan ({fmtStage(seqRemainingMs)})
+                  </BoButton>
+                ) : (
+                  <BoButton variant="cyan" onClick={startGameSequence} disabled={!tid}>
+                    <Zap className="h-4 w-4" /> Mulai Sekarang
+                  </BoButton>
+                )}
+              </div>
+              <p className="mt-2 text-[11px] font-semibold leading-relaxed text-fs-text/50">
+                TV &amp; /live menampilkan hitung mundur {Math.min(600, Math.max(5, Math.floor(sgDelay) || 0))} detik →
+                angka raksasa 10…1 → burst GAME START. Cocok untuk sinkronisasi semua HP player sebelum match dimulai.
+              </p>
+            </div>
+          </div>
+
+          {/* Pengumuman cepat */}
+          <div className="mt-4 border border-fs-edge bg-fs-bg p-4">
+            <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-fs-flame">
+              <Megaphone className="h-4 w-4" /> Kirim Pengumuman Realtime
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <input
+                className="bo-input min-w-0 flex-1"
+                value={quickAnn}
+                onChange={(e) => setQuickAnn(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") pushAnnouncement();
+                }}
+                placeholder="Tulis pengumuman… (mis. Match 3 check-in 10 menit lagi)"
+              />
+              <BoButton variant="primary" onClick={pushAnnouncement} disabled={!tid || !quickAnn.trim()}>
+                <Megaphone className="h-4 w-4" /> Kirim
+              </BoButton>
+              <BoButton variant="white" onClick={clearAnnouncements} disabled={!tid || !(settings.announcements ?? []).length}>
+                Bersihkan
+              </BoButton>
+            </div>
+            {(settings.announcements ?? []).length ? (
+              <ul className="mt-3 space-y-1.5">
+                {(settings.announcements ?? []).map((a, i) => (
+                  <li key={`${a}-${i}`} className="flex items-center gap-2 border border-fs-edge px-2.5 py-1.5 text-xs font-bold">
+                    <span className="shrink-0 bg-fs-head px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-white">
+                      {i === 0 ? "Terbaru" : `#${i + 1}`}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{a}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-[11px] font-semibold text-fs-text/40">Belum ada pengumuman aktif.</p>
+            )}
+          </div>
+
+          {/* Toggle presentasi */}
+          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border border-fs-edge bg-fs-bg p-4">
+            <label className="flex items-center gap-2 text-xs font-bold">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-orange-500"
+                checked={settings.presentation?.cleanYouTube !== false}
+                onChange={(e) =>
+                  void patchSettings(
+                    { presentation: { ...(settings.presentation ?? {}), cleanYouTube: e.target.checked } },
+                    e.target.checked ? "Judul YouTube disembunyikan" : "Judul YouTube ditampilkan",
+                  )
+                }
+              />
+              Sembunyikan judul &amp; nama channel YouTube (strip branding)
+            </label>
+            <label className="flex items-center gap-2 text-xs font-bold">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-orange-500"
+                checked={settings.presentation?.effects !== false}
+                onChange={(e) =>
+                  void patchSettings(
+                    { presentation: { ...(settings.presentation ?? {}), effects: e.target.checked } },
+                    e.target.checked ? "Animasi & efek panggung aktif" : "Animasi & efek panggung dimatikan",
+                  )
+                }
+              />
+              Animasi &amp; efek panggung (countdown besar, burst GAME START)
+            </label>
           </div>
         </BoCard>
       </div>
