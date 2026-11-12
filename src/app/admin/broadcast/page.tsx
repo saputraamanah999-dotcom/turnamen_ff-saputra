@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import { parseYouTubeId } from "@/components/video/player";
+import { MusicPanel, ObsGuideHint, PodiumPanel, PresencePanel, SfxPanel } from "@/components/admin/broadcast-extras";
 import { useActiveTournament, useBroadcast } from "@/services/firestore/hooks";
 import {
   autoConnectBridge, bootstrapBridge, buildStreamUrls, connectBridge, disconnectBridge, getBridgeToken, getBridgeUrl,
@@ -864,6 +865,23 @@ export default function AdminBroadcastPage() {
             </label>
           </div>
         </BoCard>
+      </div>
+
+      {/* ---------- PENGAYA SIARAN: musik, SFX, penonton, panggung juara ---------- */}
+      <h2 className="mt-6 font-display text-lg font-black uppercase tracking-wide text-fs-text/80">
+        Pengaya Siaran — musik, sound effect &amp; penonton
+      </h2>
+      <p className="mt-1 text-sm font-semibold text-fs-text/60">
+        Semua kartu di bawah berlaku REALTIME ke TV (/display), halaman /live, dan halaman interaktif penonton.
+      </p>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <MusicPanel tid={tid} settings={settings} patch={patchSettings} />
+        <div className="flex flex-col gap-4">
+          <SfxPanel tid={tid} settings={settings} patch={patchSettings} />
+          <PodiumPanel tid={tid} settings={settings} patch={patchSettings} />
+        </div>
+        <PresencePanel tid={tid} />
+        <ObsGuideHint />
       </div>
     </div>
   );

@@ -97,3 +97,6 @@ Tayangan YouTube bisa ditampilkan langsung di halaman live website.
 - [ ] Rencana hari-H: siapa operator OBS, siapa penjaga chat, siapa konfirmasi skor.
 
 Panduan operator harian: [guides/GUIDE_10](guides/GUIDE_10_streaming-publik.md).
+
+> 🎚️ **Siaran patah-patah / telat?** Baca **[PANDUAN LENGKAP OBS × YOUTUBE](OBS_YOUTUBE_GUIDE.md)** —
+> pengaturan bitrate, keyframe interval, resolusi, latency YouTube, dan checklist hari-H, langkah demi langkah.

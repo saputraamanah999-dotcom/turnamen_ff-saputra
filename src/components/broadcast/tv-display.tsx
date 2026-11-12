@@ -20,6 +20,9 @@ import {
 import { ORG } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { CountdownOverlay } from "@/components/broadcast/presentation";
+import { ChampionPodium } from "@/components/leaderboard/champion-podium";
+import { PresenceBadge } from "@/components/broadcast/presence-badge";
+import { useLivePresence } from "@/services/broadcast/presence";
 import type { BroadcastEvent, BroadcastSettings, PresentationState, Tournament } from "@/lib/types";
 
 export function TvDisplayPage({ tidOverride }: { tidOverride?: string }) {
@@ -45,6 +48,8 @@ function TvDisplayInner({ tidOverride }: { tidOverride?: string }) {
   const [clock, setClock] = useState("");
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>("idle");
   const [shownEvent, setShownEvent] = useState<BroadcastEvent | null>(null);
+  // Indikator penonton online (jumlah di header — TV ikut terhitung sebagai 1 perangkat).
+  const presence = useLivePresence(tid, { heartbeat: true });
 
   // Link/QR TV memakai ?fs=1 → TV masuk layar penuh otomatis saat halaman dibuka.
   useAutoFullscreen();
@@ -158,6 +163,7 @@ function TvDisplayInner({ tidOverride }: { tidOverride?: string }) {
 
         <div className="flex items-center gap-3">
           <span className="hidden font-stat text-sm font-bold text-fs-muted sm:block tabular-nums">{clock}</span>
+          <PresenceBadge count={presence.count} />
           {isLive || playerStatus === "live" ? (
             <span className="fs-live-badge inline-flex items-center gap-1.5 bg-fs-err px-3 py-1.5 font-display text-sm font-black uppercase tracking-[0.2em] text-white">
               <span className="inline-block h-2 w-2 rounded-full bg-white" /> LIVE
@@ -338,11 +344,14 @@ function PresentationScene({ scene, tid, broadcast }: { scene: string; tid: stri
         </>
       ) : null}
       {scene === "champion" || scene === "mvp" ? (
-        <>
-          <p className="bo-kicker mb-4">Champion Tracking</p>
-          <p className="font-display text-5xl font-black uppercase text-fs-gold">{rows[0]?.teamName ?? "—"}</p>
-          <p className="mt-2 text-lg font-bold text-fs-muted">{rows[0]?.totalPoints ?? 0} PTS · {rows[0]?.kills ?? 0} kill</p>
-        </>
+        <div className="w-full max-w-3xl">
+          <p className="bo-kicker mb-6">Panggung Juara — Champion Tracking</p>
+          <ChampionPodium
+            standings={rows}
+            totalMatches={t?.totalMatches ?? 0}
+            publishedMatchCount={standings.data?.publishedMatchCount ?? 0}
+          />
+        </div>
       ) : null}
       {scene === "results" ? (
         <>

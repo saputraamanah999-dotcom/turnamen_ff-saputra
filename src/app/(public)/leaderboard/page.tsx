@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { BoCard } from "@/components/common/bo";
 import { DataStatusBanner, EmptyState } from "@/components/common/stat";
 import { LeaderboardTable } from "@/components/leaderboard/leaderboard";
+import { Top3Podium } from "@/components/leaderboard/top3";
+import { ChampionBanner } from "@/components/leaderboard/champion";
 import { useActiveTournament, useStandings } from "@/services/firestore/hooks";
 import { OFFICIAL_PLACEMENT_POINTS } from "@/lib/constants";
 
@@ -19,6 +21,17 @@ export default function LeaderboardIndexPage() {
       <DataStatusBanner status={standings.status} />
       <span className="bo-kicker mb-2 inline-block bg-zb-purple">Klasemen Resmi</span>
       <h1 className="bo-title mb-6">Leaderboard {tournament?.name ?? ""}</h1>
+
+      {standings.data && standings.data.standings.length ? (
+        <div className="mb-6 space-y-4">
+          <Top3Podium standings={standings.data.standings} />
+          <ChampionBanner
+            standings={standings.data.standings}
+            totalMatches={tournament?.totalMatches ?? 0}
+            publishedMatchCount={standings.data.publishedMatchCount ?? 0}
+          />
+        </div>
+      ) : null}
 
       {standings.data ? (
         <BoCard className="overflow-hidden bg-fs-panel">

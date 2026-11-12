@@ -255,6 +255,35 @@ export interface ScoringConfiguration {
   updatedBy?: string;
 }
 
+/** Satu lagu pada playlist musik latar siaran. */
+export interface MusicTrack {
+  id: string;
+  title: string;
+  /** "mp3" = URL audio langsung (.mp3/.m4a/.ogg/.wav), "yt" = YouTube / YT Music. */
+  type: "mp3" | "yt";
+  /** URL audio langsung — wajib untuk type "mp3". */
+  url?: string;
+  /** ID video 11 karakter — wajib untuk type "yt". */
+  ytId?: string;
+}
+
+/** Pengaturan musik latar (broadcastSettings/{tid}.music). */
+export interface MusicSettings {
+  enabled: boolean;
+  /** 0–100 — volume musik di perangkat penonton. */
+  volume: number;
+  tracks: MusicTrack[];
+  /** Lagu yang sedang diputar (loop). Kosong = lagu pertama. */
+  activeTrackId?: string | null;
+}
+
+/** Perintah sound effect realtime (panitia → semua penonton). */
+export interface SfxCommand {
+  type: "beep" | "go" | "booyah" | "match-end" | "airhorn" | "applause" | "pop" | "swoosh";
+  /** Epoch ms saat tombol ditekan — penonton mengabaikan perintah > 25 detik. */
+  at: number;
+}
+
 export interface BroadcastEmergency {
   active: boolean;
   preset: string; // Technical Difficulties | Signal Lost | Reconnecting | Source Offline | Match Paused | Waiting for Official Results | Network Problem | OBS Disconnected
@@ -281,29 +310,37 @@ export interface BroadcastSettings {
   p2pMaxViewers?: number;
   /** Mesin status siaran (Live Control). */
   live?: BroadcastLiveState;
+  /** Musik latar siaran — dikelola dari kartu "Musik Siaran" /admin/broadcast,
+   *  diputar (loop) di TV & halaman penonton mengikuti pengaturan realtime. */
+  music?: MusicSettings;
+  /** Perintah sound effect terakhir — semua penonton membunyikannya saat field berubah. */
+  sfx?: SfxCommand | null;
   /** Pengaturan panggung/presentasi (TV & /live). */
   presentation?: {
     /** Sembunyikan judul video & nama channel pada embed YouTube (strip branding di atas video). Default true. */
     cleanYouTube?: boolean;
     /** Animasi & efek panggung (countdown besar, burst GAME START, dsb.). Default true. */
     effects?: boolean;
+    /** Tampilkan "Panggung Juara" (podium Top 3 + confetti) fullscreen di TV & /live. */
+    podium?: boolean;
   };
-  /** Countdown besar di TV & /live — dipicu panitia dari kartu "Panggung TV & Countdown". */
+  /** Countdown besar di TV & /live — dipicu panitia dari kartu "Panggung TV & Countdown".
+   *  endsAt wajib saat active=true (patch stop mengirim { active: false } saja). */
   countdown?: {
     active: boolean;
     /** Epoch ms saat countdown selesai (dihitung dari laptop panitia). */
-    endsAt: number;
+    endsAt?: number;
     /** Label di atas angka, mis. "MENUJU SIARAN DIMULAI". */
     label?: string;
   };
   /** Sekuens mulai game dengan delay yang diatur panitia — overlay besar di TV & /live:
-   *  hitung mundur -> 10..1 -> GAME START. */
+   *  hitung mundur -> 10..1 -> GAME START. Field wajib saat active=true. */
   startSequence?: {
     active: boolean;
     /** Epoch ms saat panitia menekan tombol mulai. */
-    triggerAt: number;
+    triggerAt?: number;
     /** Jeda (detik) sebelum game benar-benar dimulai, 5–600. */
-    delaySeconds: number;
+    delaySeconds?: number;
     /** Label, mis. "MATCH 3 · BERLIN". */
     matchLabel?: string;
   };

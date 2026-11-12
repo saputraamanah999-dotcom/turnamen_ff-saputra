@@ -14,6 +14,8 @@ import { motion } from "framer-motion";
 import { Info, MapPin, RadioTower, Signal, Smartphone } from "lucide-react";
 import { BroadcastLeaderboard } from "@/components/leaderboard/broadcast-board";
 import { LiveVideoPlayer, type PlayerStatus } from "@/components/video/player";
+import { PresenceBadge } from "@/components/broadcast/presence-badge";
+import { useLivePresence } from "@/services/broadcast/presence";
 import { useAutoFullscreen } from "@/lib/fullscreen";
 import {
   useActiveTournament, useBroadcast, useMatches, useStandings, useTeams, useTournament,
@@ -53,6 +55,8 @@ export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
   const matches = useMatches(tid, false);
   const teams = useTeams(tid, false);
   const broadcast = useBroadcast(tid, false);
+  // Indikator penonton realtime (berapa & siapa yang online).
+  const presence = useLivePresence(tid, { heartbeat: true });
 
   // Konfigurasi pairing (Mode B) — tersimpan saat viewer /live/connect.
   const [pairing, setPairing] = useState<{ gw: string; whe: string; hls: string } | null>(null);
@@ -104,6 +108,7 @@ export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
                 ROUND {String(currentMatch.matchNumber).padStart(2, "0")} · {currentMatch.map || "UNKNOWN"}
               </span>
             ) : null}
+            <PresenceBadge count={presence.count} viewers={presence.viewers} className="!border-fs-cyan/45 !bg-fs-cyan/10 !text-fs-cyan" />
           </div>
         </div>
 

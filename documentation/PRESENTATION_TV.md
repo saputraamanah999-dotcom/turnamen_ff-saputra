@@ -66,3 +66,17 @@ bila countdown sedang berjalan dari kartu Panggung TV & Countdown.
 - Tidak ada field pertandingan yang diubah — murni lapisan tampilan.
 
 Panduan terkait: [YOUTUBE_SETUP.md](YOUTUBE_SETUP.md) · [P2P_MODE.md](P2P_MODE.md) · [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+
+---
+
+## Pengaya Panggung (batch 2)
+
+Semua fitur di bawah kendalinya dari **Admin → Broadcast → "Pengaya Siaran"** dan berlaku realtime
+di TV (/display), halaman /live, dan halaman interaktif:
+
+| Fitur | Cara pakai | Detail teknis |
+| --- | --- | --- |
+| **Musik Latar (loop)** | Kartu *Musik Latar Siaran*: tempel link MP3 atau YouTube/YT Music → Tambah → toggle Aktif, pilih lagu "Pakai", atur volume slider | Data `broadcastSettings.music`; MP3 pakai `<audio loop>`, YT pakai iframe embed `loop=1&playlist=ID` (komponen `components/broadcast/music-player.tsx`). Suara penonton keluar setelah interaksi pertama di halaman (kebijakan autoplay browser). |
+| **Sound Effect Esport** | Kartu *Sound Effect*: BOOYAH!, Game Start, Airhorn, Tepuk Tangan, Match Selesai, Beep, Pop, Swoosh — satu klik, semua penonton bunyi | Data `broadcastSettings.sfx {type, at}`; perintah > 25 dtk diabaikan. Asset `public/sfx/*.mp3` (sintesis `scripts/make_sfx.py`). **Otomatis**: beep tiap detik di 10 detik terakhir countdown/sekuens + nada GO di GAME START (respects toggle efek). |
+| **Panggung Juara** | Kartu *Panggung Juara*: toggle Tampilkan → layar penuh podium Top 3 (emas/perak/perunggu, mahkota melayang, shimmer, confetti) berdasar klasemen realtime + status juara resmi (jujur: hanya "Juara Resmi" bila semua match dipublikasikan & tidak seri) | Data `broadcastSettings.presentation.podium`; komponen `components/leaderboard/champion-podium.tsx`. |
+| **Penonton Online** | Indikator otomatis: header /live, bar player, TV header, dan kartu admin *Penonton Online* (jumlah + nama) | Koleksi `livePresence/{tid}/viewers/{viewerId}`; heartbeat 20 dtk, offline > 65 dtk, singleton per tab (`services/broadcast/presence.ts`). Admin tidak ikut terhitung. |

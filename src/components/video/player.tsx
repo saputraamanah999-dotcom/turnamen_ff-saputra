@@ -16,6 +16,10 @@ import { enterFullscreen, exitFullscreen, isFullscreenActive } from "@/lib/fulls
 import { playWHE } from "@/services/broadcast/stream";
 import { P2PViewer, mapP2PStatusToPlayerStatus } from "@/services/broadcast/p2p";
 import { PresentationOverlays } from "@/components/broadcast/presentation";
+import { MusicPlayer } from "@/components/broadcast/music-player";
+import { useSfxListener } from "@/components/broadcast/sfx";
+import { PresenceBadge } from "@/components/broadcast/presence-badge";
+import { useLivePresence } from "@/services/broadcast/presence";
 import type { BroadcastSettings } from "@/lib/types";
 
 /**
@@ -85,6 +89,11 @@ export function LiveVideoPlayer({
   const [muted, setMuted] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const [fs, setFs] = useState(false);
+
+  // Musik latar realtime + SFX broadcast + presence (heartbeat 1x per tab —
+  // singleton di services/broadcast/presence.ts, tak peduli berapa komponen memakai).
+  const presence = useLivePresence(broadcast?.tournamentId ?? null, { heartbeat: true });
+  useSfxListener(broadcast);
 
   // Sinkron status layar penuh (mis. keluar via tombol ESC/remote TV)
   useEffect(() => {
@@ -502,9 +511,12 @@ export function LiveVideoPlayer({
           </div>
         ) : null}
 
-        {/* Overlay panggung realtime: countdown besar + sekuens mulai game
+        {/* Overlay panggung realtime: countdown besar + sekuens mulai game + Panggung Juara
             (dikendalikan panitia dari /admin/broadcast → Panggung TV & Countdown). */}
         <PresentationOverlays broadcast={broadcast} />
+
+        {/* Musik latar siaran (MP3 / YouTube Music) — mengikuti panel Musik Siaran admin. */}
+        <MusicPlayer broadcast={broadcast} />
       </div>
 
       {/* Bar info sumber */}
@@ -524,9 +536,12 @@ export function LiveVideoPlayer({
                 ? `Local Stream · ${status === "live" ? "WebRTC/HLS" : "MediaMTX"}`
                 : "Stream Offline"}
         </span>
-        {broadcast?.streamTitle ? (
-          <span className="truncate text-xs font-semibold text-fs-muted">{broadcast.streamTitle}</span>
-        ) : null}
+        <span className="flex min-w-0 items-center gap-2">
+          <PresenceBadge count={presence.count} viewers={presence.viewers} />
+          {broadcast?.streamTitle ? (
+            <span className="truncate text-xs font-semibold text-fs-muted">{broadcast.streamTitle}</span>
+          ) : null}
+        </span>
       </div>
       {detail && status === "signal-lost" && !showIdle ? (
         <div className="flex items-center gap-2 border-t border-fs-err/40 bg-fs-err/10 px-3 py-2 text-xs font-bold text-fs-err">

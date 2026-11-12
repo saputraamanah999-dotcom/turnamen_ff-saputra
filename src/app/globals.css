@@ -535,9 +535,52 @@ html[data-theme] .theme-accent { color: var(--fs-fire); }
 }
 .fs-glow-text { animation: fs-glow-text 2.8s ease-in-out infinite; }
 
+/* ---------- Pengaya siaran (Panggung Juara / musik) ---------- */
+
+/* Latar aurora panggung juara — gradasi api+cyan bernafas pelan. */
+@keyframes fs-aurora {
+  0%, 100% { background-position: 0% 30%, 100% 70%; }
+  50% { background-position: 40% 60%, 60% 30%; }
+}
+.fs-aurora {
+  background:
+    radial-gradient(60% 50% at 30% 20%, rgba(255,90,31,.16), transparent 60%),
+    radial-gradient(55% 45% at 75% 75%, rgba(53,214,255,.12), transparent 60%),
+    #06080D;
+  background-size: 180% 180%, 180% 180%, cover;
+  animation: fs-aurora 9s ease-in-out infinite;
+}
+
+/* Bar equalizer musik (3 batang naik-turun bergantian). */
+@keyframes fs-eq {
+  0%, 100% { height: 35%; }
+  30% { height: 100%; }
+  60% { height: 55%; }
+}
+.fs-eq-bar {
+  display: inline-block;
+  height: 35%;
+  animation: fs-eq 0.9s ease-in-out infinite;
+}
+
+/* Sweep kilau emas di podium juara 1. */
+@keyframes fs-shimmer-gold {
+  0% { transform: translateX(-130%) skewX(-16deg); }
+  55%, 100% { transform: translateX(260%) skewX(-16deg); }
+}
+.fs-shimmer-gold {
+  position: absolute; inset: 0; overflow: hidden;
+}
+.fs-shimmer-gold::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+  animation: fs-shimmer-gold 3.2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bo-skel, .flash-up, .rank-champion, .zb-rise, .fs-live-badge,
   .fs-scanline::after, .fs-onair, .fs-connecting, .fs-ticker-track,
   .fs-progress-fire, .fs-live-in, .fs-row-in, .fs-holo, .fs-shine::before,
-  .fs-float, .fs-count-tick, .fs-glow-text, .fs-pulse-glow, .fs-pulse-glow-icon { animation: none !important; }
+  .fs-float, .fs-count-tick, .fs-glow-text, .fs-pulse-glow, .fs-pulse-glow-icon,
+  .fs-aurora, .fs-eq-bar, .fs-shimmer-gold::before { animation: none !important; }
 }

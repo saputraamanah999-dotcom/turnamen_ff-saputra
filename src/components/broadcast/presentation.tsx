@@ -9,11 +9,14 @@
 // TIDAK pernah mengubah data pertandingan — murni tampilan.
 // ============================================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Timer, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ORG } from "@/lib/constants";
+import { playSfx } from "@/components/broadcast/sfx";
+import { ConfettiBurst } from "@/components/broadcast/confetti";
+import { ChampionsStageOverlay } from "@/components/leaderboard/champion-podium";
 import type { BroadcastSettings } from "@/lib/types";
 
 /** Jam klien yang berdetak (250ms) — hanya berjalan saat aktif. */
@@ -48,14 +51,31 @@ export function CountdownOverlay({ broadcast }: { broadcast: BroadcastSettings |
   const cd = broadcast?.countdown;
   const active = cd?.active === true && typeof cd.endsAt === "number";
   const now = useNow(active);
+  const lastBeep = useRef(-1);
   // Sembunyikan sendiri 4 detik setelah waktu habis ("MULAI!" masih tampil sebentar).
   const remaining = active ? (cd!.endsAt as number) - now : 1;
   const finished = remaining <= 0;
+  const secs = Math.max(0, Math.ceil(Math.max(0, remaining) / 1000));
+
+  // SFX otomatis: beep tiap detik pada 10 detik terakhir, nada GO saat waktu habis.
+  useEffect(() => {
+    if (!active || finished) return;
+    if (secs <= 10 && secs > 0 && lastBeep.current !== secs) {
+      lastBeep.current = secs;
+      playSfx("beep", 0.45);
+    }
+  }, [secs, active, finished]);
+  useEffect(() => {
+    if (finished && active) {
+      lastBeep.current = -1;
+      playSfx("go", 1);
+    }
+  }, [finished, active]);
+
   if (!active || remaining <= -4000) return null;
 
   const effects = broadcast?.presentation?.effects !== false;
-  const label = (cd!.label ?? "").trim() || "MENUJU SIARAN DIMULAI";
-  const secs = Math.max(0, Math.ceil(remaining / 1000));
+  const label = (cd?.label ?? "").trim() || "MENUJU SIARAN DIMULAI";
 
   return (
     <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/85 px-6 text-center">
@@ -84,6 +104,8 @@ export function CountdownOverlay({ broadcast }: { broadcast: BroadcastSettings |
         </motion.p>
       </AnimatePresence>
 
+      {effects && finished ? <ConfettiBurst trigger="countdown-mulai" /> : null}
+
       <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.34em] text-white/45 sm:text-xs">
         {ORG.tournament} · {ORG.institution}
       </p>
@@ -98,18 +120,36 @@ export function StartSequenceOverlay({ broadcast }: { broadcast: BroadcastSettin
   const seq = broadcast?.startSequence;
   const active = seq?.active === true && typeof seq.triggerAt === "number" && typeof seq.delaySeconds === "number";
   const now = useNow(active);
-  if (!active) return null;
+  const lastBeep = useRef(-1);
+  const playedGo = useRef(false);
 
-  const delayMs = Math.max(1, (seq!.delaySeconds as number) * 1000);
-  const endAt = (seq!.triggerAt as number) + delayMs;
-  const remaining = endAt - now;
-  if (remaining <= -4000) return null; // selesai — sembunyikan sendiri
+  const delayMs = active ? Math.max(1, (seq!.delaySeconds as number) * 1000) : 1;
+  const endAt = active ? (seq!.triggerAt as number) + delayMs : 0;
+  const remaining = active ? endAt - now : 1;
+  const burst = active && remaining <= 0;
+  const secs = Math.ceil(remaining / 1000);
+  const finalPhase = active && remaining > 0 && secs <= 10;
+
+  // SFX otomatis: beep 10..1 + nada GO di burst GAME START.
+  useEffect(() => {
+    if (!active) return;
+    if (burst) {
+      if (!playedGo.current) {
+        playedGo.current = true;
+        playSfx("go", 1);
+      }
+      return;
+    }
+    if (finalPhase && secs > 0 && lastBeep.current !== secs) {
+      lastBeep.current = secs;
+      playSfx("beep", 0.45);
+    }
+  }, [active, burst, finalPhase, secs]);
+
+  if (!active || remaining <= -4000) return null; // selesai — sembunyikan sendiri
 
   const effects = broadcast?.presentation?.effects !== false;
   const label = (seq!.matchLabel ?? "").trim() || "MATCH BERIKUTNYA";
-  const secs = Math.ceil(remaining / 1000);
-  const finalPhase = remaining > 0 && secs <= 10;
-  const burst = remaining <= 0;
   const progress = Math.min(100, Math.max(0, (remaining / delayMs) * 100));
 
   return (
@@ -128,6 +168,7 @@ export function StartSequenceOverlay({ broadcast }: { broadcast: BroadcastSettin
           transition={{ type: "spring", stiffness: 220, damping: 14 }}
           className="flex flex-col items-center gap-3"
         >
+          {effects ? <ConfettiBurst trigger="game-start" count={170} /> : null}
           <Zap className={cn("h-12 w-12 text-fs-gold", effects && "fs-pulse-glow-icon")} />
           <p className="fs-live-in font-display text-6xl font-black uppercase leading-none text-fs-fire drop-shadow-[0_0_34px_rgba(255,90,31,.65)] sm:text-8xl">
             GAME START
@@ -186,13 +227,16 @@ export function StartSequenceOverlay({ broadcast }: { broadcast: BroadcastSettin
   );
 }
 
-/** Gabungan overlay panggung: sekuens mulai game menang atas countdown. */
+/** Gabungan overlay panggung: sekuens mulai game menang atas countdown;
+ *  Panggung Juara di atas segalanya (kendali toggle admin). */
 export function PresentationOverlays({ broadcast }: { broadcast: BroadcastSettings | null }) {
   const seqActive = broadcast?.startSequence?.active === true;
+  const podium = broadcast?.presentation?.podium === true;
   return (
     <>
-      {!seqActive ? <CountdownOverlay broadcast={broadcast} /> : null}
-      <StartSequenceOverlay broadcast={broadcast} />
+      {!podium && !seqActive ? <CountdownOverlay broadcast={broadcast} /> : null}
+      {!podium ? <StartSequenceOverlay broadcast={broadcast} /> : null}
+      {podium ? <ChampionsStageOverlay broadcast={broadcast} /> : null}
     </>
   );
 }

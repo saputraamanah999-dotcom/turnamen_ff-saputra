@@ -282,6 +282,25 @@ service cloud.firestore {
       }
     }
 
+    // ---------- livePresence (indikator penonton online — fitur Pengaya Siaran) ----------
+    // Heartbeat anonim per tab penonton (TV /display, /live, halaman interaktif).
+    // Isi HANYA: nama panggangan (maks 40 char) + timestamp. TIDAK ada data pribadi,
+    // TIDAK ada token, TIDAK ada video. Dokumen lama dibersihkan penonton sendiri
+    // saat menutup halaman; daftar "online" difilter klien (heartbeat ≤ 65 dtk).
+    match /livePresence/{tournamentId} {
+      match /viewers/{viewerId} {
+        allow get, list: if true;
+        allow create, update: if request.resource.data.keys().hasOnly(['name', 'lastSeen', 'clientMs', 'sinceMs'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 40
+          && request.resource.data.clientMs is number
+          && (!('sinceMs' in request.resource.data) || request.resource.data.sinceMs is number);
+        // Tab menutup → penonton menghapus dokumennya sendiri (best-effort cleanup).
+        allow delete: if true;
+      }
+    }
+
     // ---------- Default: tolak semua ----------
     match /{document=**} {
       allow read, write: if false;
