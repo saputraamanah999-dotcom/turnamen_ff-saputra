@@ -150,11 +150,21 @@ export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
               }
             />
 
+            {/* Petunjuk khusus mode P2P — video dikirim laptop → perangkat lewat Wi-Fi lokal */}
+            {broadcast.data?.streamMode === "p2p" ? (
+              <p className="mt-2 flex items-start gap-2 border border-fs-cyan/40 bg-fs-cyan/10 px-3 py-2 text-[11px] font-bold text-fs-cyan">
+                <Smartphone className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                Mode P2P: video dikirim langsung dari laptop panitia ke perangkatmu. Pastikan
+                perangkat terhubung ke Wi-Fi yang sama dengan laptop panitia. Maks
+                {" "}{broadcast.data.p2pMaxViewers ?? 2} penonton bersamaan — bila slot penuh, coba lagi beberapa saat.
+              </p>
+            ) : null}
+
             {/* Info bar */}
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
               <InfoChip icon={<MapPin className="h-3.5 w-3.5" />} label="Map" value={currentMatch?.map ?? "NOT SET"} />
               <InfoChip icon={<RadioTower className="h-3.5 w-3.5" />} label="Format" value={currentMatch?.format ?? tournament.data?.format ?? "—"} />
-              <InfoChip icon={<Signal className="h-3.5 w-3.5" />} label="Sumber" value={pairing ? "Local stream (paired)" : broadcast.data?.streamMode === "youtube" ? "YouTube" : broadcast.data?.streamMode === "mediamtx" ? "MediaMTX" : "N/A"} />
+              <InfoChip icon={<Signal className="h-3.5 w-3.5" />} label="Sumber" value={pairing ? "Local stream (paired)" : broadcast.data?.streamMode === "youtube" ? "YouTube" : broadcast.data?.streamMode === "mediamtx" ? "MediaMTX" : broadcast.data?.streamMode === "p2p" ? "P2P (langsung)" : "N/A"} />
               <InfoChip icon={<Info className="h-3.5 w-3.5" />} label="Tim" value={`${teams.data?.length ?? 0} tim`} />
             </div>
 

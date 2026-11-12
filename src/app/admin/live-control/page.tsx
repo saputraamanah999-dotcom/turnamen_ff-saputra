@@ -12,13 +12,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, Camera, CheckCircle2, CircleDot, ListVideo, Loader2,
   Monitor, Pause, Play, Plug, RefreshCw, RotateCcw, Send, Square,
-  Tv, Volume2, XCircle,
+  Tv, Volume2, Wifi, XCircle,
 } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import { useActiveTournament, useBroadcast, useMatches } from "@/services/firestore/hooks";
 import {
   captureSource, StreamPublisher, type SourceQuality, type StreamStats,
 } from "@/services/broadcast/stream";
+import { P2PHost, cleanupStaleP2PSessions } from "@/services/broadcast/p2p";
+import { clampP2pMaxViewers } from "@/services/broadcast/p2p";
 import { setLiveState, publishBroadcastEvent } from "@/services/scoring/publish";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "@/services/firebase/client";
@@ -28,7 +30,7 @@ import {
   autoConnectBridge, disconnectBridge, sendBridgeCommand, subscribeBridge, type BridgeState,
 } from "@/services/broadcast/bridge";
 import { cn } from "@/lib/utils";
-import type { BroadcastEventType, BroadcastState, BroadcastDestination } from "@/lib/types";
+import type { BroadcastEventType, BroadcastState, BroadcastDestination, P2PViewerInfo } from "@/lib/types";
 
 const FLOW: BroadcastState[] = ["offline", "preparing", "ready", "connecting", "starting", "live", "paused", "reconnecting", "stopping", "error"];
 
@@ -69,8 +71,13 @@ export default function AdminLiveControlPage() {
   const [busy, setBusy] = useState(false);
 
   const publisherRef = useRef<StreamPublisher | null>(null);
+  const p2pHostRef = useRef<P2PHost | null>(null);
+  const [p2pViewers, setP2pViewers] = useState<P2PViewerInfo[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const whipUrl = broadcast.data?.whipUrl?.trim() ?? "";
+
+  const isP2P = broadcast.data?.streamMode === "p2p";
+  const p2pMax = clampP2pMaxViewers(broadcast.data?.p2pMaxViewers);
 
   const currentMatch = matches.data?.find((m) => m.isCurrent) ?? null;
 
@@ -103,6 +110,26 @@ export default function AdminLiveControlPage() {
     return () => { void pub.stop(); publisherRef.current = null; };
   }, [tid]);
 
+  // Host P2P (mode tanpa bridge) — event status/stats/daftar penonton.
+  useEffect(() => {
+    if (!tid) return;
+    const host = new P2PHost(tid, {
+      onState: (s, m) => { setState(s); setMessage(m ?? ""); void setLiveState(tid, { state: s, message: m, destination: destination || undefined }).catch(() => {}); },
+      onStats: (st) => setStats(st),
+      onViewers: (list) => setP2pViewers(list),
+    });
+    host.maxViewers = p2pMax;
+    p2pHostRef.current = host;
+    void cleanupStaleP2PSessions(tid); // buka Live Control → bersihkan sesi waiting/closed > 2 menit
+    return () => { p2pHostRef.current = null; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tid]);
+
+  // Sinkronkan batas penonton P2P dari pengaturan broadcast.
+  useEffect(() => {
+    if (p2pHostRef.current) p2pHostRef.current.maxViewers = p2pMax;
+  }, [p2pMax]);
+
   // Bridge status (OBS + viewer count nyata)
   useEffect(() => {
     void autoConnectBridge();
@@ -113,12 +140,13 @@ export default function AdminLiveControlPage() {
   // Unmount: hentikan track capture supaya lampu kamera/screen share mati.
   useEffect(() => () => {
     publisherRef.current?.localStream?.getTracks().forEach((t) => t.stop());
+    p2pHostRef.current?.localStream?.getTracks().forEach((t) => t.stop());
   }, []);
 
   // Pasang stream ke elemen video preview
   useEffect(() => {
     const v = videoRef.current;
-    const s = publisherRef.current?.localStream;
+    const s = (isP2P ? p2pHostRef.current?.localStream : publisherRef.current?.localStream) ?? null;
     if (v && s && v.srcObject !== s) v.srcObject = s;
   });
 
@@ -127,21 +155,24 @@ export default function AdminLiveControlPage() {
     const items: { label: string; ok: boolean | null; note: string }[] = [
       { label: "Sumber video terpilih", ok: Boolean(source), note: source ?? "Belum ada capture — pilih jendela/layar" },
       { label: "Tujuan siaran dipilih", ok: Boolean(destination), note: destination ? `Kirim ke: ${destination.toUpperCase()}` : "Pilih LOCAL / PUBLIC / keduanya" },
-      { label: "Endpoint WHIP tersedia", ok: whipProbe === "ok" ? true : whipProbe === "fail" ? false : null, note: whipUrl || "Atur WHIP URL di Broadcast (gateway lokal / MediaMTX)" },
+      isP2P
+        ? { label: "Signaling Firestore (P2P)", ok: tid ? true : false, note: tid ? "Firestore siap — tanpa bridge/MediaMTX/OBS" : "Tidak ada turnamen aktif" }
+        : { label: "Endpoint WHIP tersedia", ok: whipProbe === "ok" ? true : whipProbe === "fail" ? false : null, note: whipUrl || "Atur WHIP URL di Broadcast (gateway lokal / MediaMTX)" },
       { label: "Database realtime", ok: tid ? true : false, note: tid ? `Turnamen ${tid}` : "Tidak ada turnamen aktif" },
       { label: "Match current", ok: Boolean(currentMatch), note: currentMatch ? `Match ${currentMatch.matchNumber} — ${currentMatch.map}` : "Set match current agar TV tahu ronde" },
       { label: "OBS (opsional)", ok: bridge?.connected ? Boolean(bridge.obsConnected) : null, note: bridge?.obsConnected ? `OBS v${bridge.obsVersion ?? "?"}` : "Tidak wajib — mode tanpa OBS didukung" },
     ];
     return items;
-  }, [source, destination, whipProbe, whipUrl, tid, currentMatch, bridge]);
-  const preflightOk = preflight.every((p) => p.ok !== false) && Boolean(source) && Boolean(destination) && Boolean(whipUrl);
+  }, [source, destination, whipProbe, whipUrl, tid, currentMatch, bridge, isP2P]);
+  const preflightOk = preflight.every((p) => p.ok !== false) && Boolean(source) && Boolean(destination) && (isP2P ? Boolean(tid) : Boolean(whipUrl));
 
   // ---------- Aksi kontrol ----------
   async function pickSource(kind: "window" | "monitor") {
     try {
       setBusy(true);
-      const { stream, source: info } = await captureSource({ selfBrowserSurface: "exclude" });
-      publisherRef.current?.attach(stream);
+      const { stream, source: info } = await captureSource({ selfBrowserSurface: "exclude", p2p: isP2P });
+      if (isP2P) p2pHostRef.current?.attach(stream);
+      else publisherRef.current?.attach(stream);
       setSource(`${kind === "window" ? "Window" : "Fullscreen"}: ${info.label}`);
       toast({ title: "Sumber video siap", description: info.label });
       if (state !== "live") await go("ready", "Sumber video ditangkap");
@@ -195,12 +226,16 @@ export default function AdminLiveControlPage() {
   async function prepare() {
     setBusy(true);
     await go("preparing", "Preflight check dijalankan…");
-    await probeWhip();
-    if (!whipUrl) {
-      await go("ready", "Preflight selesai — WHIP belum diatur (atur di Broadcast dulu)");
-      toast({ title: "WHIP URL belum diatur", description: "Isi WHIP URL di menu Broadcast sebelum START LIVE.", variant: "destructive" as never });
+    if (isP2P) {
+      await go("ready", "Preflight selesai — mode P2P aktif (tanpa WHIP/MediaMTX)");
     } else {
-      await go("ready", "Preflight selesai — siap START LIVE");
+      await probeWhip();
+      if (!whipUrl) {
+        await go("ready", "Preflight selesai — WHIP belum diatur (atur di Broadcast dulu)");
+        toast({ title: "WHIP URL belum diatur", description: "Isi WHIP URL di menu Broadcast sebelum START LIVE.", variant: "destructive" as never });
+      } else {
+        await go("ready", "Preflight selesai — siap START LIVE");
+      }
     }
     await publishBroadcastEvent(tid ?? "", "LIVE_STARTING", { matchNumber: currentMatch?.matchNumber ?? null, map: currentMatch?.map ?? null }).catch(() => {});
     setBusy(false);
@@ -208,17 +243,21 @@ export default function AdminLiveControlPage() {
 
   async function startLive() {
     if (!tid) return;
-    const stream = publisherRef.current?.localStream;
+    const stream = (isP2P ? p2pHostRef.current?.localStream : publisherRef.current?.localStream) ?? null;
     if (!stream) { toast({ title: "Tidak ada sumber video", variant: "destructive" as never }); return; }
-    if (!whipUrl) { toast({ title: "WHIP URL belum diatur", variant: "destructive" as never }); return; }
+    if (!isP2P && !whipUrl) { toast({ title: "WHIP URL belum diatur", variant: "destructive" as never }); return; }
     setBusy(true);
     try {
-      await go("starting", "Mengirim stream ke server siaran…");
+      await go("starting", isP2P ? "Mengaktifkan signaling P2P…" : "Mengirim stream ke server siaran…");
       await publishBroadcastEvent(tid, "LIVE_STARTING", { matchNumber: currentMatch?.matchNumber ?? null, map: currentMatch?.map ?? null });
-      await publisherRef.current!.publish(stream, whipUrl);
+      if (isP2P) {
+        await p2pHostRef.current!.publish(stream); // tidak butuh URL — signaling Firestore
+      } else {
+        await publisherRef.current!.publish(stream, whipUrl);
+      }
       // status "live" ditetapkan callback onState saat koneksi benar-benar terhubung
       await publishBroadcastEvent(tid, "LIVE_NOW", { matchNumber: currentMatch?.matchNumber ?? null, map: currentMatch?.map ?? null });
-      toast({ title: "Siaran berjalan", description: "TV & halaman /live akan menampilkan gameplay otomatis." });
+      toast({ title: "Siaran berjalan", description: isP2P ? "Penonton di /live akan tersambung langsung ke laptop ini (maks " + p2pMax + ")." : "TV & halaman /live akan menampilkan gameplay otomatis." });
     } catch (e) {
       await go("error", e instanceof Error ? e.message : String(e));
     } finally {
@@ -227,18 +266,31 @@ export default function AdminLiveControlPage() {
   }
 
   async function pauseLive() {
-    publisherRef.current?.pause();
+    if (isP2P) p2pHostRef.current?.pause();
+    else publisherRef.current?.pause();
     await go("paused");
     await publishBroadcastEvent(tid ?? "", "MATCH_PAUSED").catch(() => {});
   }
 
   async function resumeLive() {
-    publisherRef.current?.resume();
+    if (isP2P) p2pHostRef.current?.resume();
+    else publisherRef.current?.resume();
     await go("live");
     await publishBroadcastEvent(tid ?? "", "MATCH_RESUMED").catch(() => {});
   }
 
   async function reconnectLive() {
+    if (isP2P) {
+      setBusy(true);
+      await go("reconnecting", "Menyalakan ulang signaling P2P…");
+      await publishBroadcastEvent(tid ?? "", "STREAM_RECONNECTING").catch(() => {});
+      const ok = await p2pHostRef.current?.reconnect();
+      if (!ok) {
+        await go("error", "Gagal pulih — gunakan RESTART SOURCE atau EMERGENCY SCREEN");
+      }
+      setBusy(false);
+      return;
+    }
     if (!whipUrl) return;
     setBusy(true);
     await go("reconnecting", "Pemulihan otomatis berjalan…");
@@ -254,7 +306,8 @@ export default function AdminLiveControlPage() {
     setBusy(true);
     setConfirmStop(false);
     await go("stopping", "Mengakhiri siaran…");
-    await publisherRef.current?.stop();
+    if (isP2P) await p2pHostRef.current?.stop(); // set p2pLive=false + hapus semua sesi signaling
+    else await publisherRef.current?.stop();
     await go("offline", "");
     await publishBroadcastEvent(tid ?? "", "BROADCAST_ENDED").catch(() => {});
     toast({ title: "Siaran diakhiri" });
@@ -272,6 +325,7 @@ export default function AdminLiveControlPage() {
   const stateIdx = FLOW.indexOf(state);
   const canStart = state === "ready" && preflightOk;
   const isLive = state === "live";
+  const p2pConnected = isP2P ? (p2pHostRef.current?.connectedCount ?? 0) : 0;
 
   return (
     <div className="space-y-4">
@@ -398,8 +452,22 @@ export default function AdminLiveControlPage() {
               <Loader2 className={cn("h-4 w-4", busy && "animate-spin")} /> PREPARE BROADCAST
             </BoButton>
 
+            {/* Mode P2P: tanpa WHIP — pengumuman singkat pengganti kotak WHIP */}
+            {isP2P ? (
+              <div className="mt-3 border border-fs-cyan/60 bg-fs-cyan/10 p-3">
+                <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-fs-cyan">
+                  <Wifi className="h-3.5 w-3.5" /> Mode P2P — tanpa bridge, tanpa OBS, tanpa MediaMTX
+                </p>
+                <p className="mt-2 text-[11px] font-semibold leading-relaxed text-fs-muted">
+                  Video dikirim langsung dari laptop ini ke maks {p2pMax} penonton via WebRTC.
+                  Firestore hanya dipakai untuk signaling (butuh internet); video lewat jaringan lokal.
+                  Laptop disarankan pakai <b className="text-fs-text">kabel LAN</b> agar upload Wi-Fi tidak jadi botol leher.
+                </p>
+              </div>
+            ) : null}
+
             {/* WHIP belum diatur → panduan + isi otomatis (bukan sekadar pesan merah) */}
-            {!whipUrl ? (
+            {!whipUrl && !isP2P ? (
               <div className="mt-3 border border-fs-err/60 bg-fs-err/10 p-3">
                 <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-fs-err">
                   <AlertTriangle className="h-3.5 w-3.5" /> WHIP belum diatur — wajib sebelum START LIVE
@@ -425,15 +493,56 @@ export default function AdminLiveControlPage() {
             <h2 className="font-display text-sm font-bold uppercase tracking-[0.16em] text-fs-cyan">Streaming Stats</h2>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <MiniStat label="Stream Source" value={source ?? "N/A"} />
-              <MiniStat label="Stream Output" value={isLive ? "WHIP → MediaMTX" : state === "connecting" || state === "starting" ? "menyambung…" : "N/A"} />
-              <MiniStat label="Viewers" value={isLive && bridge?.connected ? String(bridge.viewers ?? 0) : "N/A"} />
+              <MiniStat label="Stream Output" value={isP2P ? (isLive ? "P2P → penonton" : "P2P (siap)") : isLive ? "WHIP → MediaMTX" : state === "connecting" || state === "starting" ? "menyambung…" : "N/A"} />
+              <MiniStat label="Viewers" value={isP2P ? (isLive ? `${p2pConnected}/${p2pMax}` : "0") : isLive && bridge?.connected ? String(bridge.viewers ?? 0) : "N/A"} />
               <MiniStat label="Bitrate" value={stats?.bitrateKbps ? `${stats.bitrateKbps} kbps` : "N/A"} />
               <MiniStat label="Frame Rate" value={stats?.fps ? `${stats.fps} fps` : "N/A"} />
               <MiniStat label="Resolusi" value={stats?.resolution ?? "N/A"} />
-              <MiniStat label="Latency" value={isLive ? "~0.5–2s (WebRTC)" : "N/A"} />
+              <MiniStat label="Latency" value={isLive ? (isP2P ? "~0.2–1s (P2P)" : "~0.5–2s (WebRTC)") : "N/A"} />
               <MiniStat label="Frames Sent" value={stats?.framesSent != null ? String(stats.framesSent) : "N/A"} />
             </div>
           </BoCard>
+
+          {/* Penonton P2P: slot terhubung/menunggu/ditolak */}
+          {isP2P ? (
+            <BoCard className="p-4">
+              <h2 className="font-display text-sm font-bold uppercase tracking-[0.16em] text-fs-gold">Penonton P2P (maks {p2pMax})</h2>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <MiniStat label="Terhubung" value={`${p2pConnected}/${p2pMax}`} />
+                <MiniStat label="Menunggu" value={String(p2pViewers.filter((v) => v.state === "answered" || v.state === "waiting").length)} />
+                <MiniStat label="Ditolak (slot penuh)" value={String(p2pViewers.filter((v) => v.state === "rejected").length)} />
+                <MiniStat label="Total sesi" value={String(p2pViewers.length)} />
+              </div>
+              {p2pViewers.length ? (
+                <ul className="thin-scroll mt-3 max-h-40 space-y-1.5 overflow-y-auto">
+                  {p2pViewers.map((v) => (
+                    <li key={v.viewerId} className="flex items-center justify-between gap-2 border border-fs-edge bg-fs-bg/60 px-2 py-1.5 text-xs font-bold">
+                      <span className="truncate font-mono text-[10px] text-fs-muted" title={v.viewerId}>{v.viewerId.slice(0, 8)}…</span>
+                      <span className={cn(
+                        "border px-1.5 py-0.5 text-[9.5px] font-black uppercase tracking-wider",
+                        v.state === "connected" ? "border-fs-ok bg-fs-ok/15 text-fs-ok"
+                          : v.state === "rejected" ? "border-fs-err bg-fs-err/15 text-fs-err"
+                          : "border-fs-gold bg-fs-gold/15 text-fs-gold",
+                      )}>
+                        {v.state === "connected" ? "terhubung"
+                          : v.state === "rejected" ? "ditolak"
+                          : v.state === "closed" ? "ditutup"
+                          : v.state === "answered" ? "tersambung"
+                          : "menunggu"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 text-[11px] font-semibold text-fs-muted">
+                  Belum ada penonton — bagikan link <code>/live</code> atau QR di menu Broadcast. Slot terisi otomatis saat penonton membuka halaman.
+                </p>
+              )}
+              <p className="mt-2 text-[11px] font-semibold text-fs-muted">
+                Setiap penonton = 1 aliran upload (±3,5 Mbps). Melebihi slot → ditolak otomatis dengan pesan yang jelas.
+              </p>
+            </BoCard>
+          ) : null}
         </div>
       </div>
 

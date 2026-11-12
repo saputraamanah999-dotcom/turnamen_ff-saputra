@@ -525,8 +525,31 @@ export default function AdminBroadcastPage() {
                 <option value="offline">Offline (belum menyiarkan)</option>
                 <option value="youtube">YouTube Live (publik)</option>
                 <option value="mediamtx">MediaMTX (LAN sekolah)</option>
+                <option value="p2p">P2P (tanpa bridge, maks 2 penonton)</option>
               </select>
             </label>
+            {(settings.streamMode ?? "offline") === "p2p" ? (
+              <>
+                <label className="block text-[11px] font-black uppercase tracking-wider">
+                  Batas penonton P2P bersamaan (1-4)
+                  <input
+                    className="bo-input mt-1"
+                    type="number"
+                    min={1}
+                    max={4}
+                    value={settings.p2pMaxViewers ?? 2}
+                    onChange={(e) => setSettings({ ...settings, p2pMaxViewers: Number(e.target.value) })}
+                  />
+                </label>
+                <p className="border border-fs-cyan/50 bg-fs-cyan/10 p-3 text-[11px] font-semibold leading-relaxed text-fs-muted">
+                  <b className="text-fs-cyan">P2P</b>: video dikirim LANGSUNG dari laptop panitia ke penonton via WebRTC —
+                  tanpa broadcast-bridge, tanpa MediaMTX, tanpa OBS, tanpa install apa pun. Field URL HLS/WHE/WHIP
+                  disembunyikan (memang tidak dipakai). Butuh <b>internet</b> untuk signaling (Firestore), video mengalir
+                  lewat jaringan lokal — laptop disarankan pakai <b>kabel LAN</b>. Alur: Admin → Live Control → Capture →
+                  START LIVE. Panduan: documentation/P2P_MODE.md.
+                </p>
+              </>
+            ) : null}
             {(settings.streamMode ?? "offline") === "youtube" ? (
               <label className="block text-[11px] font-black uppercase tracking-wider">
                 YouTube Video ID (bukan stream key!)

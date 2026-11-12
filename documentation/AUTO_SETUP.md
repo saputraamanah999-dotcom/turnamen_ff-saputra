@@ -2,6 +2,11 @@
 
 Cukup **satu klik** di laptop produksi. Bridge mengurus sisanya.
 
+> **Alternatif tanpa bridge sama sekali**: mode siaran **P2P** menyalurkan video langsung
+> laptop → penonton via WebRTC dengan signaling Firestore — tanpa `start-bridge.bat`, tanpa
+> MediaMTX, tanpa OBS, tanpa install apa pun (maks 2 penonton, dapat diatur 1–4; butuh internet
+> hanya untuk signaling). Panduan lengkap & troubleshooting: **[P2P_MODE.md](./P2P_MODE.md)**.
+
 ## Yang dilakukan otomatis
 
 | Hal | Cara kerja |

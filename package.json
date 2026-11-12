@@ -11,7 +11,8 @@
     "seed": "node scripts/seed-firebase.mjs",
     "deploy:rules": "node scripts/deploy-rules-indexes.mjs",
     "bridge": "npm run dev --prefix broadcast-bridge",
-    "test:scoring": "tsx scripts/test-scoring.ts"
+    "test:scoring": "tsx scripts/test-scoring.ts",
+    "test:p2p": "tsx scripts/test-p2p.ts"
   },
   "engines": {
     "node": ">=20.9.0"
@@ -60,6 +61,7 @@
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/qrcode": "^1.5.6",
@@ -68,6 +70,7 @@
     "eslint": "^9",
     "eslint-config-next": "^16.1.1",
     "firebase-admin": "^14.5.0",
+    "firebase-tools": "^15.36.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "tw-animate-css": "^1.3.6",
