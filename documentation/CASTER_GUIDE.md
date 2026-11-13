@@ -77,6 +77,19 @@ npm run deploy:rules
 ```
 Tanpa ini, `/caster` akan mendapat `permission-denied` saat menyambungkan penonton.
 
+### Tidak punya service account? Tempel manual di Firebase Console (paling mudah)
+
+1. Buka `firebase/firestore.rules` di repo (atau salinan di halaman `/setup.html`), **salin seluruh isinya**.
+2. Buka **console.firebase.google.com** → project **turnamenffbof** → **Firestore Database** → menu **Rules**.
+3. Hapus semua isi lama → **tempel** rules baru → klik **Publish**.
+4. Muat ulang halaman admin. Selesai — semua fitur baru (livePresence, p2pSessions, casterSessions) langsung dikenali server.
+
+> Gejala rules belum ter-deploy: kartu BOF Caster menulis
+> **"Gagal memulai: Missing or insufficient permissions"**, kartu Penonton Online
+> menulis **"database tidak terjangkau"**, dan halaman `/caster` menolak kode dengan
+> pesan panjang berisi instruksi yang sama. Aplikasi kini otomatis menampilkan
+> instruksi perbaikan ini setiap kali server menolak.
+
 ## 5. Pertanyaan Cepat
 
 **Bedanya dengan mode P2P?** Sama-sama WebRTC, tapi P2P butuh login admin di Live

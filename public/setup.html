@@ -186,7 +186,7 @@ const RESULTS = {
 };
 const placementPointsFor = (p) => (p >= 1 && p <= PLACEMENT_POINTS.length ? PLACEMENT_POINTS[p - 1] : 0);
 
-// ---------- Firestore rules (identik firebase/firestore.rules) ----------
+// ---------- Firestore rules (DISINKRONKAN OTOMATIS dari firebase/firestore.rules oleh scripts/sync-rules-to-setup.mjs — jangan edit di sini) ----------
 const FIRESTORE_RULES = `
 rules_version = '2';
 
@@ -281,6 +281,19 @@ service cloud.firestore {
       allow read: if true;
       // Catatan: stream key TIDAK pernah disimpan di dokumen ini.
       allow write: if isAdmin();
+    }
+
+    // ---------- Heartbeat bridge lokal ----------
+    // Ditulis oleh Broadcast Bridge di laptop produksi (Firebase Auth ANONYMOUS).
+    // Isi: IP/port gateway, MediaMTX, OBS, jumlah penonton, updatedAt.
+    // Dipakai admin dari perangkat mana pun untuk melihat bridge running/belum —
+    // browser HTTPS tidak bisa men-probe http LAN langsung (mixed content).
+    // TIDAK ada token/password di dokumen ini.
+    match /bridgeHeartbeats/{tournamentId} {
+      allow read: if isStaff();
+      allow create, update: if request.auth != null
+        && request.resource.data.tournamentId == tournamentId;
+      allow delete: if false;
     }
 
     // ---------- observerEvents ----------
@@ -403,12 +416,141 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    // ---------- p2pSessions (signaling WebRTC mode P2P — PHASE 4) ----------
+    // Video TIDAK PERNAH lewat Firestore — hanya tukar SDP/ICE (offer/answer/candidate).
+    // Penonton ANONIM boleh membuat dokumen sesinya SENDIRI hanya bila panitia
+    // benar-benar sedang siaran P2P (broadcastSettings.streamMode == 'p2p' && p2pLive == true),
+    // dengan validasi ketat: field terbatas, state awal 'waiting', SDP ≤ 12000 karakter.
+    // Menjawab/menolak/menghapus = HANYA admin. Tidak ada pelonggaran koleksi lain.
+    match /p2pSessions/{tournamentId} {
+      // Signaling hanya aktif saat siaran P2P sedang hidup (cegah spam saat fitur mati).
+      function p2pBroadcasting() {
+        return get(/databases/$(database)/documents/broadcastSettings/$(tournamentId)).data.streamMode == 'p2p'
+          && get(/databases/$(database)/documents/broadcastSettings/$(tournamentId)).data.p2pLive == true;
+      }
+
+      match /viewers/{viewerId} {
+        // get publik: penonton mendengarkan dokumennya sendiri (viewerId acak = kapasitasnya).
+        // list HANYA admin (query koleksi viewers).
+        allow get: if true;
+        allow list: if isAdmin();
+        // Create publik TIDAK bisa menulis field answer/reason (hasOnly) dan
+        // TIDAK bisa memalsukan state/viewerId/createdAt (validated di bawah).
+        allow create: if p2pBroadcasting()
+          && request.resource.data.keys().hasOnly(['viewerId', 'createdAt', 'expiresAt', 'state', 'offer'])
+          && request.resource.data.viewerId == viewerId
+          && request.resource.data.state == 'waiting'
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.expiresAt is timestamp
+          && request.resource.data.offer is map
+          && request.resource.data.offer.keys().hasOnly(['type', 'sdp'])
+          && request.resource.data.offer.type == 'offer'
+          && request.resource.data.offer.sdp is string
+          && request.resource.data.offer.sdp.size() > 0
+          && request.resource.data.offer.sdp.size() <= 12000;
+        // Jawaban (answer/state/reason) hanya admin — penonton tidak bisa mengubah.
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
+
+        match /candidates/{candidateId} {
+          // Candidate dibaca publik (kedua sisi saling menukar ICE).
+          allow read: if true;
+          // Penonton anonim hanya boleh mengirim candidate MILIKNYA (from == 'viewer'),
+          // ukuran wajar (≤ 2000 karakter), createdAt server-side.
+          allow create: if p2pBroadcasting()
+            && request.resource.data.keys().hasOnly(['from', 'candidate', 'createdAt'])
+            && request.resource.data.from == 'viewer'
+            && request.resource.data.candidate is string
+            && request.resource.data.candidate.size() > 0
+            && request.resource.data.candidate.size() <= 2000
+            && request.resource.data.createdAt == request.time;
+          // Candidate dari HOST ditulis admin.
+          allow create: if isAdmin()
+            && request.resource.data.from == 'host';
+          allow update, delete: if isAdmin();
+        }
+      }
+    }
+
+    // ---------- livePresence (indikator penonton online — fitur Pengaya Siaran) ----------
+    // Heartbeat anonim per tab penonton (TV /display, /live, halaman interaktif).
+    // Isi HANYA: nama panggangan (maks 40 char) + timestamp. TIDAK ada data pribadi,
+    // TIDAK ada token, TIDAK ada video. Dokumen lama dibersihkan penonton sendiri
+    // saat menutup halaman; daftar "online" difilter klien (heartbeat ≤ 65 dtk).
+    match /livePresence/{tournamentId} {
+      match /viewers/{viewerId} {
+        allow get, list: if true;
+        allow create, update: if request.resource.data.keys().hasOnly(['name', 'lastSeen', 'clientMs', 'sinceMs'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 40
+          && request.resource.data.clientMs is number
+          && (!('sinceMs' in request.resource.data) || request.resource.data.sinceMs is number);
+        // Tab menutup → penonton menghapus dokumennya sendiri (best-effort cleanup).
+        allow delete: if true;
+      }
+    }
+
+    // ---------- casterSessions (BOF CASTER — bagikan layar via kode pairing) ----------
+    // Mirip hi.casts.app: dokumen id = KODE RAHASIA 6 digit. Kode adalah bagian
+    // dari PATH → hanya pihak yang tahu kode yang bisa membaca sesi & menulis
+    // signaling. Sesi dibuat/dimatikan HANYA admin (juga mencatat kode di
+    // broadcastSettings.caster agar TV/penonton tahu), kedaluwarsa otomatis.
+    // Penonton membuat offer; HOST anonim (laptop caster yang tahu kode)
+    // menjawab answer + candidates. Batas ukuran SDP/candidate = anti-spam.
+    match /casterSessions/{code} {
+      function casterSessionActive() {
+        return get(/databases/$(database)/documents/casterSessions/$(code)).data.active == true
+          && get(/databases/$(database)/documents/casterSessions/$(code)).data.expiresAt is timestamp
+          && request.time < get(/databases/$(database)/documents/casterSessions/$(code)).data.expiresAt;
+      }
+
+      // Kode = kunci: get publik (yang tahu kode, tahu alamat dokumennya),
+      // list HANYA admin (mencegah enumerasi kode).
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+
+      match /viewers/{viewerId} {
+        // Jalur butuh kode rahasia → read publik aman.
+        allow get, list: if true;
+        // Penonton membuat sesinya sendiri: state 'waiting' + offer, divalidasi ketat.
+        allow create: if casterSessionActive()
+          && request.resource.data.keys().hasOnly(['viewerId', 'createdAt', 'expiresAt', 'state', 'offer'])
+          && request.resource.data.viewerId == viewerId
+          && request.resource.data.state == 'waiting'
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.expiresAt is timestamp
+          && request.resource.data.offer.keys().hasOnly(['type', 'sdp'])
+          && request.resource.data.offer.type == 'offer'
+          && request.resource.data.offer.sdp is string
+          && request.resource.data.offer.sdp.size() > 0
+          && request.resource.data.offer.sdp.size() <= 12000;
+        // Host anonim (tahu kode) menjawab/menolak/membersihkan sesi —
+        // hanya bila sesi masih aktif & belum kedaluwarsa.
+        allow update, delete: if casterSessionActive();
+
+        match /candidates/{candidateId} {
+          allow read: if true;
+          allow create: if casterSessionActive()
+            && request.resource.data.keys().hasOnly(['from', 'candidate', 'createdAt'])
+            && request.resource.data.from in ['viewer', 'host']
+            && request.resource.data.candidate is string
+            && request.resource.data.candidate.size() > 0
+            && request.resource.data.candidate.size() <= 2000
+            && request.resource.data.createdAt == request.time;
+          allow update, delete: if casterSessionActive();
+        }
+      }
+    }
+
     // ---------- Default: tolak semua ----------
     match /{document=**} {
       allow read, write: if false;
     }
   }
-}`;
+}
+`;
 
 // ---------- Composite indexes resmi (identik firebase/firestore.indexes.json) ----------
 const INDEXES = [

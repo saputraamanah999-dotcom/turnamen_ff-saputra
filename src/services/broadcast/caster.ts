@@ -32,6 +32,28 @@ export const CASTER_COLLECTION = "casterSessions";
 /** Masa berlaku sesi default: 8 jam (turnamen sekolah satu hari). */
 export const CASTER_TTL_MS = 8 * 60 * 60 * 1000;
 
+/**
+ * Ubah error Firestore teknis (mis. "Missing or insufficient permissions") menjadi
+ * pesan Indonesia yang bisa DITINDAKLANJUTI panitia — lengkap dengan cara memperbaiki
+ * aturan keamanan (rules) yang belum ter-deploy di project.
+ */
+export function friendlyCasterError(e: unknown, aksi: string): Error {
+  const code = (e as { code?: string })?.code ?? "";
+  const raw = e instanceof Error ? e.message : String(e ?? "");
+  if (code === "permission-denied" || /missing or insufficient|permission/i.test(raw)) {
+    return new Error(
+      `SERVER MENOLAK ${aksi} — aturan keamanan (rules) Firestore di project belum memuat koleksi "casterSessions". ` +
+      "Perbaikan ±1 menit: buka console.firebase.google.com → pilih project → Firestore Database → menu Rules → " +
+      "hapus isi lama, tempel SELURUH isi firebase/firestore.rules (versi terbaru, ada di repo / salinan di halaman /setup.html) → " +
+      "klik Publish. Setelah itu ulangi aksi ini — tanpa deploy rules, fitur BOF Caster tidak bisa menyala.",
+    );
+  }
+  if (code === "unavailable" || /unavailable|network/i.test(raw)) {
+    return new Error(`Koneksi ke database terputus saat ${aksi}. Periksa internet perangkat lalu coba lagi.`);
+  }
+  return new Error(raw || "Kesalahan tidak diketahui.");
+}
+
 /** Kode 6 digit acak (100000–999999) — gaya hi.casts.app ("Device ID: 528346"). */
 export function genPairCode(): string {
   return String(100000 + Math.floor(Math.random() * 900000));
@@ -62,7 +84,9 @@ export interface CasterSessionInfo {
   expiresAtMs: number | null;
 }
 
-/** Baca sesi caster sekali — dipakai /caster sebelum menyalakan getDisplayMedia. */
+/** Baca sesi caster sekali — dipakai /caster sebelum menyalakan getDisplayMedia.
+ *  Melempar error ramah bila SERVER MENOLAK (rules belum ter-deploy);
+ *  return null hanya bila kode benar-benar tidak ada. */
 export async function readCasterSession(code: string): Promise<CasterSessionInfo | null> {
   if (!db) return null;
   const valid = validatePairCode(code);
@@ -81,7 +105,13 @@ export async function readCasterSession(code: string): Promise<CasterSessionInfo
       label: d.label,
       expiresAtMs: d.expiresAt?.toMillis?.() ?? null,
     };
-  } catch {
+  } catch (e) {
+    // Bedakan "kode salah" dari "server menolak (rules lama)" — jangan samakan.
+    const code = (e as { code?: string })?.code ?? "";
+    const raw = e instanceof Error ? e.message : String(e ?? "");
+    if (code === "permission-denied" || /missing or insufficient|permission/i.test(raw)) {
+      throw friendlyCasterError(e, "memeriksa kode pairing");
+    }
     return null;
   }
 }
@@ -129,23 +159,31 @@ export async function startCasterSession(tid: string, label?: string): Promise<s
   if (!db) throw new Error("Firebase tidak terkonfigurasi.");
   const code = genPairCode();
   const expiresAt = Date.now() + CASTER_TTL_MS;
-  await setDoc(doc(db, `${CASTER_COLLECTION}/${code}`), {
-    tid,
-    active: true,
-    ...(label ? { label } : {}),
-    createdAt: serverTimestamp(),
-    expiresAt: Timestamp.fromMillis(expiresAt),
-  });
-  await setDoc(
-    doc(db, `broadcastSettings/${tid}`),
-    {
-      caster: { code, active: true, ...(label ? { label } : {}), startedAt: Date.now(), expiresAt },
-      streamMode: "caster",
-      tournamentId: tid,
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true },
-  );
+  try {
+    await setDoc(doc(db, `${CASTER_COLLECTION}/${code}`), {
+      tid,
+      active: true,
+      ...(label ? { label } : {}),
+      createdAt: serverTimestamp(),
+      expiresAt: Timestamp.fromMillis(expiresAt),
+    });
+  } catch (e) {
+    throw friendlyCasterError(e, "MEMULAI SESI CASTER (membuat kode)");
+  }
+  try {
+    await setDoc(
+      doc(db, `broadcastSettings/${tid}`),
+      {
+        caster: { code, active: true, ...(label ? { label } : {}), startedAt: Date.now(), expiresAt },
+        streamMode: "caster",
+        tournamentId: tid,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  } catch (e) {
+    throw friendlyCasterError(e, "menyalakan kartu pairing di TV (broadcastSettings)");
+  }
   return code;
 }
 
@@ -156,7 +194,13 @@ export async function rotateCasterCode(tid: string, oldCode: string | undefined,
     try { await setDoc(doc(db, `${CASTER_COLLECTION}/${oldCode}`), { active: false }, { merge: true }); }
     catch { /* kode lama mungkin tak pernah ada — abaikan */ }
   }
-  return startCasterSession(tid, label);
+  try {
+    return await startCasterSession(tid, label);
+  } catch (e) {
+    throw e instanceof Error && /SERVER MENOLAK/.test(e.message)
+      ? e
+      : friendlyCasterError(e, "MENGANTI KODE PAIRING");
+  }
 }
 
 /** Matikan sesi caster (admin): dokumen sesi inactive + broadcastSettings dikosongkan. */
@@ -166,16 +210,20 @@ export async function stopCasterSession(tid: string, code?: string): Promise<voi
     try { await setDoc(doc(db, `${CASTER_COLLECTION}/${code}`), { active: false }, { merge: true }); }
     catch { /* abaikan — dokumen mungkin sudah tidak ada */ }
   }
-  await setDoc(
-    doc(db, `broadcastSettings/${tid}`),
-    {
-      caster: { code: code ?? "", active: false, startedAt: 0, expiresAt: 0 },
-      streamMode: "offline",
-      tournamentId: tid,
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true },
-  );
+  try {
+    await setDoc(
+      doc(db, `broadcastSettings/${tid}`),
+      {
+        caster: { code: code ?? "", active: false, startedAt: 0, expiresAt: 0 },
+        streamMode: "offline",
+        tournamentId: tid,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  } catch (e) {
+    throw friendlyCasterError(e, "MEMATIKAN SESI CASTER");
+  }
 }
 
 // ---------- Sisi CASTER (host — laptop/HP panitia) ----------

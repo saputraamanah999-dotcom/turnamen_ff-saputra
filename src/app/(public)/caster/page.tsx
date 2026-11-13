@@ -89,7 +89,15 @@ function CasterInner() {
     setCode(valid);
     setPhase("checking");
     setMsg("Memeriksa kode…");
-    const s = await readCasterSession(valid);
+    // readCasterSession melempar pesan ramah bila SERVER MENOLAK (rules belum ter-deploy).
+    let s: Awaited<ReturnType<typeof readCasterSession>> = null;
+    try {
+      s = await readCasterSession(valid);
+    } catch (e) {
+      setPhase("error");
+      setMsg((e as Error).message);
+      return;
+    }
     if (!s) {
       setPhase("error");
       setMsg("Kode tidak ditemukan. Pastikan angka sesuai layar TV dan sesi caster sudah dimulai admin.");

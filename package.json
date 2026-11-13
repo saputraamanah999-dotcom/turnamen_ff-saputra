@@ -9,6 +9,8 @@
     "start": "next start -p 3000",
     "lint": "eslint .",
     "seed": "node scripts/seed-firebase.mjs",
+    "sync:rules": "node scripts/sync-rules-to-setup.mjs",
+    "prebuild": "npm run sync:rules",
     "deploy:rules": "node scripts/deploy-rules-indexes.mjs",
     "bridge": "npm run dev --prefix broadcast-bridge",
     "test:scoring": "tsx scripts/test-scoring.ts",

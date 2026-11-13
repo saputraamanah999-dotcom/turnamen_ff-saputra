@@ -280,6 +280,15 @@ export function PresencePanel({ tid }: { tid: string | null }) {
             {status === "online" ? "perangkat menonton" : status === "connecting" ? "menghubungkan…" : "database tidak terjangkau"}
           </span>
         </div>
+        {status === "offline" && tid ? (
+          <p className="mt-2 border border-fs-err/50 bg-fs-err/5 px-2.5 py-1.5 text-[10px] font-semibold leading-relaxed text-fs-err">
+            <b>Server menolak baca data penonton.</b> Hampir selalu karena aturan keamanan (rules) Firestore di
+            project belum versi terbaru (koleksi <code>livePresence</code> belum dikenal server). Perbaikan ±1 menit:
+            buka <b>console.firebase.google.com</b> → project → <b>Firestore Database → Rules</b> → hapus isi lama,
+            tempel seluruh isi <code>firebase/firestore.rules</code> (versi terbaru; salinannya juga tampil di halaman
+            <code>/setup.html</code>) → klik <b>Publish</b> → muat ulang halaman ini.
+          </p>
+        ) : null}
         {status === "online" && count === 0 ? (
           <p className="mt-2 border border-fs-gold/40 bg-fs-gold/5 px-2.5 py-1.5 text-[10px] font-semibold leading-relaxed text-fs-gold">
             Terhubung ke database, tapi belum ada penonton terdeteksi. Bila halaman /live pasti sedang terbuka di

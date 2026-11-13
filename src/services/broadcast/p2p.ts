@@ -388,7 +388,7 @@ export class P2PHost {
         // Index belum dideploy → fallback tanpa query (filter di klien).
         if (err.code === "failed-precondition") this.startListeningFallback();
         else if (err.code === "permission-denied") {
-          this.ev.onState?.("error", "Signaling P2P ditolak aturan Firestore — deploy rules terbaru (lihat documentation/P2P_MODE.md).");
+          this.ev.onState?.("error", "Signaling P2P ditolak aturan Firestore — deploy rules terbaru: Firebase Console → Firestore Database → Rules → tempel isi firebase/firestore.rules → Publish (lihat documentation/P2P_MODE.md).");
         }
       },
     );
@@ -853,7 +853,7 @@ export class P2PViewer {
       const code = errCode(e);
       this.teardownSession();
       if (code === "permission-denied") {
-        this.ev.onStatus?.("signal-lost", "Signaling ditolak server (permission-denied) — aturan Firestore P2P belum diaktifkan panitia. Lihat documentation/P2P_MODE.md.");
+        this.ev.onStatus?.("signal-lost", "Signaling ditolak server (permission-denied) — rules Firestore belum versi terbaru. Perbaikan ±1 menit: Firebase Console → Firestore Database → Rules → tempel seluruh isi firebase/firestore.rules → Publish (atau /setup.html tahap ⑤). Lihat documentation/P2P_MODE.md.");
         return;
       }
       this.scheduleRecovery(`Gagal membuat sesi (${errDesc(e)}) — mencoba lagi…`);
@@ -862,7 +862,7 @@ export class P2PViewer {
 
   private onSignalingError(err: FirestoreError, phase: string): void {
     if (err.code === "permission-denied") {
-      this.ev.onStatus?.("signal-lost", `Akses signaling ditolak (${phase}) — aturan Firestore P2P belum diaktifkan.`);
+      this.ev.onStatus?.("signal-lost", `Akses signaling ditolak (${phase}) — rules Firestore belum versi terbaru: Firebase Console → Firestore Database → Rules → tempel isi firebase/firestore.rules → Publish.`);
       return;
     }
     this.scheduleRecovery(`Koneksi signaling terputus (${phase}) — mencoba lagi…`);
