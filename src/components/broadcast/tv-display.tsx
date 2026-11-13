@@ -19,6 +19,7 @@ import {
 } from "@/services/firestore/hooks";
 import { ORG } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { useKeepAwake } from "@/lib/wakelock";
 import { CountdownOverlay } from "@/components/broadcast/presentation";
 import { ChampionPodium } from "@/components/leaderboard/champion-podium";
 import { PresenceBadge } from "@/components/broadcast/presence-badge";
@@ -51,6 +52,10 @@ function TvDisplayInner({ tidOverride }: { tidOverride?: string }) {
   const [shownEvent, setShownEvent] = useState<BroadcastEvent | null>(null);
   // Indikator penonton online (jumlah di header — TV ikut terhitung sebagai 1 perangkat).
   const presence = useLivePresence(tid, { heartbeat: true });
+
+  // Layar TV TIDAK mati sendiri (Wake Lock + fallback NoSleep) —
+  // aktif sejak halaman dibuka, termasuk saat layar darurat tampil.
+  useKeepAwake();
 
   // Link/QR TV memakai ?fs=1 → TV masuk layar penuh otomatis saat halaman dibuka.
   useAutoFullscreen();

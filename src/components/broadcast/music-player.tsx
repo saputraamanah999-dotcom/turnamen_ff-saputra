@@ -123,6 +123,42 @@ export function MusicPlayer({ broadcast }: { broadcast: BroadcastSettings | null
     });
   }, [tryYtSound]);
 
+  // ---------- Percobaan 2b (TV/remote): ketukan masuk ke iframe TIDAK sampai ke
+  // halaman — tapi parent window menerima event "blur". Setelah penonton menekuk
+  // video (atau apa pun di dalam iframe), suara musik dinyalakan SEKALI.
+  useEffect(() => {
+    let done = false;
+    const onBlur = () => {
+      if (done || !playing) return;
+      done = true;
+      setTimeout(() => {
+        setSoundOn(true);
+        setMutedPlaying(false);
+        const a = audioRef.current;
+        if (a && isMp3) { a.muted = false; void a.play().catch(() => {}); }
+        tryYtSound();
+      }, 250);
+    };
+    window.addEventListener("blur", onBlur);
+    return () => window.removeEventListener("blur", onBlur);
+  }, [playing, isMp3, tryYtSound]);
+
+  // ---------- Percobaan 2c: PERCOBAAN ULANG PERIODIK tiap 15 detik selama musik
+  // belum terdengar — sebagian browser TV baru mengizinkan autoplay setelah
+  // embed hangat. Murah (sekali play()/postMessage per 15 dtk).
+  useEffect(() => {
+    if (!playing || soundOn) return;
+    const iv = setInterval(() => {
+      const a = audioRef.current;
+      if (a && isMp3) {
+        a.muted = false;
+        void a.play().then(() => { setSoundOn(true); setMutedPlaying(false); }).catch(() => { /* nanti lagi */ });
+      }
+      if (isYt) tryYtSound();
+    }, 15_000);
+    return () => clearInterval(iv);
+  }, [playing, soundOn, isMp3, isYt, tryYtSound]);
+
   // ---------- Percobaan 3: tab kembali terlihat → coba nyalakan lagi ----------
   useEffect(() => {
     if (!playing) return;
@@ -206,7 +242,7 @@ export function MusicPlayer({ broadcast }: { broadcast: BroadcastSettings | null
           {soundOn
             ? track!.title
             : mutedPlaying
-              ? `Musik menyala otomatis — sentuh layar sekali untuk suara: ${track!.title}`
+              ? `Musik sudah nyala otomatis — sentuh layar / tekan tombol remote sekali untuk suara: ${track!.title}`
               : `Musik diputar otomatis — sentuh layar sekali jika belum terdengar: ${track!.title}`}
         </span>
       </motion.div>

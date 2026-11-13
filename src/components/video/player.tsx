@@ -10,9 +10,10 @@
 // ============================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Maximize, Minimize, Play, Radio, Volume2, VolumeX, WifiOff, RefreshCw } from "lucide-react";
+import { AlertTriangle, Maximize, Minimize, MonitorUp, Play, Radio, Volume2, VolumeX, WifiOff, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { enterFullscreen, exitFullscreen, isFullscreenActive } from "@/lib/fullscreen";
+import { useKeepAwake, type WakeState } from "@/lib/wakelock";
 import { playWHE } from "@/services/broadcast/stream";
 import { P2PViewer, mapP2PStatusToPlayerStatus } from "@/services/broadcast/p2p";
 import { PresentationOverlays } from "@/components/broadcast/presentation";
@@ -80,6 +81,8 @@ export function LiveVideoPlayer({
   const wheRef = useRef<{ pc: RTCPeerConnection; close: () => void } | null>(null);
   const p2pRef = useRef<P2PViewer | null>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Penonton pernah menyentuh kontrol suara (mute/unMute) → auto-unmute TV jangan menimpanya.
+  const userTouchedSoundRef = useRef(false);
   const [status, setStatus] = useState<PlayerStatus>("idle");
   const [ytPlaying, setYtPlaying] = useState(false);
   const [ytSound, setYtSound] = useState(false);
@@ -89,6 +92,10 @@ export function LiveVideoPlayer({
   const [muted, setMuted] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const [fs, setFs] = useState(false);
+  // TV: autoplay tertahan (embed YouTube tidak mulai sendiri) → tombol PUTAR besar.
+  const [ytStalled, setYtStalled] = useState(false);
+  // Layar TV tetap menyala (Wake Lock + fallback NoSleep).
+  const wake = useKeepAwake();
 
   // Musik latar realtime + SFX broadcast + presence (heartbeat 1x per tab —
   // singleton di services/broadcast/presence.ts, tak peduli berapa komponen memakai).
@@ -124,6 +131,7 @@ export function LiveVideoPlayer({
   }
 
   function toggleYtSound() {
+    userTouchedSoundRef.current = true;
     if (ytSound) {
       ytCommand("mute");
       setYtSound(false);
@@ -132,6 +140,15 @@ export function LiveVideoPlayer({
       ytCommand("setVolume", [100]);
       setYtSound(true);
     }
+  }
+
+  /** PUTAR + SUARA ON (dipakai tombol putar besar & ketukan pertama — konteks gestur). */
+  function forceYtPlayWithSound() {
+    ytCommand("playVideo");
+    ytCommand("unMute");
+    ytCommand("setVolume", [100]);
+    setYtSound(true);
+    setYtStalled(false);
   }
 
   function ytRetry() {
@@ -199,6 +216,70 @@ export function LiveVideoPlayer({
     setYtPlaying(false);
     setYtError("");
   }, [streamKey, attempt]);
+
+  // ---------- PENGUAT AUTOPLAY TV (embed YouTube tidak mulai sendiri di banyak
+  // browser TV walau autoplay=1&mute=1) ----------
+  //  1. Kirim mute+playVideo berulang di awal (0.8–22 dtk) — beberapa TV baru
+  //     mengizinkan setelah embed siap penuh.
+  //  2. Tab kembali terlihat / jendela focus → playVideo lagi.
+  //  3. Jika setelah 6 dtk masih tidak PLAYING → tampilkan tombol PUTAR besar
+  //     (ytStalled) yang memutar + menyalakan suara sekaligus.
+  useEffect(() => {
+    if (!isYouTube) {
+      setYtStalled(false);
+      return;
+    }
+    const kick = (t: number) =>
+      setTimeout(() => {
+        ytCommand("mute"); // tetap senyap — kebijakan autoplay browser
+        ytCommand("playVideo");
+      }, t);
+    const timers = [800, 2000, 4000, 7000, 11000, 16000, 22000].map(kick);
+    const stallTimer = setTimeout(() => setYtStalled(true), 6000);
+    const onVis = () => {
+      if (document.visibilityState === "visible") ytCommand("playVideo");
+    };
+    const onFocus = () => ytCommand("playVideo");
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      timers.forEach(clearTimeout);
+      clearTimeout(stallTimer);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isYouTube, streamKey, attempt]);
+
+  // Saat benar-benar PLAYING, matikan tanda stalled.
+  useEffect(() => {
+    if (ytPlaying) setYtStalled(false);
+  }, [ytPlaying]);
+
+  // ---------- TRIK SUARA TV: ketukan pada iframe YouTube TIDAK sampai ke halaman
+  // (event masuk ke document iframe) → parent window menerima event "blur".
+  // Itulah sinyal terkuat bahwa penonton baru saja menekuk video —
+  // nyalakan suara SEKALI per mount. Mute manual lewat tombol tetap dihormati
+  // (userTouchedSoundRef). ----------
+  useEffect(() => {
+    if (!isYouTube) return;
+    let done = false;
+    const onBlur = () => {
+      if (done || ytSound || userTouchedSoundRef.current) return;
+      done = true;
+      // Tunggu sebentar — gesture di iframe diproses dulu oleh widget.
+      setTimeout(() => {
+        ytCommand("playVideo");
+        ytCommand("unMute");
+        ytCommand("setVolume", [100]);
+        setYtSound(true);
+      }, 250);
+    };
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [isYouTube, ytSound]);
 
   // ---------- Sumber WHE (WebRTC) ----------
   useEffect(() => {
@@ -355,7 +436,7 @@ export function LiveVideoPlayer({
             key={attempt}
             ref={ytRef}
             className="h-full w-full"
-            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1`}
+            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&cc_load_policy=0&hl=id&color=white&enablejsapi=1`}
             title="Siaran langsung turnamen"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
@@ -511,6 +592,24 @@ export function LiveVideoPlayer({
           </div>
         ) : null}
 
+        {/* TV: autoplay YouTube tertahan > 6 dtk → tombol PUTAR besar.
+            Container pointer-events-none agar klik di sekeliling tetap menerus
+            ke pemutar YouTube; HANYA tombolnya yang bisa diklik. */}
+        {isYouTube && ytStalled && !ytPlaying && !ytError && !showIdle ? (
+          <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-3">
+            <button
+              onClick={forceYtPlayWithSound}
+              className="pointer-events-auto flex h-20 w-20 items-center justify-center rounded-full border-2 border-fs-fire bg-black/60 text-fs-fire shadow-[0_0_36px_rgba(255,90,31,.45)] backdrop-blur-sm transition hover:scale-110 hover:bg-fs-fire/25"
+              aria-label="Putar siaran sekarang"
+            >
+              <Play className="h-9 w-9 fill-current" />
+            </button>
+            <p className="pointer-events-none rounded-sm bg-black/70 px-3 py-1.5 text-xs font-black uppercase tracking-[0.25em] text-white/85">
+              Ketuk tombol untuk memutar siaran
+            </p>
+          </div>
+        ) : null}
+
         {/* Overlay panggung realtime: countdown besar + sekuens mulai game + Panggung Juara
             (dikendalikan panitia dari /admin/broadcast → Panggung TV & Countdown). */}
         <PresentationOverlays broadcast={broadcast} />
@@ -537,6 +636,7 @@ export function LiveVideoPlayer({
                 : "Stream Offline"}
         </span>
         <span className="flex min-w-0 items-center gap-2">
+          <WakeChip wake={wake.state} onRequest={wake.request} />
           <PresenceBadge count={presence.count} viewers={presence.viewers} />
           {broadcast?.streamTitle ? (
             <span className="truncate text-xs font-semibold text-fs-muted">{broadcast.streamTitle}</span>
@@ -559,4 +659,31 @@ export function LiveVideoPlayer({
       ) : null}
     </div>
   );
+}
+
+/** Chip "layar tetap nyala" — TV tidak akan mati sendiri.
+ *  active/fallback = hijau (sudah terkunci); blocked = tombol untuk mencoba lagi. */
+function WakeChip({ wake, onRequest }: { wake: WakeState; onRequest: () => void }) {
+  if (wake === "active" || wake === "fallback") {
+    return (
+      <span
+        className="hidden items-center gap-1.5 border border-fs-ok/30 bg-fs-ok/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-fs-ok md:inline-flex"
+        title="Wake Lock aktif — layar TV tidak akan mati sendiri"
+      >
+        <MonitorUp className="h-3.5 w-3.5" /> Layar Nyala
+      </span>
+    );
+  }
+  if (wake === "blocked") {
+    return (
+      <button
+        onClick={onRequest}
+        className="hidden items-center gap-1.5 border border-fs-gold/40 bg-fs-gold/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-fs-gold md:inline-flex"
+        title="Ketuk agar layar TV tidak mati otomatis"
+      >
+        <MonitorUp className="h-3.5 w-3.5" /> Nyalakan Layar
+      </button>
+    );
+  }
+  return null;
 }
