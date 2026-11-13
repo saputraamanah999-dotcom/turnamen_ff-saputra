@@ -16,6 +16,8 @@ import { enterFullscreen, exitFullscreen, isFullscreenActive } from "@/lib/fulls
 import { useKeepAwake, type WakeState } from "@/lib/wakelock";
 import { playWHE } from "@/services/broadcast/stream";
 import { P2PViewer, mapP2PStatusToPlayerStatus } from "@/services/broadcast/p2p";
+import { casterBasePath } from "@/services/broadcast/caster";
+import { CasterPairingCard } from "@/components/broadcast/caster-card";
 import { PresentationOverlays } from "@/components/broadcast/presentation";
 import { MusicPlayer } from "@/components/broadcast/music-player";
 import { useSfxListener } from "@/components/broadcast/sfx";
@@ -162,9 +164,13 @@ export function LiveVideoPlayer({
   const hlsUrl = broadcast?.hlsUrl?.trim() ?? "";
   const wheUrl = (wheUrlOverride ?? broadcast?.wheUrl?.trim() ?? "").trim();
   const isP2P = mode === "p2p";
+  const isCaster = mode === "caster";
   const isYouTube = mode === "youtube" && Boolean(ytId);
+  const casterCode = broadcast?.caster?.code ?? "";
+  const casterActive = broadcast?.caster?.active === true;
+  const casterReady = isCaster && casterActive && Boolean(casterCode);
   const p2pLive = broadcast?.p2pLive === true;
-  const streamKey = `${mode}|${wheUrl}|${hlsUrl}|${ytId}`;
+  const streamKey = `${mode}|${wheUrl}|${hlsUrl}|${ytId}|${casterCode}|${casterActive}`;
 
   const setStat = useCallback((s: PlayerStatus, msg = "") => {
     setStatus(s);
@@ -362,6 +368,41 @@ export function LiveVideoPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, p2pLive, broadcast?.tournamentId, setStat]);
 
+  // ---------- Sumber CASTER (layar panitia via kode pairing — signaling
+  // casterSessions/{code}: penonton menawarkan offer, host anonim menjawab) ----------
+  useEffect(() => {
+    if (isCaster && (!casterReady || !broadcast?.tournamentId)) {
+      p2pRef.current?.stop();
+      p2pRef.current = null;
+      setStat("idle"); // sesi belum aktif / kode belum ada
+      return;
+    }
+    if (!isCaster || !casterReady || !broadcast?.tournamentId) return;
+    const viewer = new P2PViewer({
+      tid: broadcast.tournamentId,
+      basePath: casterBasePath(casterCode),
+      onStream: (s) => {
+        const v = videoRef.current;
+        if (v && v.srcObject !== s) v.srcObject = s;
+        if (!s) setStat("connecting", "Menunggu layar panitia…");
+      },
+      onStatus: (s, msg) => {
+        setStat(mapP2PStatusToPlayerStatus(s), msg ?? "");
+        if (s === "live") {
+          const v = videoRef.current;
+          if (v) v.play().catch(() => setNeedsPlay(true));
+        }
+      },
+    });
+    p2pRef.current = viewer;
+    void viewer.start();
+    return () => {
+      viewer.stop();
+      p2pRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCaster, casterReady, casterCode, broadcast?.tournamentId, setStat]);
+
   // ---------- Fallback HLS ----------
   useEffect(() => {
     if (mode !== "mediamtx" || !hlsUrl) return;
@@ -408,7 +449,7 @@ export function LiveVideoPlayer({
   function manualRetry() {
     setAttempt((a) => a + 1);
     setStat("connecting", "Menyambung ulang…");
-    if (isP2P) void p2pRef.current?.retry();
+    if (isP2P || isCaster) void p2pRef.current?.retry();
   }
 
   function forcePlay() {
@@ -425,8 +466,9 @@ export function LiveVideoPlayer({
     mode === "offline"
     || (mode === "mediamtx" && !wheUrl && !hlsUrl)
     || (mode === "youtube" && !ytId)
-    || (isP2P && !p2pLive);
-  const showVideo = (mode === "mediamtx" && (wheUrl || hlsUrl) && !showIdle) || (isP2P && p2pLive);
+    || (isP2P && !p2pLive)
+    || (isCaster && !casterReady);
+  const showVideo = (mode === "mediamtx" && (wheUrl || hlsUrl) && !showIdle) || (isP2P && p2pLive) || (isCaster && casterReady);
 
   return (
     <div ref={boxRef} className={cn("relative overflow-hidden border border-fs-edge bg-black", className)}>
@@ -476,7 +518,7 @@ export function LiveVideoPlayer({
         {/* Overlay status — jujur sesuai koneksi (§8: area video tidak boleh kosong tanpa penjelasan).
             YouTube TIDAK memakai overlay ini: status koneksinya tak terbaca dari iframe luar dan
             overlay justru menutupi + memblokir klik pemutar YouTube (bug "layar gelap diam"). */}
-        {!showIdle && !isYouTube && status !== "live" ? (
+        {!showIdle && !isYouTube && !isCaster && status !== "live" ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/72 px-6 text-center">
             {status === "connecting" ? (
               <>
@@ -546,7 +588,7 @@ export function LiveVideoPlayer({
                 Tanpa suara — klik ikon speaker di kanan atas
               </span>
             ) : null}
-            {isP2P && muted ? (
+            {(isP2P || isCaster) && muted ? (
               <button
                 onClick={() => setMuted(false)}
                 className="border border-white/30 bg-black/60 px-3 py-1 font-display text-[11px] font-black uppercase tracking-widest text-white/90 hover:bg-black/80"
@@ -610,6 +652,16 @@ export function LiveVideoPlayer({
           </div>
         ) : null}
 
+        {/* BOF CASTER: kartu pairing (kode + QR + langkah) sampai layar panitia
+            benar-benar tersambung — persis pengalaman hi.casts.app. */}
+        {casterReady && status !== "live" ? (
+          <CasterPairingCard
+            code={casterCode}
+            label={broadcast?.caster?.label}
+            expiresAtMs={broadcast?.caster?.expiresAt ?? null}
+          />
+        ) : null}
+
         {/* Overlay panggung realtime: countdown besar + sekuens mulai game + Panggung Juara
             (dikendalikan panitia dari /admin/broadcast → Panggung TV & Countdown). */}
         <PresentationOverlays broadcast={broadcast} />
@@ -629,11 +681,15 @@ export function LiveVideoPlayer({
           />
           {isYouTube
             ? "YouTube Live · Internet"
-            : showVideo && isP2P
-              ? "P2P · WebRTC langsung dari laptop panitia"
-              : showVideo
-                ? `Local Stream · ${status === "live" ? "WebRTC/HLS" : "MediaMTX"}`
-                : "Stream Offline"}
+            : isCaster
+              ? casterReady
+                ? "BOF Caster · Layar Panitia (real-time)"
+                : "BOF Caster · Menunggu kode sesi"
+              : showVideo && isP2P
+                ? "P2P · WebRTC langsung dari laptop panitia"
+                : showVideo
+                  ? `Local Stream · ${status === "live" ? "WebRTC/HLS" : "MediaMTX"}`
+                  : "Stream Offline"}
         </span>
         <span className="flex min-w-0 items-center gap-2">
           <WakeChip wake={wake.state} onRequest={wake.request} />

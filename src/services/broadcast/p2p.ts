@@ -238,6 +238,11 @@ interface HostSession {
 export class P2PHost {
   private tid: string;
   private ev: P2PHostEvents;
+  /** Akar signaling: default p2pSessions/{tid} — mode Caster memakai casterSessions/{code}. */
+  private basePath: string;
+  /** true (admin/Live Control): publish/stop menulis broadcastSettings.p2pLive.
+   *  false (Caster anonim): jangan sentuh broadcastSettings — tidak berizin. */
+  private controlBroadcastLive: boolean;
   private stream: MediaStream | null = null;
   private sessions = new Map<string, HostSession>(); // key = viewerId
   private reserved = new Set<string>(); // slot yang sedang dijawab (cegah race dua penonton bersamaan)
@@ -252,9 +257,20 @@ export class P2PHost {
   private listening = false;
   private stopped = false;
 
-  constructor(tid: string, events: P2PHostEvents = {}) {
+  constructor(
+    tid: string,
+    events: P2PHostEvents = {},
+    opts: { basePath?: string; controlBroadcastLive?: boolean } = {},
+  ) {
     this.tid = tid;
     this.ev = events;
+    this.basePath = opts.basePath ?? `p2pSessions/${tid}`;
+    this.controlBroadcastLive = opts.controlBroadcastLive ?? true;
+  }
+
+  /** Koleksi dokumen penonton untuk mode ini. */
+  private get viewersRoot(): string {
+    return `${this.basePath}/viewers`;
   }
 
   /** Batas penonton — Live Control menyambungkan ini ke broadcast.p2pMaxViewers. */
@@ -283,21 +299,24 @@ export class P2PHost {
     return n;
   }
 
-  /** Mulai mendengarkan sesi penonton + set p2pLive=true (tanpa URL apa pun). */
+  /** Mulai mendengarkan sesi penonton + set p2pLive=true (tanpa URL apa pun).
+   *  Mode Caster (controlBroadcastLive=false) tidak menulis broadcastSettings. */
   async publish(stream: MediaStream): Promise<void> {
     if (!db) throw new Error("Firebase tidak terkonfigurasi — signaling P2P butuh Firestore.");
     this.stream = stream;
     this.stopped = false;
-    this.ev.onState?.("connecting", "Mode P2P: mengaktifkan signaling…");
-    await setDoc(
-      doc(db, `broadcastSettings/${this.tid}`),
-      { p2pLive: true, tournamentId: this.tid, updatedAt: serverTimestamp() },
-      { merge: true },
-    );
+    this.ev.onState?.("connecting", "Mengaktifkan signaling…");
+    if (this.controlBroadcastLive) {
+      await setDoc(
+        doc(db, `broadcastSettings/${this.tid}`),
+        { p2pLive: true, tournamentId: this.tid, updatedAt: serverTimestamp() },
+        { merge: true },
+      );
+    }
     this.startListening();
     this.startCleanup();
     this.startStats();
-    this.ev.onState?.("live", "Siaran P2P aktif — menunggu penonton tersambung.");
+    this.ev.onState?.("live", "Siaran aktif — menunggu penonton tersambung.");
   }
 
   /** Re-listen setelah gangguan (paritas dengan StreamPublisher.reconnect). */
@@ -324,20 +343,23 @@ export class P2PHost {
     this.ev.onState?.("live");
   }
 
-  /** STOP: set p2pLive=false, hapus semua dokumen sesi+candidates, tutup semua peer. */
+  /** STOP: hapus semua dokumen sesi+candidates, tutup semua peer.
+   *  Mode admin juga memadamkan broadcastSettings.p2pLive. */
   async stop(): Promise<void> {
     this.ev.onState?.("stopping");
     this.teardownListeners();
     await this.closeAllSessions();
     if (db) {
       await this.deleteAllSessions();
-      try {
-        await setDoc(
-          doc(db, `broadcastSettings/${this.tid}`),
-          { p2pLive: false, tournamentId: this.tid, updatedAt: serverTimestamp() },
-          { merge: true },
-        );
-      } catch { /* Firestore offline — viewer tetap pulih lewat expiresAt/koneksi */ }
+      if (this.controlBroadcastLive) {
+        try {
+          await setDoc(
+            doc(db, `broadcastSettings/${this.tid}`),
+            { p2pLive: false, tournamentId: this.tid, updatedAt: serverTimestamp() },
+            { merge: true },
+          );
+        } catch { /* Firestore offline — viewer tetap pulih lewat expiresAt/koneksi */ }
+      }
     }
     this.stopStats();
     this.stream?.getTracks().forEach((t) => t.stop());
@@ -352,7 +374,7 @@ export class P2PHost {
     this.teardownListeners();
     if (!db) return;
     this.listening = true;
-    const viewersRef = collection(db, `p2pSessions/${this.tid}/viewers`);
+    const viewersRef = collection(db, this.viewersRoot);
     // Utama: hanya 'waiting' urut createdAt (butuh composite index state+createdAt).
     const q = query(viewersRef, where("state", "==", "waiting"), orderBy("createdAt", "asc"));
     this.unsubWaiting = onSnapshot(
@@ -374,7 +396,7 @@ export class P2PHost {
 
   private startListeningFallback(): void {
     if (!db || this.unsubFallback) return;
-    const viewersRef = collection(db, `p2pSessions/${this.tid}/viewers`);
+    const viewersRef = collection(db, this.viewersRoot);
     this.unsubFallback = onSnapshot(
       viewersRef,
       (snap) => {
@@ -422,7 +444,7 @@ export class P2PHost {
     this.emitViewers();
     try {
       const pc = new RTCPeerConnection({ iceServers: buildP2PIceServers(turnFromEnv()) });
-      const candidatesRef = collection(db, `p2pSessions/${this.tid}/viewers/${docId}/candidates`);
+      const candidatesRef = collection(db, `${this.viewersRoot}/${docId}/candidates`);
       const applied = new Set<string>();
 
       // Semua track capture → satu aliran per penonton.
@@ -473,7 +495,7 @@ export class P2PHost {
       await pc.setRemoteDescription({ type: "offer", sdp: data.offer.sdp });
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      await updateDoc(doc(db, `p2pSessions/${this.tid}/viewers/${docId}`), {
+      await updateDoc(doc(db, `${this.viewersRoot}/${docId}`), {
         answer: { type: answer.type, sdp: answer.sdp ?? "" },
         state: "answered",
       });
@@ -486,7 +508,7 @@ export class P2PHost {
       this.reserved.delete(viewerId);
       this.known.set(viewerId, { viewerId, state: "closed", since: Date.now(), reason: errDesc(e) });
       this.emitViewers();
-      try { await deleteDoc(doc(db, `p2pSessions/${this.tid}/viewers/${docId}`)); } catch { /* abaikan */ }
+      try { await deleteDoc(doc(db, `${this.viewersRoot}/${docId}`)); } catch { /* abaikan */ }
     }
   }
 
@@ -494,7 +516,7 @@ export class P2PHost {
     if (!db) return;
     this.known.set(viewerId, { viewerId, state: "rejected", since: Date.now(), reason });
     try {
-      await updateDoc(doc(db, `p2pSessions/${this.tid}/viewers/${docId}`), { state: "rejected", reason });
+      await updateDoc(doc(db, `${this.viewersRoot}/${docId}`), { state: "rejected", reason });
     } catch { /* dokumen mungkin sudah dihapus */ }
     this.emitViewers();
   }
@@ -529,7 +551,7 @@ export class P2PHost {
       try { s.pc.close(); } catch { /* abaikan */ }
       this.sessions.delete(viewerId);
     }
-    try { await deleteDoc(doc(db!, `p2pSessions/${this.tid}/viewers/${docId}`)); } catch { /* sudah hilang */ }
+    try { await deleteDoc(doc(db!, `${this.viewersRoot}/${docId}`)); } catch { /* sudah hilang */ }
     this.known.delete(viewerId);
     this.emitViewers();
   }
@@ -545,11 +567,11 @@ export class P2PHost {
   private async deleteAllSessions(): Promise<void> {
     if (!db) return;
     try {
-      const viewersRef = collection(db, `p2pSessions/${this.tid}/viewers`);
+      const viewersRef = collection(db, this.viewersRoot);
       const snap = await getDocs(viewersRef);
       await Promise.all(snap.docs.map(async (d) => {
         try {
-          const cands = await getDocs(collection(db!, `p2pSessions/${this.tid}/viewers/${d.id}/candidates`));
+          const cands = await getDocs(collection(db!, `${this.viewersRoot}/${d.id}/candidates`));
           const batch = writeBatch(db!);
           cands.docs.forEach((c) => batch.delete(c.ref));
           batch.delete(d.ref);
@@ -565,7 +587,7 @@ export class P2PHost {
   async cleanupStale(): Promise<void> {
     if (!db) return;
     try {
-      const viewersRef = collection(db, `p2pSessions/${this.tid}/viewers`);
+      const viewersRef = collection(db, this.viewersRoot);
       const snap = await getDocs(viewersRef);
       const now = Date.now();
       const stale = snap.docs
@@ -576,10 +598,10 @@ export class P2PHost {
         ));
       await Promise.all(stale.map(async (x) => {
         try {
-          const cands = await getDocs(collection(db!, `p2pSessions/${this.tid}/viewers/${x.id}/candidates`));
+          const cands = await getDocs(collection(db!, `${this.viewersRoot}/${x.id}/candidates`));
           const batch = writeBatch(db!);
           cands.docs.forEach((c) => batch.delete(c.ref));
-          batch.delete(doc(db!, `p2pSessions/${this.tid}/viewers/${x.id}`));
+          batch.delete(doc(db!, `${this.viewersRoot}/${x.id}`));
           await batch.commit();
         } catch { /* abaikan per dokumen */ }
       }));
@@ -655,6 +677,8 @@ function errDesc(e: unknown): string {
 
 export interface P2PViewerEvents {
   tid: string;
+  /** Akar signaling — default `p2pSessions/{tid}`. Mode Caster: `casterSessions/{code}`. */
+  basePath?: string;
   /** Remote stream siap dipasang ke <video>. */
   onStream?: (stream: MediaStream | null) => void;
   onStatus?: (status: P2PViewerStatus, detail?: string) => void;
@@ -662,6 +686,7 @@ export interface P2PViewerEvents {
 
 export class P2PViewer {
   private tid: string;
+  private basePath: string;
   private ev: P2PViewerEvents;
   private running = false;
   private pc: RTCPeerConnection | null = null;
@@ -677,6 +702,7 @@ export class P2PViewer {
 
   constructor(opts: P2PViewerEvents) {
     this.tid = opts.tid;
+    this.basePath = opts.basePath ?? `p2pSessions/${opts.tid}`;
     this.ev = opts;
   }
 
@@ -733,8 +759,8 @@ export class P2PViewer {
     const viewerId = crypto.randomUUID();
     this.viewerId = viewerId;
     this.docId = viewerId;
-    const docRef = doc(db, `p2pSessions/${this.tid}/viewers/${viewerId}`);
-    const candidatesRef = collection(db, `p2pSessions/${this.tid}/viewers/${viewerId}/candidates`);
+    const docRef = doc(db, `${this.basePath}/viewers/${viewerId}`);
+    const candidatesRef = collection(db, `${this.basePath}/viewers/${viewerId}/candidates`);
     this.ev.onStatus?.("connecting", "Menyiapkan koneksi P2P…");
 
     try {

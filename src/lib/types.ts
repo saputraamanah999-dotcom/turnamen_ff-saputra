@@ -7,8 +7,10 @@ export type TournamentStatus = "draft" | "active" | "completed";
 export type MatchFormat = "BO3" | "BO5" | "BO7" | "CUSTOM";
 export type MatchStatus = "scheduled" | "live" | "completed" | "cancelled";
 export type TeamStatus = "active" | "inactive" | "banned";
-/** Mode sumber siaran. "p2p" = WebRTC langsung laptop → penonton, signaling Firestore (tanpa bridge/MediaMTX/OBS). */
-export type StreamMode = "youtube" | "mediamtx" | "p2p" | "offline";
+/** Mode sumber siaran. "p2p" = WebRTC langsung laptop → penonton, signaling Firestore (tanpa bridge/MediaMTX/OBS).
+ *  "caster" = BOF CASTER — berbagi layar ala hi.casts.app: TV menampilkan kode pairing + QR,
+ *  panitia membuka /caster, mengetik kode, layar laptop/HP ikut tampil real-time di website. */
+export type StreamMode = "youtube" | "mediamtx" | "p2p" | "caster" | "offline";
 
 // ---------- P2P signaling (dokumen Firestore) ----------
 
@@ -329,6 +331,21 @@ export interface BroadcastSettings {
    *  mulai game selesai — panitia hanya menekan satu tombol, TV & /live
    *  berganti "MATCH 2 · KALAHARI" realtime. */
   autoNextMatch?: boolean;
+  /** BOF CASTER — berbagi layar real-time dengan kode pairing (ala hi.casts.app).
+   *  TV menampilkan kode + QR; panitia buka /caster di laptop/HP, ketik kode,
+   *  pilih layar → tampil real-time di /display & /live berdampingan leaderboard. */
+  caster?: {
+    /** Kode pairing 6 digit — ditampilkan besar di TV dan QR mengarah ke /caster?code=… */
+    code: string;
+    /** Sesi aktif: penonton boleh menyambung ke aliran caster. */
+    active: boolean;
+    /** Label sumber, mis. "Laptop Operator" / "HP Meja Komentator". */
+    label?: string;
+    /** Epoch ms sesi dimulai. */
+    startedAt?: number;
+    /** Epoch ms sesi kedaluwarsa (default mulai +8 jam). */
+    expiresAt?: number;
+  } | null;
   /** Pengaturan panggung/presentasi (TV & /live). */
   presentation?: {
     /** Sembunyikan judul video & nama channel pada embed YouTube (strip branding di atas video). Default true. */

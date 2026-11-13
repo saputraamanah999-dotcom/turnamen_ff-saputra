@@ -12,15 +12,19 @@
 // Semua perubahan ditulis ke broadcastSettings/{tid} (merge).
 // ============================================================
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Eye, ListMusic, Music2, PartyPopper, Play, Plus, Trash2, Trophy, Volume2, Zap,
+  Cast, Copy, Eye, ListMusic, MonitorUp, Music2, PartyPopper, Play, Plus, RefreshCw, Trash2, Trophy, Volume2, Zap,
 } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import { parseYouTubeId } from "@/components/video/player";
 import { parseTrackInput, resolveActiveTrack } from "@/components/broadcast/music-player";
 import { playSfx, SFX_CATALOG } from "@/components/broadcast/sfx";
 import { useLivePresence } from "@/services/broadcast/presence";
+import {
+  casterUrl, formatPairCodeSafe, rotateCasterCode, startCasterSession, stopCasterSession,
+} from "@/services/broadcast/caster";
+import { useQr } from "@/services/broadcast/heartbeat";
 import type { BroadcastSettings, MusicSettings } from "@/lib/types";
 
 type PatchFn = (patch: Partial<BroadcastSettings>, okMsg: string) => Promise<void>;
@@ -416,6 +420,136 @@ export function ObsGuideHint() {
       <p className="mt-2 text-[10px] font-semibold text-fs-text/40">
         Panduan lengkap langkah-demi-langkah (dari buat channel sampai siaran lancar):
         <code className="ml-1 border border-fs-edge bg-fs-bg px-1.5 py-0.5">documentation/OBS_YOUTUBE_GUIDE.md</code>
+      </p>
+    </BoCard>
+  );
+}
+
+// ============================================================
+// BOF CASTER — bagikan layar via kode pairing (ala hi.casts.app)
+// ============================================================
+export function CasterPanel({ tid, settings }: { tid: string | null; settings: Partial<BroadcastSettings> }) {
+  const caster = settings.caster ?? null;
+  const active = caster?.active === true && Boolean(caster?.code);
+  const [label, setLabel] = useState(caster?.label ?? "");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [origin, setOrigin] = useState("");
+  // origin (untuk QR & link) dihitung di klien — aman untuk SSR/hidrasi.
+  useEffect(() => setOrigin(window.location.origin), []);
+  const qr = useQr(active ? casterUrl(caster!.code, origin) : null);
+
+  async function start() {
+    if (!tid) return;
+    setBusy(true); setMsg("Membuat sesi + kode…");
+    try {
+      const code = await startCasterSession(tid, label.trim() || undefined);
+      setMsg(`Sesi aktif — kode ${formatPairCodeSafe(code)}. TV & /live sekarang menampilkan kartu pairing.`);
+    } catch (e) {
+      setMsg(`Gagal memulai: ${(e as Error).message}`);
+    } finally { setBusy(false); }
+  }
+
+  async function rotate() {
+    if (!tid) return;
+    setBusy(true); setMsg("Mengganti kode…");
+    try {
+      const code = await rotateCasterCode(tid, caster?.code, label.trim() || caster?.label);
+      setMsg(`Kode baru: ${formatPairCodeSafe(code)}. Kode lama otomatis mati.`);
+    } catch (e) {
+      setMsg(`Gagal ganti kode: ${(e as Error).message}`);
+    } finally { setBusy(false); }
+  }
+
+  async function stop() {
+    if (!tid) return;
+    setBusy(true); setMsg("Mematikan sesi…");
+    try {
+      await stopCasterSession(tid, caster?.code);
+      setMsg("Sesi dimatikan. Mode siaran kembali Offline.");
+    } catch (e) {
+      setMsg(`Gagal mematikan: ${(e as Error).message}`);
+    } finally { setBusy(false); }
+  }
+
+  const sisa = caster?.expiresAt && caster.expiresAt > Date.now()
+    ? Math.round((caster.expiresAt - Date.now()) / 60000)
+    : null;
+
+  return (
+    <BoCard className="bg-fs-panel p-5">
+      <h2 className="flex items-center gap-2 font-display text-base font-black uppercase">
+        <MonitorUp className="h-4 w-4 text-fs-cyan" /> BOF Caster — Layar via Kode Pairing
+        {active ? <BoBadge className="bg-fs-ok/15 text-fs-ok">AKTIF</BoBadge> : null}
+      </h2>
+      <p className="mt-1 text-[11px] font-semibold text-fs-text/50">
+        Persis hi.casts.app: TV menampilkan kode + QR, panitia membuka <code>/caster</code> di laptop/HP,
+        ketik kode, pilih layar → tayang real-time di /display &amp; /live berdampingan leaderboard.
+        Tanpa OBS, tanpa install.
+      </p>
+
+      {active ? (
+        <div className="mt-3 flex flex-col items-center gap-4 sm:flex-row">
+          <div className="border border-fs-edge bg-white p-2">
+            {qr ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={qr} alt="QR halaman caster" className="h-28 w-28" />
+            ) : (
+              <div className="flex h-28 w-28 items-center justify-center text-[10px] font-bold text-black/40">QR…</div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1 text-center sm:text-left">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-fs-muted">Kode Pairing</p>
+            <p className="font-stat text-5xl font-black tracking-[0.18em] text-fs-cyan tabular-nums">
+              {formatPairCodeSafe(caster!.code)}
+            </p>
+            <p className="mt-1 break-all text-[11px] font-bold text-fs-muted">
+              {origin}/caster?code={caster!.code}
+            </p>
+            {sisa !== null ? (
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-fs-text/40">
+                Berlaku ±{Math.floor(sisa / 60)} jam {sisa % 60} menit
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Label sumber (opsional) — mis. Laptop Operator"
+            className="flex-1 border border-fs-edge bg-black/40 px-3 py-2 text-xs font-semibold text-white outline-none focus:border-fs-cyan"
+          />
+          <BoButton onClick={() => void start()} disabled={busy || !tid}>
+            <Cast className="h-4 w-4" /> Mulai Sesi Caster
+          </BoButton>
+        </div>
+      )}
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {active ? (
+          <>
+            <BoButton
+              variant="cyan"
+              disabled={busy}
+              onClick={() => { void navigator.clipboard?.writeText(casterUrl(caster!.code, origin)); setMsg("Link caster disalin."); }}
+            >
+              <Copy className="h-3.5 w-3.5" /> Salin Link
+            </BoButton>
+            <BoButton variant="yellow" disabled={busy} onClick={() => void rotate()}>
+              <RefreshCw className="h-3.5 w-3.5" /> Ganti Kode
+            </BoButton>
+            <BoButton variant="danger" disabled={busy} onClick={() => void stop()}>
+              <Trash2 className="h-3.5 w-3.5" /> Matikan Sesi
+            </BoButton>
+          </>
+        ) : null}
+      </div>
+      {msg ? <p className="mt-2 text-[11px] font-bold text-fs-cyan">{msg}</p> : null}
+      <p className="mt-2 text-[10px] font-semibold text-fs-text/40">
+        Catatan: aliran dikirim langsung laptop caster → penonton (P2P). Kapasitas bersamaan mengikuti
+        batas penonton P2P ({settings.p2pMaxViewers ?? 3} perangkat). Untuk ribuan penonton, tetap gunakan YouTube.
       </p>
     </BoCard>
   );

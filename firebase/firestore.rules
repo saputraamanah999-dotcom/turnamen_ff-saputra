@@ -301,6 +301,59 @@ service cloud.firestore {
       }
     }
 
+    // ---------- casterSessions (BOF CASTER — bagikan layar via kode pairing) ----------
+    // Mirip hi.casts.app: dokumen id = KODE RAHASIA 6 digit. Kode adalah bagian
+    // dari PATH → hanya pihak yang tahu kode yang bisa membaca sesi & menulis
+    // signaling. Sesi dibuat/dimatikan HANYA admin (juga mencatat kode di
+    // broadcastSettings.caster agar TV/penonton tahu), kedaluwarsa otomatis.
+    // Penonton membuat offer; HOST anonim (laptop caster yang tahu kode)
+    // menjawab answer + candidates. Batas ukuran SDP/candidate = anti-spam.
+    match /casterSessions/{code} {
+      function casterSessionActive() {
+        return get(/databases/$(database)/documents/casterSessions/$(code)).data.active == true
+          && get(/databases/$(database)/documents/casterSessions/$(code)).data.expiresAt is timestamp
+          && request.time < get(/databases/$(database)/documents/casterSessions/$(code)).data.expiresAt;
+      }
+
+      // Kode = kunci: get publik (yang tahu kode, tahu alamat dokumennya),
+      // list HANYA admin (mencegah enumerasi kode).
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+
+      match /viewers/{viewerId} {
+        // Jalur butuh kode rahasia → read publik aman.
+        allow get, list: if true;
+        // Penonton membuat sesinya sendiri: state 'waiting' + offer, divalidasi ketat.
+        allow create: if casterSessionActive()
+          && request.resource.data.keys().hasOnly(['viewerId', 'createdAt', 'expiresAt', 'state', 'offer'])
+          && request.resource.data.viewerId == viewerId
+          && request.resource.data.state == 'waiting'
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.expiresAt is timestamp
+          && request.resource.data.offer.keys().hasOnly(['type', 'sdp'])
+          && request.resource.data.offer.type == 'offer'
+          && request.resource.data.offer.sdp is string
+          && request.resource.data.offer.sdp.size() > 0
+          && request.resource.data.offer.sdp.size() <= 12000;
+        // Host anonim (tahu kode) menjawab/menolak/membersihkan sesi —
+        // hanya bila sesi masih aktif & belum kedaluwarsa.
+        allow update, delete: if casterSessionActive();
+
+        match /candidates/{candidateId} {
+          allow read: if true;
+          allow create: if casterSessionActive()
+            && request.resource.data.keys().hasOnly(['from', 'candidate', 'createdAt'])
+            && request.resource.data.from in ['viewer', 'host']
+            && request.resource.data.candidate is string
+            && request.resource.data.candidate.size() > 0
+            && request.resource.data.candidate.size() <= 2000
+            && request.resource.data.createdAt == request.time;
+          allow update, delete: if casterSessionActive();
+        }
+      }
+    }
+
     // ---------- Default: tolak semua ----------
     match /{document=**} {
       allow read, write: if false;

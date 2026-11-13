@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import { parseYouTubeId } from "@/components/video/player";
-import { MusicPanel, ObsGuideHint, PodiumPanel, PresencePanel, SfxPanel } from "@/components/admin/broadcast-extras";
+import { MusicPanel, ObsGuideHint, PodiumPanel, PresencePanel, SfxPanel, CasterPanel } from "@/components/admin/broadcast-extras";
 import { useActiveTournament, useBroadcast, useMatches } from "@/services/firestore/hooks";
 import { setCurrentMatch } from "@/services/scoring/publish";
 import {
@@ -687,8 +687,17 @@ export default function AdminBroadcastPage() {
                 <option value="youtube">YouTube Live (publik)</option>
                 <option value="mediamtx">MediaMTX (LAN sekolah)</option>
                 <option value="p2p">P2P (tanpa bridge, maks 2 penonton)</option>
+                <option value="caster">BOF Caster (layar via kode pairing)</option>
               </select>
             </label>
+            {(settings.streamMode ?? "offline") === "caster" ? (
+              <p className="border border-fs-cyan/50 bg-fs-cyan/10 p-3 text-[11px] font-semibold leading-relaxed text-fs-muted">
+                <b className="text-fs-cyan">BOF Caster</b>: TV menampilkan KODE 6 digit + QR (persis hi.casts.app).
+                Panitia buka <code>/caster</code> di laptop/HP → ketik kode → pilih layar → tayang real-time di
+                /display &amp; /live berdampingan leaderboard. Mulai/mati sesi di kartu{" "}
+                <b>BOF Caster</b> di bawah (kode dibuat otomatis saat sesi dimulai).
+              </p>
+            ) : null}
             {(settings.streamMode ?? "offline") === "p2p" ? (
               <>
                 <label className="block text-[11px] font-black uppercase tracking-wider">
@@ -951,12 +960,13 @@ export default function AdminBroadcastPage() {
         Semua kartu di bawah berlaku REALTIME ke TV (/display), halaman /live, dan halaman interaktif penonton.
       </p>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <CasterPanel tid={tid} settings={settings} />
+        <PresencePanel tid={tid} />
         <MusicPanel tid={tid} settings={settings} patch={patchSettings} />
         <div className="flex flex-col gap-4">
           <SfxPanel tid={tid} settings={settings} patch={patchSettings} />
           <PodiumPanel tid={tid} settings={settings} patch={patchSettings} />
         </div>
-        <PresencePanel tid={tid} />
         <ObsGuideHint />
       </div>
     </div>
