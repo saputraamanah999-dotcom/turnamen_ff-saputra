@@ -15,7 +15,8 @@
     "bridge": "npm run dev --prefix broadcast-bridge",
     "test:scoring": "tsx scripts/test-scoring.ts",
     "test:p2p": "tsx scripts/test-p2p.ts",
-    "test:caster": "tsx scripts/test-caster.ts"
+    "test:caster": "tsx scripts/test-caster.ts",
+    "test:ocr": "tsx scripts/test-ocr.ts"
   },
   "engines": {
     "node": ">=20.9.0"

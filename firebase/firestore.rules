@@ -354,6 +354,25 @@ service cloud.firestore {
       }
     }
 
+    // ---------- ocrUploads (AI OCR — arsip screenshot + hasil analisa) ----------
+    // Admin mengunggah screenshot hasil match (hosting: ImgBB/Supabase, link saja
+    // yang disimpan), AI membaca placement/kill → formulir Entri Hasil terisi
+    // otomatis. Arsip ini jejak audit: siapa mengunggah, kapan, hasil analisa.
+    // Publik TIDAK boleh membaca; bukti yang dipakai publik tersalin ke dokumen
+    // match (screenshotUrl) yang aturannya sudah ketat.
+    match /ocrUploads/{uploadId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['tid', 'matchId', 'matchNumber', 'url', 'thumbUrl', 'deleteUrl', 'host', 'width', 'height', 'size', 'mime', 'filename', 'analysis', 'applied', 'createdAt'])
+        && request.resource.data.tid is string
+        && request.resource.data.matchId is string
+        && request.resource.data.url is string
+        && request.resource.data.url.matches('^https://.*')
+        && request.resource.data.url.size() <= 600
+        && request.resource.data.host in ['imgbb', 'supabase'];
+      allow update, delete: if isAdmin();
+    }
+
     // ---------- Default: tolak semua ----------
     match /{document=**} {
       allow read, write: if false;

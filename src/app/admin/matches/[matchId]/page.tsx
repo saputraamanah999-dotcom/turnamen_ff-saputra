@@ -11,13 +11,14 @@ import { useParams, useSearchParams } from "next/navigation";
 import { ArrowLeft, Eye, EyeOff, Save, Send, TriangleAlert } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import { EmptyState } from "@/components/common/stat";
+import { OcrUploader } from "@/components/admin/ocr-uploader";
 import { useActiveTournament, useMatches, useTeams, fetchResultsOnce } from "@/services/firestore/hooks";
 import { publishResults, saveDraftResults } from "@/services/scoring/publish";
 import { useAdminSession } from "@/services/auth/admin";
 import { useToast } from "@/hooks/use-toast";
 import { placementPointsFor, killPointsFor, validateResultEntries } from "@/lib/scoring";
 import { formatDateTime } from "@/lib/constants";
-import type { MatchResult } from "@/lib/types";
+import type { MatchResult, OcrRow } from "@/lib/types";
 
 interface Row {
   teamId: string;
@@ -92,6 +93,25 @@ export default function MatchEntryPage() {
   const filledCount = rows.filter((r) => r.placement != null && r.kills != null).length;
   const isPublished = Boolean(match?.resultsPublished);
 
+  /** Isi formulir dari hasil AI OCR (dipanggil kartu Analisa Screenshot). */
+  function applyOcr(ocrRows: OcrRow[]) {
+    setRows((prev) =>
+      prev.map((p) => {
+        const hit = ocrRows.find((r) => r.teamId === p.teamId);
+        if (!hit) return p;
+        return {
+          ...p,
+          placement: hit.rank ?? p.placement,
+          kills: hit.kills ?? p.kills,
+        };
+      }),
+    );
+    toast({
+      title: "Formulir terisi otomatis dari screenshot",
+      description: `${ocrRows.length} tim diterapkan. Cek sekali lagi, lalu Simpan Draft atau Publish.`,
+    });
+  }
+
   if (!match || !tid) {
     return <EmptyState title="Match tidak ditemukan" />;
   }
@@ -156,6 +176,25 @@ export default function MatchEntryPage() {
           Hasil match ini sudah dipublikasikan ({publishedList.length} tim). Setiap perubahan
           memerlukan konfirmasi dan akan dicatat pada audit history.
         </p>
+      ) : null}
+
+      {/* AI OCR — upload screenshot → formulir terisi otomatis */}
+      <OcrUploader
+        tid={tid}
+        matchId={matchId!}
+        matchNumber={match.matchNumber}
+        teams={teams.data ?? []}
+        onApply={applyOcr}
+      />
+
+      {/* Bukti screenshot tersimpan pada match ini */}
+      {match.screenshotUrl ? (
+        <div className="mt-3 flex items-center gap-3 text-xs font-bold text-fs-text/70">
+          <BoBadge className="bg-fs-cyan text-black">BUKTI SS</BoBadge>
+          <a href={match.screenshotUrl} target="_blank" rel="noopener noreferrer" className="text-fs-cyan underline">
+            Lihat screenshot hasil match ini ↗
+          </a>
+        </div>
       ) : null}
 
       {/* Tabel entri */}

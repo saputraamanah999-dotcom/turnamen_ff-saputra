@@ -188,6 +188,10 @@ export interface Team {
   status: TeamStatus;
   description?: string;
   roster?: RosterMember[];
+  /** Kapten tim — nama akun FF. Dipakai AI OCR sebagai memori identitas tim. */
+  captain?: string;
+  /** Nama alternatif yang pernah dikenali AI OCR untuk tim ini (memori pencocokan). */
+  ocrAliases?: string[];
   createdAt?: number;
   updatedAt?: number;
 }
@@ -203,8 +207,63 @@ export interface Match {
   isCurrent: boolean;
   resultsPublished: boolean;
   scoringVersion: string;
+  /** Bukti screenshot hasil match (hasil upload AI OCR, link hosting gambar). */
+  screenshotUrl?: string;
+  screenshotThumbUrl?: string;
   createdAt?: number;
   updatedAt?: number;
+}
+
+// ---------- AI OCR screenshot ----------
+
+/** Satu baris hasil pembacaan AI/OCR dari screenshot Free Fire. */
+export interface OcrRow {
+  /** Placement/peringkat pada screenshot; null bila tidak terbaca. */
+  rank: number | null;
+  /** Nama tim PERSIS seperti tertulis di layar (mentah dari AI). */
+  teamRaw: string;
+  /** Tim terdaftar yang dicocokkan AI (id di teams/{tid}); null bila tidak cocok. */
+  teamId: string | null;
+  /** Nama tim terdaftar hasil pencocokan (untuk tampilan). */
+  teamName?: string | null;
+  kills: number | null;
+  /** Poin total yang tertulis di layar (bila ada); tidak dipakai untuk hitung resmi. */
+  points?: number | null;
+  /** 0..1 — keyakinan pembacaan baris ini. */
+  confidence?: number;
+}
+
+export interface OcrAnalysis {
+  /** Mesin yang berhasil dipakai: "gemini" | "openai" | "ocrspace". */
+  source: string;
+  /** Nama tim yang jadi BOOYAH (juara 1) menurut AI, bila ada. */
+  booyahTeam?: string | null;
+  rows: OcrRow[];
+  notes?: string | null;
+  /** true bila hasil berasal dari OCR polos dan wajib diperiksa admin. */
+  needsReview?: boolean;
+  analyzedAt?: number;
+}
+
+/** Dokumen koleksi ocrUploads — arsip screenshot + hasil analisa per match. */
+export interface OcrUpload {
+  id?: string;
+  tid: string;
+  matchId: string;
+  matchNumber?: number;
+  url: string;
+  thumbUrl?: string;
+  /** Link hapus gambar di hosting (ImgBB) — simpan untuk housekeeping. */
+  deleteUrl?: string;
+  host: "imgbb" | "supabase";
+  width?: number;
+  height?: number;
+  size?: number;
+  mime?: string;
+  filename?: string;
+  analysis?: OcrAnalysis | null;
+  applied?: boolean;
+  createdAt?: number | null;
 }
 
 export interface MatchResult {
