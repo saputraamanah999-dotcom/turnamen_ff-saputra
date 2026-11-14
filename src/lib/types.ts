@@ -346,6 +346,9 @@ export interface BroadcastSettings {
     /** Epoch ms sesi kedaluwarsa (default mulai +8 jam). */
     expiresAt?: number;
   } | null;
+  /** Tema tampilan seluruh layar (id dari THEMES) — dipilih admin,
+   *  berlaku real-time di TV, /live, /leaderboard & halaman publik lain. */
+  theme?: string;
   /** Pengaturan panggung/presentasi (TV & /live). */
   presentation?: {
     /** Sembunyikan judul video & nama channel pada embed YouTube (strip branding di atas video). Default true. */
@@ -381,6 +384,18 @@ export interface BroadcastSettings {
   announcements?: string[];
   emergency?: BroadcastEmergency;
   updatedAt?: number;
+}
+
+/** Pengaturan kualitas berbagi layar BOF Caster (perangkat caster, localStorage). */
+export interface CasterQuality {
+  /** Resolusi capture: 720p, 1080p, atau ikuti layar asli. */
+  resolution: "720" | "1080" | "native";
+  /** Target FPS: 15 hemat CPU, 24 sinematik, 30 standar, 60 terlampin. */
+  fps: 15 | 24 | 30 | 60;
+  /** Preset kualitas encoder: HD Maksimal / Seimbang / Hemat CPU. */
+  quality: "hd" | "balanced" | "light";
+  /** true = audio game murni (tanpa voice processing); false = mode komunikasi. */
+  rawAudio: boolean;
 }
 
 export interface ObserverEvent {

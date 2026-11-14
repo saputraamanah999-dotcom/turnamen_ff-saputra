@@ -49,40 +49,42 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* ==== FIRESTORM ARENA CORE ==== */
-  --color-fs-bg: #080B10;      /* Deep Black */
-  --color-fs-char: #111821;    /* Charcoal */
-  --color-fs-panel: #18212C;   /* Dark Panel */
-  --color-fs-head: #111821;    /* Panel header */
-  --color-fs-edge: #26303C;    /* Border baja tipis */
-  --color-fs-edge-strong: #3A4655;
-  --color-fs-text: #F7F9FC;    /* White */
-  --color-fs-muted: #98A2B3;   /* Muted Gray */
-  --color-fs-fire: #FF5A1F;    /* Fire Orange */
-  --color-fs-flame: #FF8A00;   /* Flame Orange */
-  --color-fs-gold: #FFC247;    /* Gold Yellow */
-  --color-fs-cyan: #35D6FF;    /* Electric Cyan */
-  --color-fs-ok: #22C55E;      /* Green — status berhasil */
-  --color-fs-err: #EF4444;     /* Red — error/emergency */
-  --color-fs-ink: #0B0E14;     /* Ink gelap untuk teks di atas emas/sian */
+  /* ==== FIRESTORM ARENA CORE ====
+     Referensi var runtime (BUKAN warna statis) agar html[data-theme]
+     mengganti SEMUA kelas utilitas Tailwind (bg/text fs) secara real-time. */
+  --color-fs-bg: var(--fs-bg);
+  --color-fs-char: var(--fs-char);
+  --color-fs-panel: var(--fs-panel);
+  --color-fs-head: var(--fs-head);
+  --color-fs-edge: var(--fs-edge);
+  --color-fs-edge-strong: var(--fs-edge-strong);
+  --color-fs-text: var(--fs-text);
+  --color-fs-muted: var(--fs-muted);
+  --color-fs-fire: var(--fs-fire);
+  --color-fs-flame: var(--fs-flame);
+  --color-fs-gold: var(--fs-gold);
+  --color-fs-cyan: var(--fs-cyan);
+  --color-fs-ok: var(--fs-ok);
+  --color-fs-err: var(--fs-err);
+  --color-fs-ink: var(--fs-ink);
 
-  /* ==== LEGACY STIKAR PALETTE → dipetakan ke FIRESTORM ====
-     Kelas lama (bg-zb-blue, bg-zb-yellow, dsb.) tetap berfungsi
-     dan otomatis mengikuti tema baru. zb-black = tinta gelap yang
-     dipakai DI ATAS permukaan emas/sian (kontras). */
-  --color-zb-blue: #FF5A1F;
-  --color-zb-blue-deep: #C23B0E;
-  --color-zb-purple: #FF8A00;
-  --color-zb-cyan: #35D6FF;
-  --color-zb-yellow: #FFC247;
-  --color-zb-black: #0B0E14;
-  --color-zb-white: #F7F9FC;
-  --color-zb-off: #080B10;
+  /* ==== LEGACY STIKAR PALETTE → mengikuti tema aktif ====
+     Kelas lama (bg-zb-blue, bg-zb-yellow, dsb.) otomatis berganti warna
+     bersama tema yang dipilih admin. zb-black = tinta gelap di atas
+     permukaan emas/sian (kontras). */
+  --color-zb-blue: var(--fs-fire);
+  --color-zb-blue-deep: var(--fs-flame);
+  --color-zb-purple: var(--fs-flame);
+  --color-zb-cyan: var(--fs-cyan);
+  --color-zb-yellow: var(--fs-gold);
+  --color-zb-black: var(--fs-ink);
+  --color-zb-white: var(--fs-text);
+  --color-zb-off: var(--fs-bg);
   /* Broadcast BOF */
-  --color-bo-gold: #FFC247;
-  --color-bo-gold-bright: #FFD97A;
-  --color-bo-black: #080B10;
-  --color-bo-purple: #FF8A00;
+  --color-bo-gold: var(--fs-gold);
+  --color-bo-gold-bright: color-mix(in srgb, var(--fs-gold) 72%, #ffffff);
+  --color-bo-black: var(--fs-bg);
+  --color-bo-purple: var(--fs-flame);
 }
 
 /* ---- Token runtime (dirujuk komponen & tema) ---- */
@@ -103,6 +105,8 @@
   --fs-ok: #22C55E;
   --fs-err: #EF4444;
   --fs-ink: #0B0E14; /* teks gelap di atas emas/sian */
+  --fs-on-fire: #0B0E14; /* teks DI ATAS permukaan fire/kicker — kontras 6:1 di oranye */
+  --fs-input-bg: rgba(8, 11, 16, 0.7);
 
   --background: var(--fs-bg);
   --foreground: var(--fs-text);
@@ -111,7 +115,7 @@
   --popover: #1B2530;
   --popover-foreground: var(--fs-text);
   --primary: var(--fs-fire);
-  --primary-foreground: #FFFFFF;
+  --primary-foreground: var(--fs-on-fire);
   --secondary: var(--fs-char);
   --secondary-foreground: var(--fs-text);
   --muted: #1A222D;
@@ -138,28 +142,96 @@
 }
 
 /* ============================================================
-   THEMES — 5 varian resmi (§24 prompt PHASE 2)
+   THEMES — roster 8 tema (DESIGN.md). Tiap tema = 2 warna inti
+   + 1 aksen di atas netral; kontras WCAG AA; komponen wajib utuh.
    ============================================================ */
 html[data-theme="obsidian-gold"] {
   --fs-fire: #E7B84C; --fs-flame: #F4D374; --fs-gold: #FFE296; --fs-cyan: #8FA8C0;
+  --fs-on-fire: #0B0E14;
   --primary: #E7B84C; --accent: #F4D374; --ring: #E7B84C;
   --chart-1: #E7B84C; --chart-2: #FFE296; --chart-3: #8FA8C0; --chart-5: #F4D374;
 }
 html[data-theme="cyber-blue"] {
   --fs-fire: #35D6FF; --fs-flame: #19B8E8; --fs-gold: #7BE8FF; --fs-cyan: #19E3B2;
+  --fs-on-fire: #0B0E14;
   --primary: #35D6FF; --accent: #19B8E8; --ring: #35D6FF;
   --chart-1: #35D6FF; --chart-2: #19E3B2; --chart-3: #7BE8FF; --chart-5: #19B8E8;
 }
 html[data-theme="purple-arena"] {
-  --fs-fire: #A855F7; --fs-flame: #7C3AED; --fs-gold: #F0ABFC; --fs-cyan: #22D3EE;
-  --primary: #A855F7; --accent: #7C3AED; --ring: #A855F7;
-  --chart-1: #A855F7; --chart-2: #F0ABFC; --chart-3: #22D3EE; --chart-5: #7C3AED;
+  --fs-fire: #9333EA; --fs-flame: #7C3AED; --fs-gold: #F0ABFC; --fs-cyan: #22D3EE;
+  --fs-on-fire: #FFFFFF;
+  --primary: #9333EA; --accent: #7C3AED; --ring: #9333EA;
+  --chart-1: #9333EA; --chart-2: #F0ABFC; --chart-3: #22D3EE; --chart-5: #7C3AED;
 }
 html[data-theme="black-championship"] {
   --fs-fire: #F7F9FC; --fs-flame: #C0C8D4; --fs-gold: #FFC247; --fs-cyan: #8FA3B8;
+  --fs-on-fire: #0B0E14;
   --primary: #F7F9FC; --primary-foreground: #0B0E14; --accent: #C0C8D4; --ring: #F7F9FC;
   --chart-1: #F7F9FC; --chart-2: #FFC247; --chart-3: #8FA3B8; --chart-5: #C0C8D4;
 }
+
+/* RED COMBAT — arang militer + merah tempur, aksen kuningan.
+   Nada zona tempur Free Fire: merah dijaga di band terang agar teks
+   putih di atas tombol primer tetap > 4.5:1. */
+html[data-theme="red-combat"] {
+  --fs-fire: #C8281F; --fs-flame: #B91C1C; --fs-gold: #E8C069; --fs-cyan: #C9A46B;
+  --fs-on-fire: #FFFFFF;
+  --fs-bg: #0A0A0C; --fs-char: #141114; --fs-panel: #1B1518; --fs-head: #141114;
+  --fs-edge: #33262A; --fs-edge-strong: #4A3539;
+  --primary: #C8281F; --primary-foreground: #FFFFFF; --accent: #B91C1C; --ring: #C8281F;
+  --chart-1: #C8281F; --chart-2: #E8C069; --chart-3: #C9A46B; --chart-5: #B91C1C;
+}
+
+/* TOXIC GREEN — hitam + hijau asam, aksen putih. Kontras ekstrem
+   untuk LED besar di ruang gelap; hijau asam dipetakan ke slot "fire"
+   (slot utama) dan emas dipertahankan untuk momen juara. */
+html[data-theme="toxic-green"] {
+  --fs-fire: #A3E635; --fs-flame: #84CC16; --fs-gold: #FFC247; --fs-cyan: #E7FCE3;
+  --fs-on-fire: #0B0E14;
+  --primary: #A3E635; --primary-foreground: #0B0E14; --accent: #84CC16; --ring: #A3E635;
+  --chart-1: #A3E635; --chart-2: #FFC247; --chart-3: #E7FCE3; --chart-5: #84CC16;
+}
+
+/* FROST GLASS — satu-satunya tema TERANG: ruang kelas terang /
+   proyektor, permukaan es. Semua permukaan + var shadcn ikut dibalik
+   agar tidak ada panel gelap tertinggal (R-34). */
+html[data-theme="frost-glass"] {
+  --fs-bg: #F2F6FB; --fs-char: #E4EBF4; --fs-panel: #FAFCFF; --fs-head: #E9EFF7;
+  --fs-edge: #C9D5E4; --fs-edge-strong: #9FB2C8;
+  --fs-text: #0F172A; --fs-muted: #4A5A70; --fs-ink: #FFFFFF;
+  --fs-on-fire: #FFFFFF;
+  --fs-input-bg: rgba(255, 255, 255, 0.92);
+  --fs-fire: #1D4ED8; --fs-flame: #2563EB; --fs-gold: #92400E; --fs-cyan: #0369A1;
+  --fs-ok: #15803D; --fs-err: #B91C1C;
+  --background: var(--fs-bg); --foreground: var(--fs-text);
+  --card: var(--fs-panel); --card-foreground: var(--fs-text);
+  --popover: #FFFFFF; --popover-foreground: var(--fs-text);
+  --primary: #1D4ED8; --primary-foreground: #FFFFFF;
+  --secondary: var(--fs-char); --secondary-foreground: var(--fs-text);
+  --muted: #E4EBF4; --muted-foreground: var(--fs-muted);
+  --accent: #2563EB; --accent-foreground: #FFFFFF;
+  --border: var(--fs-edge); --input: var(--fs-edge); --ring: #1D4ED8;
+  --chart-1: #1D4ED8; --chart-2: #92400E; --chart-3: #0369A1; --chart-4: #15803D; --chart-5: #2563EB;
+  --sidebar: #E9EFF7; --sidebar-foreground: var(--fs-text);
+  --sidebar-primary: #1D4ED8; --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(29, 78, 216, 0.10); --sidebar-accent-foreground: var(--fs-text);
+  --sidebar-border: var(--fs-edge); --sidebar-ring: #1D4ED8;
+}
+/* Permukaan emas di tema terang memakai teks putih (kontras 7:1),
+   skeleton & scrollbar versi terang, tombol emas tetap terbaca. */
+html[data-theme="frost-glass"] .bo-btn-gold { color: #FFFFFF; }
+html[data-theme="frost-glass"] .fs-holo {
+  background:
+    linear-gradient(#FAFCFF, #FAFCFF) padding-box,
+    linear-gradient(115deg, rgba(29,78,216,.65), rgba(146,64,14,.6), rgba(3,105,161,.55), rgba(29,78,216,.65)) border-box;
+}
+html[data-theme="frost-glass"] .bo-skel {
+  background: linear-gradient(90deg, #E4EBF4 25%, #EFF4FA 50%, #E4EBF4 75%);
+  background-size: 960px 100%;
+}
+html[data-theme="frost-glass"] .thin-scroll::-webkit-scrollbar-thumb { background: #B7C6D9; }
+html[data-theme="frost-glass"] .thin-scroll::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.05); }
+
 /* Kelas warna legacy ikut tema */
 html[data-theme] .theme-accent { color: var(--fs-fire); }
 
@@ -178,7 +250,7 @@ html[data-theme] .theme-accent { color: var(--fs-fire); }
     font-family: var(--font-condensed), var(--font-grotesk), ui-sans-serif, sans-serif;
     letter-spacing: 0.01em;
   }
-  ::selection { background: rgba(255, 90, 31, 0.35); }
+  ::selection { background: color-mix(in srgb, var(--fs-fire) 35%, transparent); }
 }
 
 /* ============================================================
@@ -223,6 +295,7 @@ html[data-theme] .theme-accent { color: var(--fs-fire); }
 .bo-btn:disabled { opacity: .45; cursor: not-allowed; }
 .bo-btn-primary, .bo-btn-fire {
   background: linear-gradient(135deg, var(--fs-fire), var(--fs-flame));
+  color: var(--fs-on-fire); /* teks selalu lolos kontras di atas permukaan terang */
   border-color: rgba(255, 138, 0, 0.6);
   box-shadow: 0 4px 18px rgba(255, 90, 31, 0.28);
 }
@@ -256,7 +329,7 @@ html[data-theme] .theme-accent { color: var(--fs-fire); }
 .bo-input {
   height: 2.5rem; width: 100%;
   border: 1px solid var(--fs-edge-strong);
-  background: rgba(8, 11, 16, 0.7);
+  background: var(--fs-input-bg, rgba(8, 11, 16, 0.7));
   padding: 0 .7rem; font-size: .85rem; font-weight: 600;
   color: var(--fs-text);
 }
@@ -267,7 +340,7 @@ html[data-theme] .theme-accent { color: var(--fs-fire); }
   display: inline-block;
   padding: .25rem .6rem;
   background: linear-gradient(135deg, var(--fs-fire), var(--fs-flame));
-  color: #fff; font-size: 10.5px; font-weight: 800;
+  color: var(--fs-on-fire); font-size: 10.5px; font-weight: 800;
   text-transform: uppercase; letter-spacing: .18em;
   clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px));
 }
@@ -280,20 +353,20 @@ html[data-theme] .theme-accent { color: var(--fs-fire); }
 
 /* ---- Latar arena ---- */
 .bo-halftone {
-  background-image: radial-gradient(rgba(255,138,0,0.22) 1.2px, transparent 1.2px);
+  background-image: radial-gradient(color-mix(in srgb, var(--fs-fire) 22%, transparent) 1.2px, transparent 1.2px);
   background-size: 12px 12px; opacity: .1;
 }
 .bo-grid-bg {
   background-color: var(--fs-bg);
   background-image:
-    linear-gradient(rgba(53, 214, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(53, 214, 255, 0.045) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--fs-cyan) 12%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--fs-cyan) 12%, transparent) 1px, transparent 1px);
   background-size: 34px 34px;
 }
 .fs-arena-bg {
   background:
-    radial-gradient(1100px 500px at 85% -10%, rgba(255, 90, 31, 0.13), transparent 60%),
-    radial-gradient(900px 420px at -10% 110%, rgba(53, 214, 255, 0.08), transparent 55%),
+    radial-gradient(1100px 500px at 85% -10%, color-mix(in srgb, var(--fs-fire) 13%, transparent), transparent 60%),
+    radial-gradient(900px 420px at -10% 110%, color-mix(in srgb, var(--fs-cyan) 8%, transparent), transparent 55%),
     var(--fs-bg);
 }
 /* Bar diagonal api untuk strip dekoratif */
@@ -521,12 +594,34 @@ html[data-theme] .theme-accent { color: var(--fs-fire); }
 }
 .fs-float { animation: fs-float 5.5s ease-in-out infinite; }
 
-/* Angka countdown berdetak halus tiap detik (Starting Soon overlay). */
+/* Angka countdown berdetak halus tiap detik (Starting Soon overlay).
+   Transform-only: tanpa animasi text-shadow (mahal di GPU TV). */
 @keyframes fs-count-tick {
-  0% { transform: scale(1.045); text-shadow: 0 0 18px rgba(244,211,116,.45); }
-  100% { transform: scale(1); text-shadow: 0 0 6px rgba(244,211,116,.15); }
+  0% { transform: scale(1.045); }
+  100% { transform: scale(1); }
 }
 .fs-count-tick { animation: fs-count-tick .95s cubic-bezier(.22,1,.36,1) both; }
+
+/* Halo overlay countdown MURAH untuk GPU TV: radial-gradient statis yang
+   hanya menganimasikan opacity — tanpa filter blur dan tanpa scale,
+   sehingga TV kelas rendah tidak menghitung ulang blur tiap frame
+   (penyebab countdown terasa patah-patah sebelumnya). */
+@keyframes fs-halo {
+  0%, 100% { opacity: .45; }
+  50% { opacity: .9; }
+}
+.fs-halo {
+  position: absolute; left: 50%; top: 50%;
+  height: 62%; width: 62%;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--fs-fire) 15%, transparent), transparent 72%);
+  animation: fs-halo 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+.fs-halo-cyan {
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--fs-cyan) 13%, transparent), transparent 72%);
+}
 
 /* Teks emas bernyala pelan (champion / judul besar). */
 @keyframes fs-glow-text {
@@ -582,5 +677,5 @@ html[data-theme] .theme-accent { color: var(--fs-fire); }
   .fs-scanline::after, .fs-onair, .fs-connecting, .fs-ticker-track,
   .fs-progress-fire, .fs-live-in, .fs-row-in, .fs-holo, .fs-shine::before,
   .fs-float, .fs-count-tick, .fs-glow-text, .fs-pulse-glow, .fs-pulse-glow-icon,
-  .fs-aurora, .fs-eq-bar, .fs-shimmer-gold::before { animation: none !important; }
+  .fs-aurora, .fs-eq-bar, .fs-shimmer-gold::before, .fs-halo { animation: none !important; }
 }

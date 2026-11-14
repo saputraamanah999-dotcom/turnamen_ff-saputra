@@ -25,7 +25,7 @@ import {
 import { db } from "@/services/firebase/client";
 import { P2PHost, clampP2pMaxViewers } from "@/services/broadcast/p2p";
 import type { StreamStats } from "@/services/broadcast/stream";
-import type { BroadcastSettings } from "@/lib/types";
+import type { BroadcastSettings, CasterQuality } from "@/lib/types";
 
 /** Nama koleksi sesi caster (dokumen id = kode pairing). */
 export const CASTER_COLLECTION = "casterSessions";
@@ -226,6 +226,72 @@ export async function stopCasterSession(tid: string, code?: string): Promise<voi
   }
 }
 
+// ---------- Kualitas berbagi layar (aturan di DESIGN.md) ----------
+
+export const CASTER_QUALITY_DEFAULT: CasterQuality = {
+  resolution: "720",
+  fps: 30,
+  quality: "balanced",
+  rawAudio: true,
+};
+
+const CASTER_QUALITY_KEY = "bof.casterQuality";
+
+/** Baca pengaturan kualitas perangkat ini (localStorage, fallback default). */
+export function loadCasterQuality(): CasterQuality {
+  if (typeof window === "undefined") return CASTER_QUALITY_DEFAULT;
+  try {
+    const raw = localStorage.getItem(CASTER_QUALITY_KEY);
+    if (!raw) return CASTER_QUALITY_DEFAULT;
+    const q = JSON.parse(raw) as Partial<CasterQuality>;
+    return {
+      resolution: q.resolution === "1080" || q.resolution === "native" ? q.resolution : "720",
+      fps: q.fps === 15 || q.fps === 24 || q.fps === 60 ? q.fps : 30,
+      quality: q.quality === "hd" || q.quality === "light" ? q.quality : "balanced",
+      rawAudio: q.rawAudio !== false,
+    };
+  } catch {
+    return CASTER_QUALITY_DEFAULT;
+  }
+}
+
+/** Simpan pengaturan kualitas perangkat ini. */
+export function saveCasterQuality(q: CasterQuality): void {
+  try { localStorage.setItem(CASTER_QUALITY_KEY, JSON.stringify(q)); } catch { /* abaikan */ }
+}
+
+/** maxBitrate per preset (bps): HD 8 Mbps, Seimbang 4,5 Mbps, Hemat 2,5 Mbps. */
+export function casterBitrateBps(q: CasterQuality): number {
+  if (q.quality === "hd") return 8_000_000;
+  if (q.quality === "light") return 2_500_000;
+  return 4_500_000;
+}
+
+/** degradationPreference: HD & Seimbang menjaga framerate (game), Hemat seimbang. */
+export function casterDegradation(q: CasterQuality): string {
+  return q.quality === "light" ? "balanced" : "maintain-framerate";
+}
+
+/** Konstraints getDisplayMedia dari pengaturan — resolusi & fps dibatasi di sumber,
+ *  audio: rawAudio = TANPA voice processing (musik game tidak berubah aneh/robotik). */
+export function casterDisplayConstraints(q: CasterQuality): MediaStreamConstraints {
+  const video: MediaTrackConstraints = {
+    frameRate: { ideal: q.fps, max: q.fps },
+  };
+  if (q.resolution === "720") { video.width = { max: 1280 }; video.height = { max: 720 }; }
+  else if (q.resolution === "1080") { video.width = { max: 1920 }; video.height = { max: 1080 }; }
+  const audio: MediaTrackConstraints = q.rawAudio
+    ? {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+        channelCount: { ideal: 2 },
+        sampleRate: { ideal: 48000 },
+      }
+    : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+  return { video, audio };
+}
+
 // ---------- Sisi CASTER (host — laptop/HP panitia) ----------
 
 export interface CasterHostEvents {
@@ -240,13 +306,18 @@ export interface CasterHostHandle {
 }
 
 /** Bangun host caster dari kode pairing — memakai mesin P2PHost dengan
- *  basePath casterSessions/{code} (tanpa menyentuh broadcastSettings). */
+ *  basePath casterSessions/{code} (tanpa menyentuh broadcastSettings).
+ *  q = kualitas encoder (bitrate/fps/degradation) dari pengaturan /caster. */
 export function createCasterHost(
   tid: string,
   code: string,
   events: CasterHostEvents,
   maxViewers?: number,
+  q?: CasterQuality,
 ): CasterHostHandle {
+  const quality = q
+    ? { maxBitrateBps: casterBitrateBps(q), maxFramerate: q.fps, degradation: casterDegradation(q) }
+    : undefined;
   const host = new P2PHost(
     tid,
     {
@@ -261,7 +332,7 @@ export function createCasterHost(
         });
       },
     },
-    { basePath: casterBasePath(code), controlBroadcastLive: false },
+    { basePath: casterBasePath(code), controlBroadcastLive: false, quality },
   );
   host.maxViewers = clampP2pMaxViewers(maxViewers ?? 3);
   return { host, maxViewers: host.maxViewers };

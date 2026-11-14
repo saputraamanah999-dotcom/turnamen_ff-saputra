@@ -243,6 +243,9 @@ export class P2PHost {
   /** true (admin/Live Control): publish/stop menulis broadcastSettings.p2pLive.
    *  false (Caster anonim): jangan sentuh broadcastSettings — tidak berizin. */
   private controlBroadcastLive: boolean;
+  /** Kualitas encoder per penonton (maxBitrate/fps/degradation) —
+   *  diatur panitia di /caster; default tetap 720p-capable 3,5 Mbps/30fps. */
+  private quality: { maxBitrateBps?: number; maxFramerate?: number; degradation?: string } = {};
   private stream: MediaStream | null = null;
   private sessions = new Map<string, HostSession>(); // key = viewerId
   private reserved = new Set<string>(); // slot yang sedang dijawab (cegah race dua penonton bersamaan)
@@ -260,12 +263,25 @@ export class P2PHost {
   constructor(
     tid: string,
     events: P2PHostEvents = {},
-    opts: { basePath?: string; controlBroadcastLive?: boolean } = {},
+    opts: {
+      basePath?: string;
+      controlBroadcastLive?: boolean;
+      quality?: { maxBitrateBps?: number; maxFramerate?: number; degradation?: string };
+    } = {},
   ) {
     this.tid = tid;
     this.ev = events;
     this.basePath = opts.basePath ?? `p2pSessions/${tid}`;
     this.controlBroadcastLive = opts.controlBroadcastLive ?? true;
+    this.quality = opts.quality ?? {};
+  }
+
+  /** Ubah kualitas encoder saat siaran berjalan (langsung ke semua sesi aktif). */
+  async setQuality(q: { maxBitrateBps?: number; maxFramerate?: number; degradation?: string }): Promise<void> {
+    this.quality = { ...this.quality, ...q };
+    for (const s of this.sessions.values()) {
+      await this.applySenderQuality(s.pc);
+    }
   }
 
   /** Koleksi dokumen penonton untuk mode ini. */
@@ -528,17 +544,21 @@ export class P2PHost {
     } catch { /* candidate sudah tidak relevan (renegosiasi) */ }
   }
 
-  /** 720p-capable: maxBitrate 3.5 Mbps, 30 fps, maintain-framerate per penonton. */
+  /** Kualitas per penonton: default 720p-capable (3,5 Mbps, 30 fps, maintain-framerate);
+   *  dioverride pengaturan kualitas dari /caster bila ada. */
   private async applySenderQuality(pc: RTCPeerConnection): Promise<void> {
+    const maxBitrate = this.quality.maxBitrateBps ?? P2P_MAX_BITRATE_BPS;
+    const maxFps = this.quality.maxFramerate ?? P2P_MAX_FRAMERATE;
+    const degradation = this.quality.degradation ?? P2P_DEGRADATION_PREFERENCE;
     for (const sender of pc.getSenders()) {
       if (sender.track?.kind !== "video") continue;
       try {
         const params = sender.getParameters();
         if (!params.encodings?.length) params.encodings = [{}];
-        params.encodings[0].maxBitrate = P2P_MAX_BITRATE_BPS;
-        params.encodings[0].maxFramerate = P2P_MAX_FRAMERATE;
+        params.encodings[0].maxBitrate = maxBitrate;
+        params.encodings[0].maxFramerate = maxFps;
         (params.encodings[0] as RTCRtpEncodingParameters & { degradationPreference?: string }).degradationPreference =
-          P2P_DEGRADATION_PREFERENCE;
+          degradation;
         await sender.setParameters(params);
       } catch { /* browser lama tanpa setParameters — lanjut default */ }
     }

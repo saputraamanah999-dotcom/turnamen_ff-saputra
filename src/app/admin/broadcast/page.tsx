@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import { parseYouTubeId } from "@/components/video/player";
-import { MusicPanel, ObsGuideHint, PodiumPanel, PresencePanel, SfxPanel, CasterPanel } from "@/components/admin/broadcast-extras";
+import { MusicPanel, ObsGuideHint, PodiumPanel, PresencePanel, SfxPanel, CasterPanel, ThemePanel } from "@/components/admin/broadcast-extras";
 import { useActiveTournament, useBroadcast, useMatches } from "@/services/firestore/hooks";
 import { setCurrentMatch } from "@/services/scoring/publish";
 import {
@@ -960,6 +960,7 @@ export default function AdminBroadcastPage() {
         Semua kartu di bawah berlaku REALTIME ke TV (/display), halaman /live, dan halaman interaktif penonton.
       </p>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <ThemePanel tid={tid} settings={settings} patch={patchSettings} />
         <CasterPanel tid={tid} settings={settings} />
         <PresencePanel tid={tid} />
         <MusicPanel tid={tid} settings={settings} patch={patchSettings} />

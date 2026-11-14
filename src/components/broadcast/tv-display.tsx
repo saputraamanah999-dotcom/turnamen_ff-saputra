@@ -20,6 +20,7 @@ import {
 import { ORG } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useKeepAwake } from "@/lib/wakelock";
+import { useBroadcastTheme } from "@/components/common/theme-boot";
 import { CountdownOverlay } from "@/components/broadcast/presentation";
 import { ChampionPodium } from "@/components/leaderboard/champion-podium";
 import { PresenceBadge } from "@/components/broadcast/presence-badge";
@@ -43,6 +44,8 @@ function TvDisplayInner({ tidOverride }: { tidOverride?: string }) {
   const matches = useMatches(tid, false);
   const teams = useTeams(tid, false);
   const broadcast = useBroadcast(tid, false);
+  // Tema broadcast dari admin berlaku real-time (menimpa preferensi lokal TV).
+  useBroadcastTheme(broadcast.data?.theme);
   const observerEvents = usePublicObserverEvents(tid);
   // Presentasi TV (§17): TV mengikuti kendali admin realtime.
   const presentation = useDoc<PresentationState>(tid ? `presentationState/${tid}` : null, { disableFallback: true });

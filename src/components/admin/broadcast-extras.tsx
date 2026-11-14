@@ -14,8 +14,9 @@
 
 import { useEffect, useState } from "react";
 import {
-  Cast, Copy, Eye, ListMusic, MonitorUp, Music2, PartyPopper, Play, Plus, RefreshCw, Trash2, Trophy, Volume2, Zap,
+  Cast, Copy, Eye, ListMusic, MonitorUp, Music2, Palette, PartyPopper, Play, Plus, RefreshCw, Trash2, Trophy, Volume2, Zap,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import { parseYouTubeId } from "@/components/video/player";
 import { parseTrackInput, resolveActiveTrack } from "@/components/broadcast/music-player";
@@ -25,6 +26,7 @@ import {
   casterUrl, formatPairCodeSafe, rotateCasterCode, startCasterSession, stopCasterSession,
 } from "@/services/broadcast/caster";
 import { useQr } from "@/services/broadcast/heartbeat";
+import { applyTheme, THEMES, DEFAULT_THEME } from "@/lib/themes";
 import type { BroadcastSettings, MusicSettings } from "@/lib/types";
 
 type PatchFn = (patch: Partial<BroadcastSettings>, okMsg: string) => Promise<void>;
@@ -429,6 +431,75 @@ export function ObsGuideHint() {
       <p className="mt-2 text-[10px] font-semibold text-fs-text/40">
         Panduan lengkap langkah-demi-langkah (dari buat channel sampai siaran lancar):
         <code className="ml-1 border border-fs-edge bg-fs-bg px-1.5 py-0.5">documentation/OBS_YOUTUBE_GUIDE.md</code>
+      </p>
+    </BoCard>
+  );
+}
+
+// ============================================================
+// TEMA TAMPILAN — dipilih admin, berlaku real-time di semua layar
+// (roster & alasan tiap tema: DESIGN.md)
+// ============================================================
+export function ThemePanel({
+  tid,
+  settings,
+  patch,
+}: {
+  tid: string | null;
+  settings: Partial<BroadcastSettings>;
+  patch: PatchFn;
+}) {
+  const current = settings.theme ?? DEFAULT_THEME;
+
+  function pick(id: string) {
+    applyTheme(id); // pratinjau instan di perangkat ini
+    if (tid) void patch({ theme: id }, `Tema "${THEMES.find((t) => t.id === id)?.name ?? id}" aktif di semua layar (TV, /live, leaderboard) real-time`);
+  }
+
+  return (
+    <BoCard className="bg-fs-panel p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 font-display text-base font-black uppercase">
+          <Palette className="h-4 w-4 text-fs-cyan" /> Tema Tampilan (Real-Time)
+        </h2>
+        {!tid ? <BoBadge className="bg-fs-gold/15 text-fs-gold">Pilih turnamen dulu</BoBadge> : null}
+      </div>
+      <p className="mt-1 text-[11px] font-semibold text-fs-text/50">
+        Satu klik: seluruh layar (TV /display, /live, /leaderboard, halaman publik) langsung berganti tema
+        tanpa reload. Roster & karakternya didokumentasikan di <code>DESIGN.md</code>.
+      </p>
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {THEMES.map((t) => {
+          const active = current === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => pick(t.id)}
+              disabled={!tid}
+              aria-pressed={active}
+              className={cn(
+                "bo-press border p-2.5 text-left",
+                active ? "border-fs-fire bg-fs-fire/10" : "border-fs-edge bg-black/20 hover:border-fs-edge-strong",
+              )}
+            >
+              <span className="flex h-6 w-full overflow-hidden" aria-hidden="true">
+                {t.swatch.map((c) => (
+                  <span key={c} style={{ background: c }} className="h-full flex-1" />
+                ))}
+              </span>
+              <span className="mt-2 flex items-center justify-between gap-1">
+                <span className="text-[11px] font-black uppercase tracking-wide">{t.name}</span>
+                {active ? <BoBadge className="bg-fs-ok/15 text-fs-ok">Aktif</BoBadge> : null}
+              </span>
+              <span className="mt-0.5 block text-[10px] font-semibold leading-snug text-fs-muted">{t.note}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[10px] font-semibold text-fs-text/40">
+        Catatan: tema tersimpan di database turnamen ini. Pemilihan tema khusus perangkat ini (tanpa mengubah
+        layar lain) tetap tersedia di <b>Admin → Pengaturan</b>.
       </p>
     </BoCard>
   );

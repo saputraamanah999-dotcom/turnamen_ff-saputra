@@ -18,18 +18,61 @@ import { BoButton, BoCard } from "@/components/common/bo";
 import { cn } from "@/lib/utils";
 import { ORG } from "@/lib/constants";
 import {
+  casterDisplayConstraints,
+  casterBitrateBps,
+  casterDegradation,
   createCasterHost,
   formatPairCodeSafe,
   isSessionUsable,
+  loadCasterQuality,
   readCasterSession,
+  saveCasterQuality,
   subscribeCasterSession,
   validatePairCode,
   type CasterHostHandle,
   type CasterSessionInfo,
 } from "@/services/broadcast/caster";
+import type { CasterQuality } from "@/lib/types";
 import { useKeepAwake } from "@/lib/wakelock";
 
 type Phase = "idle" | "checking" | "ready" | "sharing" | "error";
+
+/** Baris pilihan segmen (resolusi/fps/kualitas) — tombol nyata, state jelas. */
+function SegRow({
+  label, hint, value, options, onChange, disabled,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  options: { v: string; label: string }[];
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-fs-muted">{label}</p>
+      <div className="mt-1 flex overflow-hidden border border-fs-edge">
+        {options.map((o) => (
+          <button
+            key={o.v}
+            type="button"
+            aria-pressed={value === o.v}
+            disabled={disabled}
+            onClick={() => onChange(o.v)}
+            className={cn(
+              "flex-1 px-1 py-1.5 text-[11px] font-black uppercase tracking-wide transition-colors",
+              value === o.v ? "bg-fs-cyan text-fs-ink" : "bg-black/30 text-fs-muted hover:text-fs-text",
+              disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {hint ? <p className="mt-1 text-[10px] font-semibold text-fs-muted/70">{hint}</p> : null}
+    </div>
+  );
+}
 
 function CasterInner() {
   const params = useSearchParams();
@@ -45,6 +88,9 @@ function CasterInner() {
   const hostRef = useRef<CasterHostHandle | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Kualitas berbagi layar (perangkat ini) — dimuat dari localStorage.
+  const [quality, setQuality] = useState<CasterQuality | null>(null);
+  useEffect(() => setQuality(loadCasterQuality()), []);
 
   const stopSharing = useCallback(async (silent = false) => {
     if (!silent) setMsg("Menghentikan berbagi…");
@@ -115,12 +161,12 @@ function CasterInner() {
 
   async function startSharing() {
     if (!session?.tid) return;
+    const q = quality ?? loadCasterQuality();
     setMsg("Membuka pemilih layar…");
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: { ideal: 30, max: 60 } },
-        audio: true,
-      });
+      // Kualitas diatur di sumber: resolusi & fps dibatasi, audio game murni
+      // tanpa voice processing (musik game tidak berubah aneh/robotik).
+      const stream = await navigator.mediaDevices.getDisplayMedia(casterDisplayConstraints(q));
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -139,7 +185,7 @@ function CasterInner() {
         },
         onViewers: setViewers,
         onStats: (s) => setStats({ kbps: Math.round(s.bitrateKbps ?? 0), fps: Math.round(s.fps ?? 0) }),
-      });
+      }, undefined, q);
       hostRef.current = handle;
       await handle.host.publish(stream);
       setPhase("sharing");
@@ -158,6 +204,18 @@ function CasterInner() {
   }
 
   const codeDigits = code.replace(/\D/g, "").slice(0, 6);
+
+  /** Ubah pengaturan kualitas: tersimpan lokal + bitrate/fps langsung berlaku
+   *  pada encoder WebRTC bila siaran sedang berjalan. Resolusi berlaku saat
+   *  berbagi dimulai lagi (batasan getDisplayMedia). */
+  function updateQuality(patch: Partial<CasterQuality>) {
+    const next = { ...(quality ?? loadCasterQuality()), ...patch };
+    setQuality(next);
+    saveCasterQuality(next);
+    void hostRef.current?.host
+      .setQuality({ maxBitrateBps: casterBitrateBps(next), maxFramerate: next.fps, degradation: casterDegradation(next) })
+      .catch(() => { /* sesi belum berjalan — berlaku saat mulai berbagi */ });
+  }
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col items-center justify-center px-4 py-10 text-fs-text">
@@ -257,6 +315,69 @@ function CasterInner() {
                 <p className="text-[9px] font-black uppercase tracking-widest text-fs-muted">Menunggu</p>
                 <p className="text-xs font-bold tabular-nums">{viewers.waiting}</p>
               </div>
+            </div>
+          ) : null}
+
+          {quality ? (
+            <div className="mt-4 border border-fs-edge bg-black/20 p-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-fs-muted">Kualitas Siaran (perangkat ini)</p>
+              <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                <SegRow
+                  label="Resolusi"
+                  value={quality.resolution}
+                  onChange={(v) => updateQuality({ resolution: v as CasterQuality["resolution"] })}
+                  options={[
+                    { v: "720", label: "720p" },
+                    { v: "1080", label: "1080p HD" },
+                    { v: "native", label: "Ikuti layar" },
+                  ]}
+                  hint="Berlaku saat berbagi dimulai lagi"
+                />
+                <SegRow
+                  label="FPS"
+                  value={String(quality.fps)}
+                  onChange={(v) => updateQuality({ fps: Number(v) as CasterQuality["fps"] })}
+                  options={[
+                    { v: "15", label: "15" },
+                    { v: "24", label: "24" },
+                    { v: "30", label: "30" },
+                    { v: "60", label: "60" },
+                  ]}
+                  hint="Makin tinggi makin berat CPU"
+                />
+                <SegRow
+                  label="Kualitas video"
+                  value={quality.quality}
+                  onChange={(v) => updateQuality({ quality: v as CasterQuality["quality"] })}
+                  options={[
+                    { v: "hd", label: "HD" },
+                    { v: "balanced", label: "Sedang" },
+                    { v: "light", label: "Hemat" },
+                  ]}
+                  hint={
+                    quality.quality === "hd"
+                      ? "Gambar tajam ±8 Mbps (internet kencang)"
+                      : quality.quality === "light"
+                        ? "Tahan lag ±2,5 Mbps (CPU ringan)"
+                        : "Seimbang ±4,5 Mbps"
+                  }
+                />
+              </div>
+              <label className="mt-3 flex cursor-pointer items-start gap-2 text-[11px] font-semibold text-fs-text/80">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 accent-orange-500"
+                  checked={quality.rawAudio}
+                  onChange={(e) => updateQuality({ rawAudio: e.target.checked })}
+                />
+                <span>
+                  <b>Audio game murni</b> (tanpa filter suara) — musik &amp; efek game tersalur apa adanya,
+                  tanpa suara aneh/robotik. Matikan hanya bila membagikan suara bicara/mic.
+                </span>
+              </label>
+              <p className="mt-1.5 text-[10px] font-semibold text-fs-muted/70">
+                Perubahan kualitas langsung berlaku; resolusi baru berlaku ketika berbagi dimulai ulang.
+              </p>
             </div>
           ) : null}
 

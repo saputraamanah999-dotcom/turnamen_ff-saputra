@@ -46,48 +46,64 @@ function fmtRemaining(ms: number): string {
 
 // ------------------------------------------------------------
 // COUNTDOWN BESAR (mis. menjelang turnamen/sesi dimulai)
+// Kinerja di TV: komponen detak (angka/beep) DIISOLASI di leaf
+// <CountdownTicker> sehingga cangkang overlay (halo, label, footer)
+// tidak di-render ulang 4x per detik; halo memakai radial-gradient
+// tanpa filter blur (pengganti blur-3xl yang membuat animasi patah).
 // ------------------------------------------------------------
 export function CountdownOverlay({ broadcast }: { broadcast: BroadcastSettings | null }) {
   const cd = broadcast?.countdown;
   const active = cd?.active === true && typeof cd.endsAt === "number";
-  const now = useNow(active);
+  const effects = broadcast?.presentation?.effects !== false;
+  const label = (cd?.label ?? "").trim() || "MENUJU SIARAN DIMULAI";
+
+  if (!active) return null;
+  return (
+    <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/85 px-6 text-center">
+      {/* glow latar (efek) — murah: radial gradient + opacity, tanpa blur */}
+      {effects ? <div className="fs-halo" aria-hidden="true" /> : null}
+
+      <p className="bo-kicker !text-fs-gold">{label}</p>
+
+      <CountdownTicker endsAt={cd!.endsAt as number} effects={effects} />
+
+      <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.34em] text-white/45 sm:text-xs">
+        {ORG.tournament} · {ORG.institution}
+      </p>
+    </div>
+  );
+}
+
+/** Leaf detak countdown: satu-satunya bagian yang di-render ulang tiap 250ms.
+ *  Angka memakai animasi transform + text-shadow statis (tanpa CSS filter) —
+ *  murah untuk GPU TV sehingga tidak lagi patah-patah. */
+function CountdownTicker({ endsAt, effects }: { endsAt: number; effects: boolean }) {
+  const now = useNow(true);
   const lastBeep = useRef(-1);
-  // Sembunyikan sendiri 4 detik setelah waktu habis ("MULAI!" masih tampil sebentar).
-  const remaining = active ? (cd!.endsAt as number) - now : 1;
+  const playedGo = useRef(false);
+  const remaining = endsAt - now;
   const finished = remaining <= 0;
   const secs = Math.max(0, Math.ceil(Math.max(0, remaining) / 1000));
 
   // SFX otomatis: beep tiap detik pada 10 detik terakhir, nada GO saat waktu habis.
   useEffect(() => {
-    if (!active || finished) return;
+    if (finished) return;
     if (secs <= 10 && secs > 0 && lastBeep.current !== secs) {
       lastBeep.current = secs;
       playSfx("beep", 0.45);
     }
-  }, [secs, active, finished]);
+  }, [secs, finished]);
   useEffect(() => {
-    if (finished && active) {
-      lastBeep.current = -1;
+    if (finished && !playedGo.current) {
+      playedGo.current = true;
       playSfx("go", 1);
     }
-  }, [finished, active]);
+  }, [finished]);
 
-  if (!active || remaining <= -4000) return null;
-
-  const effects = broadcast?.presentation?.effects !== false;
-  const label = (cd?.label ?? "").trim() || "MENUJU SIARAN DIMULAI";
+  if (remaining <= -4000) return null; // selesai — sembunyikan sendiri
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/85 px-6 text-center">
-      {/* glow latar (efek) */}
-      {effects ? (
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="fs-pulse-glow absolute left-1/2 top-1/2 h-[60%] w-[60%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fs-fire/10 blur-3xl" />
-        </div>
-      ) : null}
-
-      <p className="bo-kicker !text-fs-gold">{label}</p>
-
+    <>
       <AnimatePresence mode="popLayout">
         <motion.p
           key={finished ? "mulai" : secs}
@@ -95,21 +111,17 @@ export function CountdownOverlay({ broadcast }: { broadcast: BroadcastSettings |
           animate={{ opacity: 1, scale: 1 }}
           exit={effects ? { opacity: 0, scale: 0.92 } : { opacity: 0 }}
           transition={{ duration: 0.28, ease: "easeOut" }}
+          style={{ textShadow: "0 0 30px rgba(255,90,31,.4)" }}
           className={cn(
-            "font-display font-black uppercase leading-none tabular-nums drop-shadow-[0_0_30px_rgba(255,90,31,.45)]",
+            "font-display font-black uppercase leading-none tabular-nums",
             finished ? "text-fs-fire text-6xl sm:text-8xl" : "text-white text-7xl sm:text-9xl",
           )}
         >
           {finished ? "MULAI!" : fmtRemaining(remaining)}
         </motion.p>
       </AnimatePresence>
-
       {effects && finished ? <ConfettiBurst trigger="countdown-mulai" /> : null}
-
-      <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.34em] text-white/45 sm:text-xs">
-        {ORG.tournament} · {ORG.institution}
-      </p>
-    </div>
+    </>
   );
 }
 
@@ -154,11 +166,7 @@ export function StartSequenceOverlay({ broadcast }: { broadcast: BroadcastSettin
 
   return (
     <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-black/88 px-6 text-center">
-      {effects ? (
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="fs-pulse-glow absolute left-1/2 top-1/2 h-[55%] w-[55%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fs-cyan/10 blur-3xl" />
-        </div>
-      ) : null}
+      {effects ? <div className="fs-halo fs-halo-cyan" aria-hidden="true" /> : null}
 
       {burst ? (
         // FASE C — GAME START
@@ -170,7 +178,10 @@ export function StartSequenceOverlay({ broadcast }: { broadcast: BroadcastSettin
         >
           {effects ? <ConfettiBurst trigger="game-start" count={170} /> : null}
           <Zap className={cn("h-12 w-12 text-fs-gold", effects && "fs-pulse-glow-icon")} />
-          <p className="fs-live-in font-display text-6xl font-black uppercase leading-none text-fs-fire drop-shadow-[0_0_34px_rgba(255,90,31,.65)] sm:text-8xl">
+          <p
+            style={{ textShadow: "0 0 34px rgba(255,90,31,.55)" }}
+            className="fs-live-in font-display text-6xl font-black uppercase leading-none text-fs-fire sm:text-8xl"
+          >
             GAME START
           </p>
           <p className="text-sm font-bold uppercase tracking-[0.3em] text-fs-gold">{label}</p>
@@ -186,7 +197,8 @@ export function StartSequenceOverlay({ broadcast }: { broadcast: BroadcastSettin
               animate={{ opacity: 1, scale: 1 }}
               exit={effects ? { opacity: 0, scale: 0.7 } : { opacity: 0 }}
               transition={{ duration: 0.24, ease: "easeOut" }}
-              className="font-display text-8xl font-black leading-none tabular-nums text-fs-gold drop-shadow-[0_0_30px_rgba(255,200,60,.5)] sm:text-[10rem]"
+              style={{ textShadow: "0 0 30px rgba(255,200,60,.45)" }}
+              className="font-display text-8xl font-black leading-none tabular-nums text-fs-gold sm:text-[10rem]"
             >
               {secs}
             </motion.p>

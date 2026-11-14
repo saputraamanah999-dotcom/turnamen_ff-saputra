@@ -15,6 +15,7 @@ import { Info, MapPin, RadioTower, Signal, Smartphone } from "lucide-react";
 import { BroadcastLeaderboard } from "@/components/leaderboard/broadcast-board";
 import { LiveVideoPlayer, type PlayerStatus } from "@/components/video/player";
 import { PresenceBadge } from "@/components/broadcast/presence-badge";
+import { useBroadcastTheme } from "@/components/common/theme-boot";
 import { SmkLogoBadge } from "@/components/broadcast/brand-logo";
 import { useLivePresence } from "@/services/broadcast/presence";
 import { useAutoFullscreen } from "@/lib/fullscreen";
@@ -56,6 +57,8 @@ export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
   const matches = useMatches(tid, false);
   const teams = useTeams(tid, false);
   const broadcast = useBroadcast(tid, false);
+  // Tema broadcast dari admin berlaku real-time di halaman penonton.
+  useBroadcastTheme(broadcast.data?.theme);
   // Indikator penonton realtime (berapa & siapa yang online).
   const presence = useLivePresence(tid, { heartbeat: true });
 
