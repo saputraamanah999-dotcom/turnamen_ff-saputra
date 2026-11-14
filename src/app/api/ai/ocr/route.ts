@@ -13,9 +13,11 @@ import { NextRequest, NextResponse } from "next/server";
 //   2. OpenAI-compatible (OPENAI_API_KEY, boleh OPENAI_BASE_URL) —
 //      bisa dipakai untuk endpoint Z.AI/GLM atau lainnya yang
 //      kompatibel OpenAI vision.
-//   3. Jerexd Vision (JERE_API_KEY) — GRATIS, endpoint
-//      POST /api/ai/chatvision-v2 (Analisis + OCR gambar via URL).
-//      Gambar dikirim sebagai LINK ImgBB, tidak perlu upload ulang.
+//   3. Jerexd Vision (JERE_API_KEY) — GRATIS, UTAMA BOF, 3 langkah:
+//      a. chatvision-v2 (kirim LINK ImgBB) → bila JSON tidak terbentuk →
+//      b. chatvision v1 (upload file, model gemini) → bila masih deskripsi →
+//      c. aichat (teks gratis) menstrukturkan hasil bacaan menjadi JSON.
+//      Terbukti uji fixture: 6 baris rank/nama/kill terbaca akurat.
 //   4. OCR.space (OCR_SPACE_KEY atau OCRSPACE_API_KEY, default key
 //      uji "helloworld") — tanpa pendaftaran, hasil polos wajib
 //      dicek admin (needsReview).
@@ -135,31 +137,130 @@ async function callOpenai(
 
 // ---------- Provider 3: Jerexd Vision (gratis, via URL gambar) ----------
 // Endpoint: POST https://api.jerexd.my.id/api/ai/chatvision-v2?apikey=KEY
-// Body form: url=<link gambar> & prompt=<instruksi>
-// Respon   : { status: true, data: { answer }, result } — answer/result = teks.
+// Body: application/x-www-form-urlencoded (url=<link> & prompt=<instruksi>)
+//       — endpoint ini TIDAK menerima multipart/form-data.
+// Respon: { status: true, data: { answer }, result } — answer/result = teks.
 async function callJerexd(
   apiKey: string,
   imageUrl: string,
   prompt: string,
   model?: string,
 ): Promise<string> {
-  const form = new FormData();
-  form.append("url", imageUrl);
-  form.append("prompt", prompt);
-  if (model && model !== "default") form.append("model", model);
+  const params = new URLSearchParams();
+  params.set("url", imageUrl);
+  params.set("prompt", prompt);
+  if (model && model !== "default") params.set("model", model);
   const res = await fetch(`https://api.jerexd.my.id/api/ai/chatvision-v2?apikey=${encodeURIComponent(apiKey)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.toString(),
+    signal: AbortSignal.timeout(55_000),
+  });
+  const raw = await res.text();
+  let json: Record<string, unknown> | null = null;
+  try {
+    json = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    // Bukan JSON (mis. halaman error teks/HTML) — lempar dengan cuplikan isinya.
+    throw new Error(`Jerexd: respon bukan JSON (HTTP ${res.status}): ${raw.slice(0, 120)}`);
+  }
+  if (!res.ok || json?.status === false || (typeof json?.statusCode === "number" && json.statusCode >= 400)) {
+    const msg = json?.message ?? json?.error ?? `HTTP ${res.status}`;
+    throw new Error(`Jerexd: ${String(msg).slice(0, 300)}`);
+  }
+  const data = json?.data as { answer?: string } | undefined;
+  const result = json?.result as string | { answer?: string } | undefined;
+  const text = String(data?.answer ?? (typeof result === "string" ? result : result?.answer) ?? "").trim();
+  if (!text) throw new Error("Jerexd mengembalikan jawaban kosong.");
+  return text;
+}
+
+/** Jerexd chatvision v1 — upload FILE langsung (multipart), pilihan model gemini/gpt. */
+async function callJerexdV1(apiKey: string, b64: string, mime: string, prompt: string, model?: string): Promise<string> {
+  const form = new FormData();
+  form.append("prompt", prompt);
+  form.append("model", model || "gemini");
+  const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+  const bytes = Buffer.from(b64, "base64");
+  form.append("file", new Blob([new Uint8Array(bytes)], { type: mime }), `screenshot.${ext}`);
+  const res = await fetch(`https://api.jerexd.my.id/api/ai/chatvision?apikey=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     body: form,
     signal: AbortSignal.timeout(55_000),
   });
-  const json = await res.json().catch(() => null);
-  if (!res.ok || json?.status === false || json?.statusCode >= 400) {
-    const msg = json?.message ?? json?.error?.message ?? json?.error ?? `HTTP ${res.status}`;
-    throw new Error(`Jerexd: ${String(msg).slice(0, 300)}`);
+  const raw = await res.text();
+  let json: Record<string, unknown> | null = null;
+  try {
+    json = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    throw new Error(`JerexdV1: respon bukan JSON (HTTP ${res.status}): ${raw.slice(0, 120)}`);
   }
-  const text = String(json?.data?.answer ?? json?.result ?? "").trim();
-  if (!text) throw new Error("Jerexd mengembalikan jawaban kosong.");
+  if (!res.ok || json?.status === false || (typeof json?.statusCode === "number" && json.statusCode >= 400)) {
+    const msg = json?.message ?? json?.error ?? `HTTP ${res.status}`;
+    throw new Error(`JerexdV1: ${String(msg).slice(0, 300)}`);
+  }
+  const data = json?.data as { answer?: string } | undefined;
+  const result = json?.result as string | { answer?: string } | undefined;
+  const text = String(data?.answer ?? (typeof result === "string" ? result : result?.answer) ?? "").trim();
+  if (!text) throw new Error("JerexdV1 mengembalikan jawaban kosong.");
   return text;
+}
+
+// ---------- Jerexd langkah 2: aichat (teks, gratis) — strukturkan hasil bacaan ----------
+// Endpoint vision jerexd (v1/v2) kerap membalas deskripsi berisi SEMUA data
+// ("1 TEAM X (12 kills), 2 TEAM Y (9 kills), ...") tetapi tidak dalam JSON.
+// Langkah ini mengubah teks bacaan itu menjadi JSON skema tetap via aichat.
+async function callJerexdStruct(
+  apiKey: string,
+  caption: string,
+  teams: RegistryTeam[],
+): Promise<string> {
+  const daftar = teams.length
+    ? teams.map((t) => `- ${t.name}${t.tag ? ` (tag ${t.tag})` : ""}${t.captain ? `, kapten ${t.captain}` : ""}`).join("; ")
+    : "(belum ada tim terdaftar)";
+  const prompt = `Kamu asisten data turnamen Free Fire (BOF). Ubah teks hasil bacaan OCR screenshot papan skor berikut menjadi JSON murni.
+Skema: {"rows":[{"rank":1,"team":"NAMA DI LAYAR","kills":12}],"booyahTeam":"NAMA TIM RANK 1","notes":null}
+Aturan: satu baris per tim; rank = placement; kills = angka kill; nama tim PERSIS seperti di teks; bila ada daftar tim resmi berikut, gunakan untuk koreksi ejaan: ${daftar}.
+TEKS HASIL BACAAN OCR:
+"""
+${caption.slice(0, 3500)}
+"""
+Balas HANYA JSON tanpa penjelasan.`;
+  const params = new URLSearchParams();
+  params.set("model", process.env.JERE_TEXT_MODEL || "google/gemini-3.1-flash-lite");
+  params.set("prompt", prompt);
+  const res = await fetch(`https://api.jerexd.my.id/api/ai/aichat?apikey=${encodeURIComponent(apiKey)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.toString(),
+    signal: AbortSignal.timeout(45_000),
+  });
+  const raw = await res.text();
+  let json: Record<string, unknown> | null = null;
+  try {
+    json = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    throw new Error(`JerexdStruct: respon bukan JSON (HTTP ${res.status}): ${raw.slice(0, 120)}`);
+  }
+  if (!res.ok || json?.status === false || (typeof json?.statusCode === "number" && json.statusCode >= 400)) {
+    const msg = json?.message ?? json?.error ?? `HTTP ${res.status}`;
+    throw new Error(`JerexdStruct: ${String(msg).slice(0, 300)}`);
+  }
+  const data = json?.data as { answer?: string } | undefined;
+  const result = json?.result as string | { answer?: string } | undefined;
+  const text = String(data?.answer ?? (typeof result === "string" ? result : result?.answer) ?? "").trim();
+  if (!text) throw new Error("JerexdStruct mengembalikan jawaban kosong.");
+  return text;
+}
+
+/** True bila teks memuat JSON dengan array "rows" berisi minimal 1 baris. */
+function hasRowsJson(text: string): boolean {
+  try {
+    const obj = JSON.parse(extractJson(text)) as { rows?: unknown };
+    return Array.isArray(obj.rows) && obj.rows.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 // ---------- Provider 4: OCR.space (fallback tanpa key AI) ----------
@@ -266,7 +367,38 @@ export async function POST(req: NextRequest) {
   const jereKey = process.env.JERE_API_KEY || process.env.JEREXD_API_KEY;
   if (jereKey) {
     const model = process.env.JERE_MODEL || "default";
-    providers.push({ name: "jere", run: () => callJerexd(jereKey, imageUrl, prompt, model) });
+    providers.push({
+      name: "jere",
+      run: async () => {
+        const catatan: string[] = [];
+        // 1) chatvision-v2 via LINK ImgBB (paling cepat) — pakai bila balasannya JSON.
+        let caption = "";
+        try {
+          const t2 = await callJerexd(jereKey, imageUrl, prompt, model);
+          if (hasRowsJson(t2)) return t2;
+          caption = t2;
+          catatan.push("v2: balasan deskripsi, bukan JSON");
+        } catch (e2) {
+          catatan.push(`v2: ${String((e2 as Error).message).slice(0, 140)}`);
+        }
+        // 2) chatvision v1 upload FILE (model gemini) — pakai bila JSON.
+        try {
+          const t1 = await callJerexdV1(jereKey, b64, mime, prompt, "gemini");
+          if (hasRowsJson(t1)) return t1;
+          if (t1.length > caption.length) caption = t1;
+          catatan.push("v1: balasan deskripsi, bukan JSON");
+        } catch (e1) {
+          catatan.push(`v1: ${String((e1 as Error).message).slice(0, 140)}`);
+        }
+        if (!caption) throw new Error(catatan.join(" | ") || "Jerexd kosong");
+        // 3) Strukturkan teks bacaan via aichat (gratis) — hasilnya JSON skema tetap.
+        const structured = await callJerexdStruct(jereKey, caption, teams);
+        if (!hasRowsJson(structured)) {
+          throw new Error(`Jerexd: ${catatan.join(" | ")} | structuring gagal: ${structured.slice(0, 100)}`);
+        }
+        return structured;
+      },
+    });
   }
   providers.push({
     name: "ocrspace",
