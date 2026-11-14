@@ -255,7 +255,7 @@ export interface OcrUpload {
   thumbUrl?: string;
   /** Link hapus gambar di hosting (ImgBB) — simpan untuk housekeeping. */
   deleteUrl?: string;
-  host: "imgbb" | "supabase";
+  host: "imgbb";
   width?: number;
   height?: number;
   size?: number;

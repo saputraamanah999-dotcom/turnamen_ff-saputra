@@ -19,7 +19,7 @@
 // mati sendiri, sepanjang tab tetap terbuka.
 // ============================================================
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type WakeState =
   | "active" // Wake Lock API aktif (cara resmi)
@@ -109,6 +109,10 @@ function stopNoSleepVideo() {
 export function useKeepAwake(auto = true): { state: WakeState; request: () => void } {
   const [state, setState] = useState<WakeState>("unsupported");
 
+  // Ref agar callback "release" bisa memanggil ulang request tanpa
+  // mereferensikan const-nya sendiri (menghindari error react-hooks/immutability).
+  const requestRef = useRef<() => void>(() => {});
+
   const request = useCallback(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
     // 1) Wake Lock API resmi.
@@ -122,7 +126,7 @@ export function useKeepAwake(auto = true): { state: WakeState; request: () => vo
           setState("active");
           sentinel.addEventListener?.("release", () => {
             // Kunci lepas (mis. tab disembunyikan) → coba kunci lagi saat terlihat.
-            if (document.visibilityState === "visible") request();
+            if (document.visibilityState === "visible") requestRef.current();
           });
         })
         .catch(() => {
@@ -136,6 +140,8 @@ export function useKeepAwake(auto = true): { state: WakeState; request: () => vo
     if (startNoSleepVideo()) setState("fallback");
     else setState("blocked");
   }, []);
+
+  requestRef.current = request;
 
   useEffect(() => {
     if (!auto) return;

@@ -22,6 +22,7 @@ type Phase = "idle" | "uploading" | "analyzing" | "done" | "applied";
 const LABEL_MESIN: Record<string, string> = {
   gemini: "AI GEMINI VISION",
   openai: "AI OPENAI VISION",
+  jere: "AI JERE VISION (jerexd — gratis)",
   ocrspace: "OCR POLÓS (tanpa AI key)",
 };
 

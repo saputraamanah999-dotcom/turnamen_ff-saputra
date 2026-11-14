@@ -1,7 +1,7 @@
 "use client";
 // ============================================================
 // STIKAR ESPORTS — BOF · Klien AI OCR (sisi admin browser)
-// Alur: pilih screenshot → /api/upload/screenshot (ImgBB/Supabase,
+// Alur: pilih screenshot → /api/upload/screenshot (ImgBB,
 // dapat link) → /api/ai/ocr (AI baca placement/kill, cocokkan tim
 // terdaftar via memori kapten/roster/alias) → admin periksa →
 // TERAPKAN → formulir Entri Hasil terisi otomatis + arsip ocrUploads.
@@ -23,7 +23,7 @@ export interface UploadScreenshotResult {
   url: string;
   thumbUrl?: string;
   deleteUrl?: string;
-  host: "imgbb" | "supabase";
+  host: "imgbb";
   width?: number;
   height?: number;
   size?: number;
@@ -140,9 +140,10 @@ export async function linkScreenshotToMatch(
  */
 export async function addOcrAlias(tid: string, teamId: string, rawName: string) {
   if (!db || !rawName) return;
+  const database = db; // simpan referensi agar TS tidak kehilangan narrowing
   const key = normalizeTeamKey(rawName);
   if (!key) return;
-  const t = await import("firebase/firestore").then((m) => m.getDoc(doc(db, `tournaments/${tid}/teams/${teamId}`)));
+  const t = await import("firebase/firestore").then((m) => m.getDoc(doc(database, `tournaments/${tid}/teams/${teamId}`)));
   if (!t.exists()) return;
   const aliases: string[] = t.data().ocrAliases ?? [];
   const duplikat = aliases.some((a) => normalizeTeamKey(a) === key);

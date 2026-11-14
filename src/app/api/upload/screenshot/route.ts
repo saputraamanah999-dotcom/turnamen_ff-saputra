@@ -4,12 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 // BOF — POST /api/upload/screenshot
 // Upload bukti screenshot Free Fire → link gambar permanen.
 //
-// 1. UTAMA  : ImgBB (https://api.imgbb.com/1/upload) — CDN cepat,
-//             tidak ada expiration (gambar permanen) kecuali klien
-//             mengirim ?ttl=dalam_detik.
-// 2. CADANGAN: Supabase Storage (bucket publik "bof-screenshots",
-//             dibuat otomatis bila belum ada) — dipakai bila ImgBB
-//             gagal (limit/kuota/jaringan) atau key tidak diisi.
+// HOSTING TUNGGAL: ImgBB (https://api.imgbb.com/1/upload) — CDN
+// cepat, tidak ada expiration (gambar permanen) kecuali klien
+// mengirim ?ttl=dalam_detik. (Supabase dihapus dari alur —
+// keputusan owner: Firebase = database, ImgBB = hosting gambar.)
 //
 // Server-only: API key TIDAK pernah sampai ke browser.
 // ============================================================
@@ -25,7 +23,7 @@ interface UploadResult {
   url: string;
   thumbUrl?: string;
   deleteUrl?: string;
-  host: "imgbb" | "supabase";
+  host: "imgbb";
   width?: number;
   height?: number;
   size?: number;
@@ -71,53 +69,6 @@ async function uploadToImgbb(
   };
 }
 
-/** Ambil Supabase fallback dari env (URL publik + service role, server-only). */
-function supabaseEnv(): { url: string; key: string } | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return { url: url.replace(/\/$/, ""), key };
-}
-
-async function uploadToSupabase(
-  bytes: Buffer,
-  mime: string,
-  objectPath: string,
-): Promise<UploadResult> {
-  const env = supabaseEnv();
-  if (!env) throw new Error("SUPABASE_SERVICE_ROLE_KEY belum diisi di environment.");
-  const H = {
-    Authorization: `Bearer ${env.key}`,
-    apikey: env.key,
-    "x-upsert": "true",
-  };
-  // Pastikan bucket publik ada (abaikan error "sudah ada").
-  // Catatan: kirim HANYA "name" — menyertakan "id" membuat Supabase 500.
-  await fetch(`${env.url}/storage/v1/bucket`, {
-    method: "POST",
-    headers: { ...H, "Content-Type": "application/json" },
-    body: JSON.stringify({ name: "bof-screenshots", public: true }),
-  }).catch(() => undefined);
-
-  const up = await fetch(`${env.url}/storage/v1/object/bof-screenshots/${objectPath}`, {
-    method: "POST",
-    headers: { ...H, "Content-Type": mime },
-    body: new Uint8Array(bytes),
-    signal: AbortSignal.timeout(45_000),
-  });
-  if (!up.ok) {
-    throw new Error(`Supabase Storage menolak: ${up.status} ${(await up.text()).slice(0, 200)}`);
-  }
-  return {
-    url: `${env.url}/storage/v1/object/public/bof-screenshots/${objectPath}`,
-    thumbUrl: `${env.url}/storage/v1/render/image/public/bof-screenshots/${objectPath}?width=480`,
-    host: "supabase",
-    mime,
-    filename: objectPath,
-    size: bytes.length,
-  };
-}
-
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
@@ -147,31 +98,26 @@ export async function POST(req: NextRequest) {
     const name = `bof-${tid.slice(0, 10)}-m${matchId.slice(0, 10)}-${stamp}`;
 
     const imgbbKey = process.env.IMGBB_API_KEY || IMGBB_KEY_DEFAULT;
+
+    // --- ImgBB (hosting tunggal) — 2 percobaan bila gangguan jaringan ---
     const errors: string[] = [];
-
-    // --- 1) ImgBB utama ---
-    try {
-      const result = await uploadToImgbb(
-        bytes, mime, name, imgbbKey,
-        req.nextUrl.searchParams.get("ttl") ?? undefined,
-      );
-      return NextResponse.json({ ok: true, ...result });
-    } catch (e) {
-      errors.push(String((e as Error).message ?? e));
-    }
-
-    // --- 2) Supabase cadangan ---
-    try {
-      const result = await uploadToSupabase(bytes, mime, `${tid}/${matchId}/${name}.${ext}`);
-      return NextResponse.json({ ok: true, ...result, note: "ImgBB gagal, tersimpan di Supabase" });
-    } catch (e) {
-      errors.push(String((e as Error).message ?? e));
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const result = await uploadToImgbb(
+          bytes, mime, name, imgbbKey,
+          req.nextUrl.searchParams.get("ttl") ?? undefined,
+        );
+        return NextResponse.json({ ok: true, ...result });
+      } catch (e) {
+        errors.push(`percobaan ${attempt}: ${String((e as Error).message ?? e)}`);
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 1500));
+      }
     }
 
     return NextResponse.json(
       {
         ok: false,
-        error: "Semua layanan hosting gagal. Cek koneksi atau isi IMGBB_API_KEY di environment.",
+        error: "ImgBB menolak upload. Cek koneksi server atau kelola key IMGBB_API_KEY di environment.",
         detail: errors,
       },
       { status: 502 },

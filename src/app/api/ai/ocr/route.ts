@@ -7,11 +7,18 @@ import { NextRequest, NextResponse } from "next/server";
 // satu per satu — cukup upload screenshot (layar BOOYAH / skor akhir),
 // AI membaca placement + nama tim + kill lalu formulir terisi otomatis.
 //
-// Rantai mesin (yang pertama tersedia dipakai):
+// Rantai mesin (yang pertama tersedia dipakai — urutan bisa dipaksa
+// lewat env AI_OCR_PROVIDER = jere | gemini | openai | ocrspace):
 //   1. Gemini (GEMINI_API_KEY)  — gratis, paling akurat utk font FF.
-//   2. OpenAI-compatible (OPENAI_API_KEY, boleh OPENAI_BASE_URL).
-//   3. OCR.space (OCR_SPACE_KEY, default key uji "helloworld") —
-//      tanpa pendaftaran, hasil polos wajib dicek admin (needsReview).
+//   2. OpenAI-compatible (OPENAI_API_KEY, boleh OPENAI_BASE_URL) —
+//      bisa dipakai untuk endpoint Z.AI/GLM atau lainnya yang
+//      kompatibel OpenAI vision.
+//   3. Jerexd Vision (JERE_API_KEY) — GRATIS, endpoint
+//      POST /api/ai/chatvision-v2 (Analisis + OCR gambar via URL).
+//      Gambar dikirim sebagai LINK ImgBB, tidak perlu upload ulang.
+//   4. OCR.space (OCR_SPACE_KEY atau OCRSPACE_API_KEY, default key
+//      uji "helloworld") — tanpa pendaftaran, hasil polos wajib
+//      dicek admin (needsReview).
 //
 // Route ini STATELESS (tidak menyentuh Firestore). Pencocokan nama
 // tim → tim terdaftar memakai MEMORI: nama, tag, kapten, roster,
@@ -88,7 +95,7 @@ async function callGemini(apiKey: string, model: string, prompt: string, b64: st
   return text;
 }
 
-// ---------- Provider 2: OpenAI-compatible ----------
+// ---------- Provider 2: OpenAI-compatible (juga untuk Z.AI/GLM dll.) ----------
 async function callOpenai(
   apiKey: string,
   model: string,
@@ -126,7 +133,36 @@ async function callOpenai(
   return text;
 }
 
-// ---------- Provider 3: OCR.space (fallback tanpa key AI) ----------
+// ---------- Provider 3: Jerexd Vision (gratis, via URL gambar) ----------
+// Endpoint: POST https://api.jerexd.my.id/api/ai/chatvision-v2?apikey=KEY
+// Body form: url=<link gambar> & prompt=<instruksi>
+// Respon   : { status: true, data: { answer }, result } — answer/result = teks.
+async function callJerexd(
+  apiKey: string,
+  imageUrl: string,
+  prompt: string,
+  model?: string,
+): Promise<string> {
+  const form = new FormData();
+  form.append("url", imageUrl);
+  form.append("prompt", prompt);
+  if (model && model !== "default") form.append("model", model);
+  const res = await fetch(`https://api.jerexd.my.id/api/ai/chatvision-v2?apikey=${encodeURIComponent(apiKey)}`, {
+    method: "POST",
+    body: form,
+    signal: AbortSignal.timeout(55_000),
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || json?.status === false || json?.statusCode >= 400) {
+    const msg = json?.message ?? json?.error?.message ?? json?.error ?? `HTTP ${res.status}`;
+    throw new Error(`Jerexd: ${String(msg).slice(0, 300)}`);
+  }
+  const text = String(json?.data?.answer ?? json?.result ?? "").trim();
+  if (!text) throw new Error("Jerexd mengembalikan jawaban kosong.");
+  return text;
+}
+
+// ---------- Provider 4: OCR.space (fallback tanpa key AI) ----------
 async function callOcrSpace(apiKey: string, b64: string, mime: string): Promise<string> {
   const form = new FormData();
   form.append("apikey", apiKey);
@@ -145,6 +181,18 @@ async function callOcrSpace(apiKey: string, b64: string, mime: string): Promise<
     throw new Error(`OCR.space: ${String(msg).slice(0, 300)}`);
   }
   return String(json?.ParsedResults?.[0]?.ParsedText ?? "");
+}
+
+/**
+ * Ekstrak objek JSON dari jawaban AI — beberapa model menambah kalimat
+ * pembuka/penutup atau pagar markdown. Ambil blok {..} paling luar.
+ */
+function extractJson(text: string): string {
+  const cleaned = text.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) return cleaned;
+  return cleaned.slice(start, end + 1);
 }
 
 /** Validasi ulang teamId dari AI + fallback pencocokan lokal. */
@@ -215,11 +263,23 @@ export async function POST(req: NextRequest) {
     const base = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
     providers.push({ name: "openai", run: () => callOpenai(openaiKey, model, base, prompt, b64, mime) });
   }
+  const jereKey = process.env.JERE_API_KEY || process.env.JEREXD_API_KEY;
+  if (jereKey) {
+    const model = process.env.JERE_MODEL || "default";
+    providers.push({ name: "jere", run: () => callJerexd(jereKey, imageUrl, prompt, model) });
+  }
   providers.push({
     name: "ocrspace",
     needsReview: true,
-    run: () => callOcrSpace(process.env.OCR_SPACE_KEY || "helloworld", b64, mime),
+    run: () => callOcrSpace(process.env.OCR_SPACE_KEY || process.env.OCRSPACE_API_KEY || "helloworld", b64, mime),
   });
+
+  // AI_OCR_PROVIDER memaksa urutan (mis. "ocrspace" untuk uji, "jere" default gratis).
+  const forced = (process.env.AI_OCR_PROVIDER || "auto").toLowerCase().trim();
+  if (forced !== "auto") {
+    const idx = providers.findIndex((p) => p.name === forced);
+    if (idx > 0) providers.unshift(...providers.splice(idx, 1));
+  }
 
   const errors: string[] = [];
   for (const p of providers) {
@@ -237,11 +297,11 @@ export async function POST(req: NextRequest) {
           rows: resolved,
           notes:
             "Hasil OCR polos (tanpa AI vision). Periksa & koreksi setiap baris sebelum diterapkan. " +
-            "Untuk akurasi penuh, isi GEMINI_API_KEY (gratis) di environment Vercel.",
+            "Untuk akurasi penuh, isi JERE_API_KEY (gratis) atau GEMINI_API_KEY di environment Vercel.",
         });
       }
-      // Model AI → JSON ketat (buang pagar markdown bila ada).
-      const cleaned = text.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+      // Model AI → JSON ketat (ekstrak blok {..} dari jawaban bila perlu).
+      const cleaned = extractJson(text);
       const parsed = JSON.parse(cleaned);
       const obj = parsed as Record<string, unknown>;
       let rows = sanitizeOcrRows(obj.rows ?? obj.data ?? obj.results);
@@ -269,8 +329,8 @@ export async function POST(req: NextRequest) {
       error: "Semua mesin analisa gagal. Detail tiap mesin ada di 'detail'.",
       detail: errors,
       hint:
-        "Bila GEMINI_API_KEY belum diisi, fitur memakai OCR polos yang sering salah. " +
-        "Ambil key gratis di aistudio.google.com/apikey lalu tambahkan di Vercel → Settings → Environment Variables.",
+        "Bila JERE_API_KEY/GEMINI_API_KEY belum diisi, fitur memakai OCR polos yang sering salah. " +
+        "Key Jerexd gratis dari owner sudah didukung — cek varian JERE_API_KEY di Vercel → Settings → Environment Variables.",
     },
     { status: 502 },
   );

@@ -355,7 +355,7 @@ service cloud.firestore {
     }
 
     // ---------- ocrUploads (AI OCR — arsip screenshot + hasil analisa) ----------
-    // Admin mengunggah screenshot hasil match (hosting: ImgBB/Supabase, link saja
+    // Admin mengunggah screenshot hasil match (hosting: ImgBB, link saja
     // yang disimpan), AI membaca placement/kill → formulir Entri Hasil terisi
     // otomatis. Arsip ini jejak audit: siapa mengunggah, kapan, hasil analisa.
     // Publik TIDAK boleh membaca; bukti yang dipakai publik tersalin ke dokumen
@@ -369,7 +369,7 @@ service cloud.firestore {
         && request.resource.data.url is string
         && request.resource.data.url.matches('^https://.*')
         && request.resource.data.url.size() <= 600
-        && request.resource.data.host in ['imgbb', 'supabase'];
+        && request.resource.data.host in ['imgbb'];
       allow update, delete: if isAdmin();
     }
 

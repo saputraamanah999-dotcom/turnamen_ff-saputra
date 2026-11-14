@@ -39,15 +39,19 @@ AI mencocokkan nama di layar dengan tim terdaftar memakai urutan sumber:
 ## 3. Endpoint AI OCR — rantai mesin
 
 `POST /api/ai/ocr` (file: `src/app/api/ai/ocr/route.ts`) memilih mesin
-pertama yang key-nya tersedia:
+pertama yang key-nya tersedia (urutan bisa dipaksa via `AI_OCR_PROVIDER`):
 
-1. **Gemini Vision** (REKOMENDASI — gratis, paling akurat untuk font FF)
+1. **Gemini Vision** (gratis, paling akurat untuk font FF bila key tersedia)
    - env: `GEMINI_API_KEY`, model `AI_OCR_MODEL` (default `gemini-2.0-flash`)
    - ambil key gratis: <https://aistudio.google.com/apikey> (±2 menit)
-2. **OpenAI-compatible** (opsional)
+2. **OpenAI-compatible** (opsional — termasuk endpoint Z.AI/GLM kompatibel)
    - env: `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL` (boleh endpoint lain)
-3. **OCR.space** (fallback TANPA key — langsung jalan)
-   - env: `OCR_SPACE_KEY` (default `helloworld`, key uji publik, dibatasi kuota)
+3. **Jerexd Vision — GRATIS, UTAMA BOF** (key milik owner sudah dipasang)
+   - env: `JERE_API_KEY` (alias `JEREXD_API_KEY`), model `JERE_MODEL` (default)
+   - endpoint: `POST https://api.jerexd.my.id/api/ai/chatvision-v2?apikey=KEY`
+     — kirim LINK ImgBB (`url`) + prompt JSON; tidak perlu upload ulang gambar
+4. **OCR.space** (fallback TANPA key — langsung jalan)
+   - env: `OCR_SPACE_KEY` atau `OCRSPACE_API_KEY` (default `helloworld`, key uji publik, dibatasi kuota)
    - hasil OCR polos ditandai **WAJIB DIPERIKSA** (`needsReview: true`)
 
 Bila semua gagal → respons berisi `detail` per mesin + petunjuk memperbaiki.
@@ -56,23 +60,23 @@ Bila semua gagal → respons berisi `detail` per mesin + petunjuk memperbaiki.
 
 `POST /api/upload/screenshot` (file: `src/app/api/upload/screenshot/route.ts`):
 
-- **Utama: ImgBB** — `https://api.imgbb.com/1/upload`, TANPA expiration
-  (gambar permanen; bila ingin sementara: `?ttl=detik`).
+- **HOSTING TUNGGAL: ImgBB** — `https://api.imgbb.com/1/upload`, TANPA
+  expiration (gambar permanen; bila ingin sementara: `?ttl=detik`).
   env: `IMGBB_API_KEY` (kosong → memakai key bawaan turnamen di kode).
-- **Cadangan: Supabase Storage** — bucket publik `bof-screenshots`
-  DIBUAT OTOMATIS saat dibutuhkan. env: `NEXT_PUBLIC_SUPABASE_URL` +
-  `SUPABASE_SERVICE_ROLE_KEY`.
+  Gagal jaringan → otomatis dicoba ulang 1× (2 percobaan total).
+  (Supabase dihapus dari alur — keputusan owner: Firebase = database,
+  ImgBB = hosting gambar.)
 - Batas: PNG/JPG/WEBP maks 20 MB. API key tidak pernah dikirim ke browser.
 
 ## 5. Environment (Vercel → Settings → Environment Variables)
 
 ```env
-IMGBB_API_KEY=ae271538eef73c1305493b82bf34b9d5     # opsional (ada bawaan)
-GEMINI_API_KEY=                                      # SANGAT disarankan (gratis)
+IMGBB_API_KEY=ae271538eef73c1305493b82bf34b9d5     # hosting gambar (ada bawaan)
+JERE_API_KEY=jere_xxx                               # Jerexd Vision — UTAMA (gratis)
+AI_OCR_PROVIDER=auto                                # atau paksa: jere|gemini|openai|ocrspace
+GEMINI_API_KEY=                                     # alternatif (gratis)
 AI_OCR_MODEL=gemini-2.0-flash
-OCR_SPACE_KEY=helloworld                             # fallback
-NEXT_PUBLIC_SUPABASE_URL=https://abbbqjahqehewyvkzoro.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJ...                     # cadangan hosting
+OCR_SPACE_KEY=helloworld                            # fallback
 ```
 
 Setelah menambah env di Vercel → **Redeploy** agar terbaca.
@@ -89,9 +93,9 @@ Setelah menambah env di Vercel → **Redeploy** agar terbaca.
 
 ## 7. Kejujuran & batasan
 
-- **TANPA `GEMINI_API_KEY`**, fitur tetap jalan via OCR.space tetapi akurasi
-  menurun pada font stylized FF (terutama nama dengan simbol). Selalu periksa
-  tabel hasil sebelum TERAPKAN.
+- **TANPA `JERE_API_KEY`/`GEMINI_API_KEY`**, fitur tetap jalan via OCR.space
+  tetapi akurasi menurun pada font stylized FF (terutama nama dengan simbol).
+  Selalu periksa tabel hasil sebelum TERAPKAN.
 - AI tidak pernah mem-PUBLISH hasil — publish tetap lewat tombol resmi
   (draft → preview → publish) dan masuk audit log.
 - Angka `points` dari layar hanya ditampilkan, tidak dipakai menghitung poin
@@ -109,6 +113,6 @@ npm run test:caster     # 18 test
 ```
 
 Sudah diverifikasi nyata: upload PNG uji → ImgBB OK (url/thumb/delete),
-fallback Supabase OK (bucket otomatis + baca publik), analisa OCR.space
-membaca skor uji dan memori alias mencocokkan "TEAM REVNGE" → "REVENGE
-ESPORTS" tanpa koreksi.
+analisa Jerexd chatvision-v2 membaca gambar via link (HTTP 200), analisa
+OCR.space membaca skor uji dan memori alias mencocokkan "TEAM REVNGE" →
+"REVENGE ESPORTS" tanpa koreksi.
