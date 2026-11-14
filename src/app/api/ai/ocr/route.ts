@@ -282,7 +282,9 @@ export async function POST(req: NextRequest) {
   }
 
   const errors: string[] = [];
+  const tried: string[] = [];
   for (const p of providers) {
+    tried.push(p.name);
     try {
       const text = await p.run();
       if (p.name === "ocrspace") {
@@ -298,6 +300,9 @@ export async function POST(req: NextRequest) {
           notes:
             "Hasil OCR polos (tanpa AI vision). Periksa & koreksi setiap baris sebelum diterapkan. " +
             "Untuk akurasi penuh, isi JERE_API_KEY (gratis) atau GEMINI_API_KEY di environment Vercel.",
+          // Diagnostik: mesin apa saja yang dicoba + error tiap mesin sebelumnya.
+          tried,
+          detail: errors.length ? errors : undefined,
         });
       }
       // Model AI → JSON ketat (ekstrak blok {..} dari jawaban bila perlu).
@@ -317,6 +322,8 @@ export async function POST(req: NextRequest) {
         booyahTeam: booyah,
         rows,
         notes: typeof obj.notes === "string" ? obj.notes.slice(0, 400) : null,
+        tried,
+        detail: errors.length ? errors : undefined,
       });
     } catch (e) {
       errors.push(`${p.name}: ${String((e as Error).message ?? e).slice(0, 220)}`);
