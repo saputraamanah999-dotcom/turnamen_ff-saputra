@@ -154,7 +154,7 @@ async function callJerexd(
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params.toString(),
-    signal: AbortSignal.timeout(55_000),
+    signal: AbortSignal.timeout(25_000),
   });
   const raw = await res.text();
   let json: Record<string, unknown> | null = null;
@@ -186,7 +186,7 @@ async function callJerexdV1(apiKey: string, b64: string, mime: string, prompt: s
   const res = await fetch(`https://api.jerexd.my.id/api/ai/chatvision?apikey=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     body: form,
-    signal: AbortSignal.timeout(55_000),
+    signal: AbortSignal.timeout(25_000),
   });
   const raw = await res.text();
   let json: Record<string, unknown> | null = null;
@@ -233,7 +233,7 @@ Balas HANYA JSON tanpa penjelasan.`;
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params.toString(),
-    signal: AbortSignal.timeout(45_000),
+    signal: AbortSignal.timeout(20_000),
   });
   const raw = await res.text();
   let json: Record<string, unknown> | null = null;
@@ -371,27 +371,29 @@ export async function POST(req: NextRequest) {
       name: "jere",
       run: async () => {
         const catatan: string[] = [];
-        // 1) chatvision-v2 via LINK ImgBB (paling cepat) — pakai bila balasannya JSON.
+        // Jalankan KEDUA vision endpoint PARALEL (server jerexd kadang lambat;
+        // paralel memotong waktu tunggu ±setengah). Batas per panggilan 25s.
+        const [r2, r1] = await Promise.allSettled([
+          callJerexd(jereKey, imageUrl, prompt, model),
+          callJerexdV1(jereKey, b64, mime, prompt, "gemini"),
+        ]);
         let caption = "";
-        try {
-          const t2 = await callJerexd(jereKey, imageUrl, prompt, model);
-          if (hasRowsJson(t2)) return t2;
-          caption = t2;
+        if (r2.status === "fulfilled") {
+          if (hasRowsJson(r2.value)) return r2.value;
+          caption = r2.value;
           catatan.push("v2: balasan deskripsi, bukan JSON");
-        } catch (e2) {
-          catatan.push(`v2: ${String((e2 as Error).message).slice(0, 140)}`);
+        } else {
+          catatan.push(`v2: ${String((r2.reason as Error)?.message ?? r2.reason).slice(0, 140)}`);
         }
-        // 2) chatvision v1 upload FILE (model gemini) — pakai bila JSON.
-        try {
-          const t1 = await callJerexdV1(jereKey, b64, mime, prompt, "gemini");
-          if (hasRowsJson(t1)) return t1;
-          if (t1.length > caption.length) caption = t1;
+        if (r1.status === "fulfilled") {
+          if (hasRowsJson(r1.value)) return r1.value;
+          if (r1.value.length > caption.length) caption = r1.value;
           catatan.push("v1: balasan deskripsi, bukan JSON");
-        } catch (e1) {
-          catatan.push(`v1: ${String((e1 as Error).message).slice(0, 140)}`);
+        } else {
+          catatan.push(`v1: ${String((r1.reason as Error)?.message ?? r1.reason).slice(0, 140)}`);
         }
         if (!caption) throw new Error(catatan.join(" | ") || "Jerexd kosong");
-        // 3) Strukturkan teks bacaan via aichat (gratis) — hasilnya JSON skema tetap.
+        // 3) Strukturkan teks bacaan via aichat (gratis, ±3 detik) — JSON skema tetap.
         const structured = await callJerexdStruct(jereKey, caption, teams);
         if (!hasRowsJson(structured)) {
           throw new Error(`Jerexd: ${catatan.join(" | ")} | structuring gagal: ${structured.slice(0, 100)}`);
