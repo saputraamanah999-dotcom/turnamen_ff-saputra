@@ -23,21 +23,28 @@ import type { OcrWord } from "@/lib/ocr-blocks";
 import type { OcrAnalysis, OcrRow, OcrUpload, Team } from "@/lib/types";
 
 // ---------- Pengaturan mesin AI OCR (disimpan di Firestore settings/ocr) ----------
-// Prinsip: .env hanya berisi API KEY. Model & fallback diatur dari UI Admin.
+// Prinsip: .env hanya berisi API KEY (SATU key per provider). Endpoint,
+// model & fallback diatur dari UI Admin — bisa diganti TANPA deploy ulang.
 export interface OcrSettings {
+  /** Base URL API jerexd — bisa diganti dari UI tanpa deploy ulang. */
+  jereEndpoint: string;
   /** Model vision jerexd (kosong = default server jerexd). */
   jereVisionModel: string;
   /** Model teks jerexd (aichat) untuk penstrukturan JSON. */
   jereTextModel: string;
-  /** Aktifkan fallback OCR polos OCR.space bila AI gagal. */
-  ocrSpaceEnabled: boolean;
 }
 
 export const OCR_SETTINGS_DEFAULT: OcrSettings = {
+  jereEndpoint: "https://api.jerexd.my.id",
   jereVisionModel: "",
   jereTextModel: "google/gemini-3.1-flash-lite",
-  ocrSpaceEnabled: false,
 };
+
+/** Normalisasi base URL endpoint: trim, buang slash akhir, wajib https. */
+function normalizeEndpoint(raw: string): string {
+  const s = raw.trim().replace(/\/+$/, "");
+  return /^https:\/\//i.test(s) ? s.slice(0, 120) : OCR_SETTINGS_DEFAULT.jereEndpoint;
+}
 
 /** Baca pengaturan AI OCR dari dokumen settings/ocr (fallback: nilai bawaan). */
 export async function loadOcrSettings(): Promise<OcrSettings> {
@@ -47,9 +54,9 @@ export async function loadOcrSettings(): Promise<OcrSettings> {
     if (!snap.exists()) return { ...OCR_SETTINGS_DEFAULT };
     const d = snap.data() as Partial<OcrSettings>;
     return {
+      jereEndpoint: normalizeEndpoint(String(d.jereEndpoint ?? OCR_SETTINGS_DEFAULT.jereEndpoint)),
       jereVisionModel: String(d.jereVisionModel ?? "").slice(0, 80),
       jereTextModel: String(d.jereTextModel ?? OCR_SETTINGS_DEFAULT.jereTextModel).slice(0, 80),
-      ocrSpaceEnabled: d.ocrSpaceEnabled === true,
     };
   } catch {
     return { ...OCR_SETTINGS_DEFAULT };
@@ -60,9 +67,9 @@ export async function loadOcrSettings(): Promise<OcrSettings> {
 export async function saveOcrSettings(s: OcrSettings): Promise<void> {
   if (!db) throw new Error("Firebase belum terhubung.");
   await setDoc(doc(db, "settings", "ocr"), {
+    jereEndpoint: normalizeEndpoint(s.jereEndpoint),
     jereVisionModel: s.jereVisionModel.trim().slice(0, 80),
     jereTextModel: s.jereTextModel.trim().slice(0, 80) || OCR_SETTINGS_DEFAULT.jereTextModel,
-    ocrSpaceEnabled: s.ocrSpaceEnabled === true,
     updatedAt: serverTimestamp(),
   }, { merge: true });
 }
@@ -150,22 +157,24 @@ export async function analyzeScreenshotClient(
   const report = (s: string) => onProgress?.(s);
 
   // Downscale di browser: OCR 1600px akurat & jauh lebih cepat.
+  // FIX BUG "o.toDataURL is not a function": ImageBitmap TIDAK punya metode
+  // .toDataURL() — screenshot HP (±1080px, ≤1600) selalu memicu error itu
+  // karena dulu canvas hanya dibuat bila gambar >1600px. Sekarang gambar
+  // SELALU digambar ke canvas (downscale bila besar, 1:1 bila sudah kecil).
   report("Menyiapkan gambar…");
   const bitmap = await createImageBitmap(file);
-  let width = bitmap.width;
-  let height = bitmap.height;
-  let source: ImageBitmapSource = bitmap;
-  if (width > 1600) {
-    const scale = 1600 / width;
-    const canvas = document.createElement("canvas");
-    canvas.width = 1600;
-    canvas.height = Math.round(height * scale);
-    const ctx = canvas.getContext("2d")!;
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    source = canvas;
-    width = canvas.width;
-    height = canvas.height;
+  const skala = bitmap.width > 1600 ? 1600 / bitmap.width : 1;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * skala));
+  canvas.height = Math.max(1, Math.round(bitmap.height * skala));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Browser ini tidak mendukung canvas 2D. Gunakan Chrome terbaru.");
   }
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close?.();
+  const width = canvas.width;
+  const height = canvas.height;
 
   const toWords = (data: { words?: { text?: string; bbox?: { x0: number; y0: number; x1: number; y1: number }; confidence?: number }[] }): OcrWord[] =>
     (data.words ?? [])
@@ -179,11 +188,14 @@ export async function analyzeScreenshotClient(
         conf: w.confidence ?? 0,
       }));
 
-  // Tesseract.js browser menerima string (URL/data-URL) — canvas dikonversi
-  // agar tipe ImageLike terpenuhi di semua pass.
-  const imageLike: string = typeof source === "string"
-    ? (source as string)
-    : (source as HTMLCanvasElement).toDataURL("image/jpeg", 0.92);
+  // Tesseract.js v5 menerima HTMLCanvasElement langsung (ImageLike) — lebih
+  // cepat tanpa data-URL. Fallback data-URL JPEG hanya bila browser aneh.
+  let imageLike: HTMLCanvasElement | string = canvas;
+  try {
+    imageLike = canvas.toDataURL("image/jpeg", 0.92);
+  } catch {
+    imageLike = canvas; // tetap ImageLike yang valid di semua pass
+  }
 
   const worker = await createWorker("eng", 1, { logger: () => {} });
   let words: OcrWord[] = [];

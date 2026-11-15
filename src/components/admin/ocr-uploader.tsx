@@ -20,10 +20,11 @@ import type { OcrAnalysis, OcrRow, Team } from "@/lib/types";
 type Phase = "idle" | "uploading" | "analyzing" | "done" | "applied";
 
 const LABEL_MESIN: Record<string, string> = {
-  gemini: "AI GEMINI VISION",
-  openai: "AI OPENAI VISION",
-  jere: "AI JERE VISION (jerexd — gratis)",
-  ocrspace: "OCR POLÓS (tanpa AI key)",
+  "browser-ocr": "OCR BROWSER (GEOMETRI ANGKA)",
+  "browser-ocr+jere": "OCR BROWSER + AI JERE",
+  tesseract: "OCR SERVER (GEOMETRI ANGKA)",
+  "tesseract+jere": "OCR SERVER + AI JERE",
+  jere: "AI JERE VISION",
 };
 
 interface EditableRow extends OcrRow {
@@ -167,8 +168,8 @@ export function OcrUploader({
             Analisa Screenshot (AI OCR)
           </h2>
           <p className="text-xs font-semibold text-fs-text/60">
-            Upload layar BOOYAH!/skor akhir → AI isi placement & kill otomatis. Nama tim dicocokkan
-            lewat memori: nama, tag, kapten, roster & alias.
+            Upload layar BOOYAH!/skor akhir → AI baca <b>placement &amp; total kill</b> otomatis. Pencocokan nama tim
+            otomatis bila memori ada — <b>tanpa kapten/roster pun bisa</b>: pilih tim manual di kolom “Tim terdaftar”.
           </p>
         </div>
         {phase === "applied" ? (
@@ -366,8 +367,8 @@ export function OcrUploader({
 
       {!analysis && !errMsg && !busy ? (
         <p className="mt-2 text-[11px] font-semibold text-fs-text/40">
-          Tips: screenshot layar &ldquo;BOOYAH!&rdquo; atau klasemen akhir terbaca paling akurat.
-          Semakin lengkap kapten & roster di menu Tim, semakin tepat pencocokan.
+          Tips: screenshot layar &ldquo;BOOYAH!&rdquo; atau klasemen akhir terbaca paling akurat. Total kill = penjumlahan
+          kill semua pemain dalam satu top # (dihitung otomatis), placement = nomor bloknya. Tanpa kapten/roster pun bisa.
         </p>
       ) : null}
 
@@ -391,11 +392,11 @@ export function OcrUploader({
               beberapa blok peringkat sekaligus. Jika 12 tim tidak muat dalam satu layar, scroll lalu screenshot lagi —
               analisa bisa diulang untuk sisa blok (terapkan kedua kalinya, baris yang sama akan diperbarui).
             </p>
-            <p className="font-black uppercase text-fs-text">2. Isi dulu roster pemain di menu Tim</p>
+            <p className="font-black uppercase text-fs-text">2. (Opsional) Isi roster pemain di menu Tim</p>
             <p>
-              Karena layar hasil FF hanya menampilkan NAMA PEMAIN (bukan nama tim), AI mencocokkan lewat roster.
-              Buka menu <b>Tim</b>, isi <b>kapten + 4 nama pemain (IGN)</b> tim kamu. Semakin lengkap, semakin otomatis
-              pencocokannya. Nama yang pernah cocok juga tersimpan sebagai alias memori.
+              Tanpa kapten/roster pun OCR TETAP JALAN — semua baris placement + kill tetap muncul, tinggal kamu pilih
+              timnya manual (langkah 4). Kalau roster <b>kapten + 4 pemain (IGN)</b> diisi di menu Tim, pencocokan jadi
+              OTOMATIS. Nama yang pernah cocok tersimpan sebagai alias memori — screenshot berikutnya makin pintar.
             </p>
             <p className="font-black uppercase text-fs-text">3. Upload &amp; analisa</p>
             <p>
@@ -404,11 +405,12 @@ export function OcrUploader({
               menghitung sisanya: jumlah kill <b>4 pemain dalam satu top # dihitung TOTAL</b> (contoh 3+6+5+5 = 19),
               nomor blok menjadi placement, total kill masuk ke kolom Kills formulir di bawah.
             </p>
-            <p className="font-black uppercase text-fs-text">4. Periksa tabel hasil, koreksi bila perlu</p>
+            <p className="font-black uppercase text-fs-text">4. Periksa tabel hasil, atur timnya</p>
             <p>
-              Kolom <b>Tim terdaftar</b> menunjukkan hasil pencocokan — bila &ldquo;tidak cocok / manual&rdquo;, pilih nama tim
-              dari dropdown (lihat kolom pemain sebagai petunjuk). Kolom Kills menampilkan rincian penjumlahan
-              (mis. 3+6+5+5=19) supaya mudah dicek. Hilangkan centang baris yang tidak dipakai (mis. blok terpotong).
+              Kolom <b>Tim terdaftar</b>: kalau sudah cocok otomatis, tidak perlu apa-apa. Bila &ldquo;tidak cocok / manual&rdquo;,
+              pilih nama tim dari dropdown — cocokkan urutan placement di layar dengan daftar di bawah (lihat kolom pemain
+              sebagai petunjuk). Kolom Kills menampilkan rincian penjumlahan (mis. 3+6+5+5=19) supaya mudah dicek.
+              Hilangkan centang baris yang tidak dipakai (mis. blok terpotong).
             </p>
             <p className="font-black uppercase text-fs-text">5. Terapkan → Simpan Draft → Publish</p>
             <p>
@@ -417,9 +419,9 @@ export function OcrUploader({
               salah. Lalu Simpan Draft → Preview → Publish seperti biasa.
             </p>
             <p className="border border-fs-edge bg-fs-panel px-3 py-2 text-[11px]">
-              <b>Pengaturan mesin:</b> pilihan model &amp; fallback ada di menu <b>Pengaturan → AI &amp; OCR</b>.
-              API key diatur di environment (Vercel): <code>JERE_API_KEY</code> + <code>IMGBB_API_KEY</code>.
-              Status key terpasang/belum juga tampil di halaman itu.
+              <b>Pengaturan mesin:</b> ENDPOINT &amp; model diatur di menu <b>Pengaturan → AI &amp; OCR</b> (tersimpan di
+              database — bukan .env). Environment hanya berisi 2 key: <code>JERE_API_KEY</code> + <code>IMGBB_API_KEY</code>.
+              Status key juga tampil di halaman itu.
             </p>
           </div>
         ) : null}

@@ -13,7 +13,7 @@ import { applyTheme, DEFAULT_THEME, getStoredTheme, THEMES } from "@/lib/themes"
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-interface KeyStatus { jere: boolean; imgbb: boolean; gemini: boolean; openai: boolean; ocrSpace: boolean }
+interface KeyStatus { jere: boolean; imgbb: boolean }
 
 export default function AdminSettingsPage() {
   const { tournament, status } = useActiveTournament();
@@ -149,17 +149,15 @@ export default function AdminSettingsPage() {
           <Bot className="h-4 w-4 text-fs-cyan" /> AI &amp; OCR — Analisa Screenshot Hasil Match
         </h2>
         <p className="mt-1.5 text-sm font-semibold text-fs-muted">
-          API KEY diatur di environment (Vercel → Settings → Environment Variables): <code>JERE_API_KEY</code> (mesin utama,
-          gratis) dan <code>IMGBB_API_KEY</code> (hosting gambar). Model dan fallback diatur DI SINI — tersimpan di database
-          (dokumen <code>settings/ocr</code>) dan berlaku untuk semua admin tanpa deploy ulang.
+          HANYA DUA API KEY di environment (Vercel → Settings → Environment Variables):{" "}
+          <code>JERE_API_KEY</code> (mesin AI — satu-satunya, gratis) dan <code>IMGBB_API_KEY</code> (hosting gambar).
+          ENDPOINT, model dan pengaturan lain diatur DI SINI — tersimpan di database (dokumen{" "}
+          <code>settings/ocr</code>), berlaku untuk semua admin, TANPA deploy ulang.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {([
-            ["JERE_API_KEY", keyStatus?.jere, "key Jerexd — mesin vision utama"],
+            ["JERE_API_KEY", keyStatus?.jere, "key Jerexd — mesin AI utama (satu-satunya)"],
             ["IMGBB_API_KEY", keyStatus?.imgbb, "hosting gambar screenshot"],
-            ["GEMINI_API_KEY (opsional)", keyStatus?.gemini, "fallback vision Google"],
-            ["OPENAI_API_KEY (opsional)", keyStatus?.openai, "fallback vision OpenAI"],
-            ["OCR_SPACE_KEY (opsional)", keyStatus?.ocrSpace, "OCR polos tanpa AI"],
           ] as [string, boolean | undefined, string][]).map(([name, ok, note]) => (
             <span key={name} className="inline-flex items-center gap-1.5 border border-fs-edge bg-fs-bg/60 px-2 py-1 text-[11px] font-bold">
               <span className={cn("h-2 w-2 rounded-full", ok === undefined ? "bg-fs-text/30" : ok ? "bg-emerald-500" : "bg-fs-err")} />
@@ -169,6 +167,21 @@ export default function AdminSettingsPage() {
           ))}
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="block sm:col-span-2">
+            <span className="text-xs font-black uppercase tracking-wider text-fs-text/70">
+              Endpoint AI (base URL jerexd) — bisa diganti kapan saja di sini, bukan di .env
+            </span>
+            <input
+              className="bo-input mt-1 w-full"
+              placeholder="https://api.jerexd.my.id"
+              value={ocr.jereEndpoint}
+              onChange={(e) => setOcr((s) => ({ ...s, jereEndpoint: e.target.value }))}
+              disabled={ocrSaving}
+            />
+            <span className="mt-1 block text-[11px] font-semibold text-fs-text/40">
+              Kalau server jerexd pindah/down, cukup ganti URL ini lalu Simpan — semua admin &amp; match langsung ikut.
+            </span>
+          </label>
           <label className="block">
             <span className="text-xs font-black uppercase tracking-wider text-fs-text/70">Model vision Jerexd (kosongkan = bawaan)</span>
             <input
@@ -190,16 +203,6 @@ export default function AdminSettingsPage() {
             />
           </label>
         </div>
-        <label className="mt-3 flex items-center gap-2 text-sm font-bold">
-          <input
-            type="checkbox"
-            className="h-4 w-4"
-            checked={ocr.ocrSpaceEnabled}
-            onChange={(e) => setOcr((s) => ({ ...s, ocrSpaceEnabled: e.target.checked }))}
-            disabled={ocrSaving}
-          />
-          Fallback OCR polos OCR.space bila semua AI vision gagal (hasil selalu ditandai WAJIB DIPERIKSA)
-        </label>
         <BoButton variant="cyan" className="mt-3" onClick={onSaveOcr} disabled={ocrSaving || !ocrLoaded}>
           <Save className="h-4 w-4" /> {ocrSaving ? "Menyimpan…" : "Simpan Pengaturan AI & OCR"}
         </BoButton>

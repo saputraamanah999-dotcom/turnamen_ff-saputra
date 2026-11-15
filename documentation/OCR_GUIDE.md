@@ -1,118 +1,120 @@
 # AI OCR SCREENSHOT — Isi Hasil Match Otomatis (BOF)
 
-> Fitur: upload screenshot hasil match Free Fire → AI membaca placement +
-> nama tim + kill → formulir Entri Hasil terisi OTOMATIS → lanjut match berikutnya.
-> Terinspirasi alur pointmaster, dibuat khusus untuk BOF (STIKAR ESPORTS).
+> Fitur: upload screenshot hasil match Free Fire → mesin OCR membaca
+> **placement (top #) + total kill** → admin atur timnya (otomatis bila memori
+> ada, manual pun bisa TANPA kapten/roster) → formulir Entri Hasil terisi
+> OTOMatis → Simpan Draft → Preview → Publish.
+> Dibuat khusus untuk BOF (STIKAR ESPORTS) oleh SAPUTRA DEVELOPER.
 
 ## 1. Cara pakai (alur admin)
 
 1. Buka `/admin/matches` → pilih match → halaman **Entri Hasil**.
 2. Di kartu **ANALISA SCREENSHOT (AI OCR)**: klik **Pilih Screenshot**
    (bisa kamera langsung di HP), lalu **Upload & Analisa**.
-3. Tabel hasil muncul: rank, nama tim di layar, tim terdaftar yang dicocokkan,
-   kills, dan tingkat keyakinan (%). Koreksi bila perlu (pilih tim manual /
-   ubah angka / hilangkan centang baris yang salah).
-4. Klik **TERAPKAN KE FORMULIR** → kolom Placement & Kills tabel entri terisi
-   otomatis. Periksa sekali lagi → **Simpan Draft** → **Preview** → **Publish**.
-5. Ulangi untuk match berikutnya.
+   Progres tampil di layar (siapkan gambar → baca 2 tahap → pulihkan angka
+   buram → hitung & cocokkan).
+3. Tabel hasil muncul per blok placement:
+   - **Rank** = nomor top # di layar → masuk kolom PLACEMENT.
+   - **Kills** = TOTAL penjumlahan kill semua pemain dalam satu top #
+     (contoh 3+6+5+5 = 19) → masuk kolom KILLS. Rincian penjumlahan
+     ditampilkan di bawah angka supaya mudah dicek.
+   - **Tim terdaftar**: bila cocok otomatis (nama/tag/kapten/roster/alias),
+     tidak perlu apa-apa. Bila "tidak cocok / manual" — **pilih tim dari
+     dropdown** (boleh tanpa kapten/roster sama sekali).
+   - Koreksi angka bila perlu, hilangkan centang baris yang tidak dipakai.
+4. Klik **TERAPKAN KE FORMULIR** → kolom Placement & Kills terisi otomatis.
+   PLACEMENT PTS, KILL PTS dan TOTAL dihitung OTOMATIS (kill = 2 poin) —
+   admin hanya mengisi/ merevisi angka placement & kills.
+5. **Simpan Draft** → **Preview** → **Publish** seperti alur resmi.
 
 Link gambar otomatis tersimpan: di koleksi `ocrUploads` (arsip) dan di dokumen
 match (`screenshotUrl`, tampil sebagai badge BUKTI SS).
 
-## 2. Memori tim (kapten + alias) — inti pencocokan
+## 2. Mesin OCR — berjalan DI BROWSER admin (utama)
 
-AI mencocokkan nama di layar dengan tim terdaftar memakai urutan sumber:
+- **Tesseract.js di perangkat admin** (bebas biaya, tanpa API key, bebas batas
+  waktu server): membaca posisi kata (word boxes) → parser geometris
+  `src/lib/ocr-blocks.ts` mendeteksi kolom angka placement → memecah blok
+  per top # → menjumlahkan kill 4 pemain → rank & total kill.
+- Angka kill yang buram dipulihkan lewat **re-OCR terarah** (zoom area +
+  whitelist digit).
+- Screenshot HP (±1080px) maupun tablet (≤1600px) didukung — gambar SELALU
+  digambar ke canvas dulu (fix bug `o.toDataURL is not a function` yang
+  dulu muncul di Chrome Android).
+- Bila blok placement tidak terbaca → pesan error jelas: pastikan screenshot
+  adalah layar skor akhir/BOOYAH!, cukup terang, tidak terpotong.
 
-| Sumber | Contoh di layar → cocok ke |
-| --- | --- |
-| Nama tim | "REVENGE ESPORTS" |
-| Tag | "RVS" |
-| **Kapten (nama akun FF)** | nama kapten tercantum di layar skor |
-| Roster | nickname pemain |
-| **Alias OCR (memori)** | "TEAM REVNGE" yang pernah dikonfirmasi admin |
+## 3. AI JERE (SATU-SATUNYA provider AI) — memperbaiki nama
 
-- Isi **Kapten** dan **Roster** di `/admin/teams` → semakin lengkap semakin akurat.
-- Setiap kali admin menekan TERAPKAN, nama mentah dari screenshot disimpan
-  sebagai **alias** di dokumen tim (`ocrAliases`) → screenshot berikutnya
-  langsung cocok tanpa koreksi.
+- Angka (placement & kill) dihitung geometris — tidak tergantung AI.
+- Nama pemain yang salah baca diperbaiki **aichat jerexd** bila
+  `JERE_API_KEY` terpasang; lalu dicocokkan ke tim terdaftar
+  (nama/tag/kapten/roster/alias `ocrAliases`).
+- **Tanpa kapten/roster pun jalan**: semua baris tetap muncul dengan
+  "tidak cocok / manual" — admin tinggal memilih tim per baris.
+- Jika tampilan OCR dipakai tanpa blok (mode cadangan server), JERE Vision
+  membaca gambar langsung (`chatvision-v2` + `chatvision` paralel, lalu
+  `aichat` menstrukturkan JSON).
 
-## 3. Endpoint AI OCR — rantai mesin
+## 4. Endpoint & model — DIATUR DARI UI, BUKAN .env
 
-`POST /api/ai/ocr` (file: `src/app/api/ai/ocr/route.ts`) memilih mesin
-pertama yang key-nya tersedia (urutan bisa dipaksa via `AI_OCR_PROVIDER`):
+Admin → **Pengaturan → AI & OCR** (tersimpan di Firestore `settings/ocr`,
+berlaku untuk semua admin tanpa deploy ulang):
 
-1. **Gemini Vision** (gratis, paling akurat untuk font FF bila key tersedia)
-   - env: `GEMINI_API_KEY`, model `AI_OCR_MODEL` (default `gemini-2.0-flash`)
-   - ambil key gratis: <https://aistudio.google.com/apikey> (±2 menit)
-2. **OpenAI-compatible** (opsional — termasuk endpoint Z.AI/GLM kompatibel)
-   - env: `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL` (boleh endpoint lain)
-3. **Jerexd Vision — GRATIS, UTAMA BOF** (key milik owner sudah dipasang)
-   - env: `JERE_API_KEY` (alias `JEREXD_API_KEY`), model `JERE_MODEL` (default)
-   - endpoint: `POST https://api.jerexd.my.id/api/ai/chatvision-v2?apikey=KEY`
-     — kirim LINK ImgBB (`url`) + prompt JSON; tidak perlu upload ulang gambar
-4. **OCR.space** (fallback TANPA key — langsung jalan)
-   - env: `OCR_SPACE_KEY` atau `OCRSPACE_API_KEY` (default `helloworld`, key uji publik, dibatasi kuota)
-   - hasil OCR polos ditandai **WAJIB DIPERIKSA** (`needsReview: true`)
+| Pengaturan | Default | Fungsi |
+| --- | --- | --- |
+| Endpoint AI (base URL) | `https://api.jerexd.my.id` | ganti di sini bila server pindah |
+| Model vision Jerexd | (kosong = bawaan server) | dipakai chatvision-v2 |
+| Model teks Jerexd | `google/gemini-3.1-flash-lite` | penstruktur JSON aichat |
 
-Bila semua gagal → respons berisi `detail` per mesin + petunjuk memperbaiki.
+Halaman itu juga menampilkan status key: terpasang / belum diisi.
 
-## 4. Endpoint upload gambar
+## 5. Environment — HANYA 2 KEY (Vercel → Settings → Environment Variables)
+
+```env
+IMGBB_API_KEY=ae271538eef73c1305493b82bf34b9d5     # hosting gambar (ada bawaan)
+JERE_API_KEY=jere_xxx                               # Jerexd — SATU-SATUNYA key AI
+```
+
+Tidak ada lagi GEMINI/OPENAI/OCR_SPACE di kode — prinsip BOF: **satu key per
+provider**. Endpoint & model TIDAK di env (lihat §4).
+
+## 6. Upload gambar
 
 `POST /api/upload/screenshot` (file: `src/app/api/upload/screenshot/route.ts`):
 
 - **HOSTING TUNGGAL: ImgBB** — `https://api.imgbb.com/1/upload`, TANPA
-  expiration (gambar permanen; bila ingin sementara: `?ttl=detik`).
-  env: `IMGBB_API_KEY` (kosong → memakai key bawaan turnamen di kode).
-  Gagal jaringan → otomatis dicoba ulang 1× (2 percobaan total).
+  expiration. Gagal jaringan → otomatis dicoba ulang 1×.
   (Supabase dihapus dari alur — keputusan owner: Firebase = database,
   ImgBB = hosting gambar.)
 - Batas: PNG/JPG/WEBP maks 20 MB. API key tidak pernah dikirim ke browser.
 
-## 5. Environment (Vercel → Settings → Environment Variables)
+## 7. Firestore
 
-```env
-IMGBB_API_KEY=ae271538eef73c1305493b82bf34b9d5     # hosting gambar (ada bawaan)
-JERE_API_KEY=jere_xxx                               # Jerexd Vision — UTAMA (gratis)
-AI_OCR_PROVIDER=auto                                # atau paksa: jere|gemini|openai|ocrspace
-GEMINI_API_KEY=                                     # alternatif (gratis)
-AI_OCR_MODEL=gemini-2.0-flash
-OCR_SPACE_KEY=helloworld                            # fallback
-```
-
-Setelah menambah env di Vercel → **Redeploy** agar terbaca.
-
-## 6. Firestore
-
-- Koleksi baru `ocrUploads` — ATURAN: hanya admin (sudah dideploy LIVE via
-  service account; juga tersinkron otomatis ke `public/setup.html`).
-  Isi: link gambar, dimensi, host, hasil analisa, status applied.
-- Dokumen tim menambah field: `captain`, `ocrAliases`.
-- Dokumen match menambah field: `screenshotUrl`, `screenshotThumbUrl`.
+- Koleksi `ocrUploads` (arsip analisa) dan `settings` (dokumen `settings/ocr`)
+  — ATURAN: hanya admin (dideploy LIVE via service account; tersinkron ke
+  `public/setup.html`).
+- Dokumen tim: field `captain`, `ocrAliases`.
+- Dokumen match: field `screenshotUrl`, `screenshotThumbUrl`.
 - Bootstrap: `GOOGLE_APPLICATION_CREDENTIALS=./secrets/serviceAccountKey.json \
   node scripts/bootstrap-ocr.mjs`
 
-## 7. Kejujuran & batasan
+## 8. Kejujuran & batasan
 
-- **TANPA `JERE_API_KEY`/`GEMINI_API_KEY`**, fitur tetap jalan via OCR.space
-  tetapi akurasi menurun pada font stylized FF (terutama nama dengan simbol).
-  Selalu periksa tabel hasil sebelum TERAPKAN.
+- **Tanpa `JERE_API_KEY`** fitur tetap jalan (OCR browser geometris +
+  pencocokan lokal) — hanya perbaikan nama otomatis yang mati; admin
+  memilih tim manual. Selalu periksa tabel sebelum TERAPKAN.
+- Baris dengan angka kill pemain yang tak terbaca ditandai **WAJIB DIPERIKSA**
+  + catatan "total bisa KURANG" — koreksi angka Kills sebelum publish.
 - AI tidak pernah mem-PUBLISH hasil — publish tetap lewat tombol resmi
   (draft → preview → publish) dan masuk audit log.
 - Angka `points` dari layar hanya ditampilkan, tidak dipakai menghitung poin
-  resmi (poin resmi tetap dari aturan BOF: kill = 2 poin).
-- Key yang pernah ditempel di chat publik sebaiknya dirotasi berkala
-  (ImgBB: regenerasi di akun; GitHub token; service account bila perlu).
+  resmi (poin resmi tetap aturan BOF: kill = 2 poin).
 
-## 8. Test
+## 9. Test
 
 ```bash
-npm run test:ocr        # 36 test fungsi murni OCR/pencocokan
-npm run test:scoring    # 16 test
-npm run test:p2p        # 18 test
-npm run test:caster     # 18 test
+npx tsx scripts/test-analyze-blocks.ts   # penjumlahan kill + mode tanpa kapten
+npm run test:ocr                         # 36 test fungsi murni OCR/pencocokan
+npm run test:scoring                     # 16 test
 ```
-
-Sudah diverifikasi nyata: upload PNG uji → ImgBB OK (url/thumb/delete),
-analisa Jerexd chatvision-v2 membaca gambar via link (HTTP 200), analisa
-OCR.space membaca skor uji dan memori alias mencocokkan "TEAM REVNGE" →
-"REVENGE ESPORTS" tanpa koreksi.

@@ -35,14 +35,20 @@ export interface RegistryTeam {
 }
 
 /** Pengaturan mesin OCR — diatur dari UI Admin → Pengaturan (dokumen settings/ocr),
- *  BUKAN dari .env. Env hanya menyimpan API key. */
+ *  BUKAN dari .env. Env hanya menyimpan API key (SATU key per provider). */
 export interface OcrEngineSettings {
+  /** Base URL API jerexd (default https://api.jerexd.my.id) — bisa diganti dari UI. */
+  jereEndpoint?: string;
   /** Model vision jerexd (chatvision-v2/v1). Kosong = default server jerexd. */
   jereVisionModel?: string;
   /** Model teks jerexd (aichat) untuk menstrukturkan bacaan ke JSON. */
   jereTextModel?: string;
-  /** Aktifkan fallback OCR.space (OCR polos, wajib diperiksa admin). */
-  ocrSpaceEnabled?: boolean;
+}
+
+/** Normalisasi base URL endpoint jerexd — aman dipakai langsung di fetch. */
+export function jereBaseUrl(endpoint?: string): string {
+  const s = String(endpoint ?? "").trim().replace(/\/+$/, "");
+  return /^https:\/\//i.test(s) ? s.slice(0, 120) : "https://api.jerexd.my.id";
 }
 
 export interface OcrPipelineResult {
@@ -126,75 +132,16 @@ Balas HANYA JSON tanpa penjelasan.`;
 }
 
 // ============================================================
-// PANGGILAN PROVIDER (dipindah utuh dari route — diuji langsung)
+// PANGGILAN JEREXD (SATU provider AI — key tunggal JERE_API_KEY)
+// Endpoint bisa diganti dari UI Admin (settings/ocr) tanpa deploy.
 // ============================================================
-async function callGemini(apiKey: string, model: string, prompt: string, b64: string, mime: string): Promise<string> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mime, data: b64 } }] }],
-        generationConfig: { temperature: 0.1, responseMimeType: "application/json", maxOutputTokens: 4096 },
-      }),
-      signal: AbortSignal.timeout(50_000),
-    },
-  );
-  const json = await res.json().catch(() => null);
-  if (!res.ok) {
-    const msg = json?.error?.message ?? `HTTP ${res.status}`;
-    throw new Error(`Gemini: ${String(msg).slice(0, 300)}`);
-  }
-  const text = json?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
-  if (!text) throw new Error("Gemini mengembalikan jawaban kosong.");
-  return text;
-}
-
-async function callOpenai(
-  apiKey: string,
-  model: string,
-  baseUrl: string,
-  prompt: string,
-  b64: string,
-  mime: string,
-): Promise<string> {
-  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model,
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            { type: "image_url", image_url: { url: `data:${mime};base64,${b64}` } },
-          ],
-        },
-      ],
-    }),
-    signal: AbortSignal.timeout(50_000),
-  });
-  const json = await res.json().catch(() => null);
-  if (!res.ok) {
-    const msg = json?.error?.message ?? `HTTP ${res.status}`;
-    throw new Error(`OpenAI: ${String(msg).slice(0, 300)}`);
-  }
-  const text = json?.choices?.[0]?.message?.content ?? "";
-  if (!text) throw new Error("OpenAI mengembalikan jawaban kosong.");
-  return text;
-}
-
 /** Jerexd chatvision-v2 — kirim LINK gambar (ImgBB), form-urlencoded. */
-async function callJerexd(apiKey: string, imageUrl: string, prompt: string, model?: string): Promise<string> {
+async function callJerexd(apiKey: string, baseUrl: string, imageUrl: string, prompt: string, model?: string): Promise<string> {
   const params = new URLSearchParams();
   params.set("url", imageUrl);
   params.set("prompt", prompt);
   if (model && model !== "default") params.set("model", model);
-  const res = await fetch(`https://api.jerexd.my.id/api/ai/chatvision-v2?apikey=${encodeURIComponent(apiKey)}`, {
+  const res = await fetch(`${baseUrl}/api/ai/chatvision-v2?apikey=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params.toString(),
@@ -219,14 +166,14 @@ async function callJerexd(apiKey: string, imageUrl: string, prompt: string, mode
 }
 
 /** Jerexd chatvision v1 — upload FILE langsung (multipart), model gemini/gpt. */
-async function callJerexdV1(apiKey: string, b64: string, mime: string, prompt: string, model?: string): Promise<string> {
+async function callJerexdV1(apiKey: string, baseUrl: string, b64: string, mime: string, prompt: string, model?: string): Promise<string> {
   const form = new FormData();
   form.append("prompt", prompt);
   form.append("model", model || "gemini");
   const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
   const bytes = Buffer.from(b64, "base64");
   form.append("file", new Blob([new Uint8Array(bytes)], { type: mime }), `screenshot.${ext}`);
-  const res = await fetch(`https://api.jerexd.my.id/api/ai/chatvision?apikey=${encodeURIComponent(apiKey)}`, {
+  const res = await fetch(`${baseUrl}/api/ai/chatvision?apikey=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     body: form,
     signal: AbortSignal.timeout(25_000),
@@ -250,12 +197,12 @@ async function callJerexdV1(apiKey: string, b64: string, mime: string, prompt: s
 }
 
 /** Jerexd aichat (teks, gratis) — strukturkan hasil bacaan menjadi JSON. */
-async function callJerexdStruct(apiKey: string, caption: string, teams: RegistryTeam[], model: string): Promise<string> {
+async function callJerexdStruct(apiKey: string, baseUrl: string, caption: string, teams: RegistryTeam[], model: string): Promise<string> {
   const prompt = buildStructPrompt(caption, teams);
   const params = new URLSearchParams();
   params.set("model", model);
   params.set("prompt", prompt);
-  const res = await fetch(`https://api.jerexd.my.id/api/ai/aichat?apikey=${encodeURIComponent(apiKey)}`, {
+  const res = await fetch(`${baseUrl}/api/ai/aichat?apikey=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params.toString(),
@@ -277,27 +224,6 @@ async function callJerexdStruct(apiKey: string, caption: string, teams: Registry
   const text = String(data?.answer ?? (typeof result === "string" ? result : result?.answer) ?? "").trim();
   if (!text) throw new Error("JerexdStruct mengembalikan jawaban kosong.");
   return text;
-}
-
-/** OCR.space — OCR polos tanpa AI (fallback terakhir, wajib diperiksa admin). */
-async function callOcrSpace(apiKey: string, b64: string, mime: string): Promise<string> {
-  const form = new FormData();
-  form.append("apikey", apiKey);
-  form.append("base64Image", `data:${mime};base64,${b64}`);
-  form.append("OCREngine", "2");
-  form.append("scale", "true");
-  form.append("isTable", "false");
-  const res = await fetch("https://api.ocr.space/parse/image", {
-    method: "POST",
-    body: form,
-    signal: AbortSignal.timeout(45_000),
-  });
-  const json = await res.json().catch(() => null);
-  if (!res.ok || json?.IsErroredOnProcessing) {
-    const msg = Array.isArray(json?.ErrorMessage) ? json.ErrorMessage[0] : json?.ErrorMessage ?? `HTTP ${res.status}`;
-    throw new Error(`OCR.space: ${String(msg).slice(0, 300)}`);
-  }
-  return String(json?.ParsedResults?.[0]?.ParsedText ?? "");
 }
 
 // ============================================================
@@ -447,13 +373,16 @@ export async function ocrWordBoxes(bytes: Buffer): Promise<{ words: OcrWord[]; w
 export function blocksToRows(blocks: ParsedBlock[]): OcrRow[] {
   return blocks.map((b) => {
     const dipulihkan = b.members.filter((m) => m.recovered).length;
+    const takTerbaca = b.members.filter((m) => m.kills == null && !m.recovered).length;
     return {
       rank: b.rank,
       teamRaw: b.members.map((m) => m.name).join(", "),
       teamId: null,
       teamName: null,
       kills: b.members.reduce((a, m) => a + (m.kills ?? 0), 0),
-      confidence: dipulihkan > 0 ? 0.55 : 0.6,
+      // Ada angka yang tak terbaca → total bisa kurang → keyakinan turun
+      // supaya admin WAJIB memeriksa kolom Kills sebelum publish.
+      confidence: takTerbaca > 0 ? 0.45 : dipulihkan > 0 ? 0.55 : 0.6,
       players: b.members.map((m) => m.name),
       memberKills: b.members.map((m) => ({ name: m.name, kills: m.kills })),
     };
@@ -522,6 +451,7 @@ async function recoverMissedKills(blocks: ParsedBlock[], bytes: Buffer): Promise
  */
 async function refineNamesWithJerexd(
   apiKey: string,
+  baseUrl: string,
   blocks: ParsedBlock[],
   teams: RegistryTeam[],
   textModel: string,
@@ -549,7 +479,7 @@ Balas HANYA JSON.`;
   const params = new URLSearchParams();
   params.set("model", textModel);
   params.set("prompt", prompt);
-  const res = await fetch(`https://api.jerexd.my.id/api/ai/aichat?apikey=${encodeURIComponent(apiKey)}`, {
+  const res = await fetch(`${baseUrl}/api/ai/aichat?apikey=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params.toString(),
@@ -601,11 +531,12 @@ export async function analyzeBlocks(opts: {
   if (blocks.length < 2) throw new Error("Data blok dari browser tidak cukup (minimal 2 blok placement).");
 
   const jereKey = opts.jereApiKey || "";
+  const jereBase = jereBaseUrl(settings.jereEndpoint);
   let catatan = "";
   if (jereKey && teams.length) {
     const textModel = settings.jereTextModel?.trim() || "google/gemini-3.1-flash-lite";
     try {
-      blocks = await refineNamesWithJerexd(jereKey, blocks, teams, textModel);
+      blocks = await refineNamesWithJerexd(jereKey, jereBase, blocks, teams, textModel);
     } catch (e) {
       catatan = `Perbaikan nama AI gagal (${String((e as Error).message ?? e).slice(0, 120)}) — nama asli OCR dipakai.`;
     }
@@ -616,15 +547,20 @@ export async function analyzeBlocks(opts: {
   rows = resolveRows(rows, teams);
   const booyah = rows.find((r) => r.rank === 1)?.teamName ?? rows.find((r) => r.rank === 1)?.teamRaw ?? null;
   const takCocok = rows.filter((r) => !r.teamId).length;
+  // Kill pemain yang gagal terbaca (null) — total bisa kurang dari seharusnya.
+  const killTakTerbaca = rows.reduce(
+    (a, r) => a + (r.memberKills ?? []).filter((m) => m.kills == null).length, 0,
+  );
   return {
     ok: true,
     source: jereKey ? "browser-ocr+jere" : "browser-ocr",
-    needsReview: takCocok > rows.length / 2,
+    needsReview: takCocok > rows.length / 2 || killTakTerbaca > 0,
     booyahTeam: booyah,
     rows,
     notes:
       `${rows.length} blok placement terbaca. Kill tim = penjumlahan kill semua pemain di blok ` +
-      `(dihitung otomatis). ${takCocok ? takCocok + " baris belum cocok tim terdaftar — pilih manual di kolom Tim terdaftar." : "Semua baris cocok tim terdaftar."}` +
+      `(dihitung otomatis). ${takCocok ? takCocok + " baris belum cocok tim terdaftar — pilih manual di kolom Tim terdaftar (tanpa kapten/roster pun bisa)." : "Semua baris cocok tim terdaftar."}` +
+      (killTakTerbaca ? ` ${killTakTerbaca} angka kill pemain tak terbaca — total bisa KURANG; koreksi angka Kills sebelum publish.` : "") +
       (catatan ? ` ${catatan}` : ""),
     tried: ["browser-tesseract"],
   };
@@ -638,9 +574,6 @@ export async function runOcrPipeline(opts: {
   teams: RegistryTeam[];
   settings?: OcrEngineSettings;
   jereApiKey?: string;
-  geminiApiKey?: string;
-  openaiApiKey?: string;
-  ocrSpaceKey?: string;
 }): Promise<OcrPipelineResult> {
   const { imageUrl, teams } = opts;
   const settings = opts.settings ?? {};
@@ -704,7 +637,7 @@ export async function runOcrPipeline(opts: {
     let catatan = "";
     if (jereKeyForNames && teams.length) {
       try {
-        blocks = await refineNamesWithJerexd(jereKeyForNames, blocks, teams, textModel);
+        blocks = await refineNamesWithJerexd(jereKeyForNames, jereBaseUrl(settings.jereEndpoint), blocks, teams, textModel);
       } catch (e) {
         catatan = `Perbaikan nama AI gagal (${String((e as Error).message ?? e).slice(0, 120)}) — nama asli OCR dipakai.`;
       }
@@ -734,9 +667,10 @@ export async function runOcrPipeline(opts: {
   }
 
   // ============================================================
-  // MESIN CADANGAN — provider AI vision (hanya bila key tersedia)
+  // MESIN CADANGAN — JEREXD VISION (SATU provider AI, key tunggal)
   // ============================================================
   const jereKey = opts.jereApiKey || "";
+  const jereBase = jereBaseUrl(settings.jereEndpoint);
   if (jereKey) {
     const visionModel = settings.jereVisionModel?.trim() || "";
     const textModel = settings.jereTextModel?.trim() || "google/gemini-3.1-flash-lite";
@@ -746,8 +680,8 @@ export async function runOcrPipeline(opts: {
         const catatan: string[] = [];
         // Kedua endpoint vision dijalankan PARALEL (server jerexd kadang lambat).
         const [r2, r1] = await Promise.allSettled([
-          callJerexd(jereKey, imageUrl, prompt, visionModel || undefined),
-          callJerexdV1(jereKey, b64, mime, prompt, "gemini"),
+          callJerexd(jereKey, jereBase, imageUrl, prompt, visionModel || undefined),
+          callJerexdV1(jereKey, jereBase, b64, mime, prompt, "gemini"),
         ]);
         let caption = "";
         if (r2.status === "fulfilled") {
@@ -766,7 +700,7 @@ export async function runOcrPipeline(opts: {
         }
         if (!caption) throw new Error(catatan.join(" | ") || "Jerexd kosong");
         // Strukturkan teks bacaan via aichat (gratis) → JSON skema tetap.
-        const structured = await callJerexdStruct(jereKey, caption, teams, textModel);
+        const structured = await callJerexdStruct(jereKey, jereBase, caption, teams, textModel);
         if (!hasRowsJson(structured)) {
           throw new Error(`Jerexd: ${catatan.join(" | ")} | structuring gagal: ${structured.slice(0, 100)}`);
         }
@@ -775,19 +709,9 @@ export async function runOcrPipeline(opts: {
     });
   }
 
-  const geminiKey = opts.geminiApiKey || "";
-  if (geminiKey) providers.push({ name: "gemini", run: () => callGemini(geminiKey, "gemini-2.0-flash", prompt, b64, mime) });
-
-  const openaiKey = opts.openaiApiKey || "";
-  if (openaiKey) providers.push({ name: "openai", run: () => callOpenai(openaiKey, "gpt-4o-mini", "https://api.openai.com/v1", prompt, b64, mime) });
-
-  if (settings.ocrSpaceEnabled && opts.ocrSpaceKey) {
-    providers.push({ name: "ocrspace", needsReview: true, run: () => callOcrSpace(opts.ocrSpaceKey!, b64, mime) });
-  }
-
   if (!providers.length) {
     throw new Error(
-      "Belum ada API key mesin analisa. Isi JERE_API_KEY (key Jerexd — gratis) di Pengaturan environment, atau nyalakan OCR.space di menu Pengaturan → AI & OCR.",
+      "Belum ada API key mesin analisa. Isi JERE_API_KEY (key Jerexd — gratis) di environment Vercel.",
     );
   }
 
@@ -797,22 +721,6 @@ export async function runOcrPipeline(opts: {
     tried.push(p.name);
     try {
       const text = await p.run();
-      if (p.name === "ocrspace") {
-        const { parseOcrSpaceText } = await import("./ocr");
-        const rows = parseOcrSpaceText(text);
-        const resolved = resolveRows(rows, teams);
-        return {
-          ok: true,
-          source: "ocrspace",
-          needsReview: true,
-          booyahTeam: resolved.find((r) => r.rank === 1)?.teamRaw ?? null,
-          rows: resolved,
-          notes:
-            "Hasil OCR polos (tanpa AI vision). Periksa & koreksi setiap baris sebelum diterapkan.",
-          tried,
-          detail: errors.length ? errors : undefined,
-        };
-      }
       const cleaned = extractJson(text);
       const parsed = JSON.parse(cleaned);
       const obj = parsed as Record<string, unknown>;

@@ -45,7 +45,6 @@ async function main() {
     teams: TEAMS,
     settings: { jereTextModel: "google/gemini-3.1-flash-lite" },
     jereApiKey: JERE_KEY,
-    ocrSpaceKey: process.env.OCR_SPACE_KEY || "",
   });
 
   console.log(`\n=== HASIL (source=${result.source}, tried=${result.tried.join("→")}) ===`);

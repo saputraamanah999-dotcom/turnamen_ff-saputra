@@ -242,7 +242,7 @@ export interface OcrRow {
 }
 
 export interface OcrAnalysis {
-  /** Mesin yang berhasil dipakai: "gemini" | "openai" | "ocrspace". */
+  /** Mesin yang berhasil dipakai: "browser-ocr" | "browser-ocr+jere" | "tesseract" | "tesseract+jere" | "jere". */
   source: string;
   /** Nama tim yang jadi BOOYAH (juara 1) menurut AI, bila ada. */
   booyahTeam?: string | null;

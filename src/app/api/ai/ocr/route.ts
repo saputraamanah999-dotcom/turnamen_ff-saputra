@@ -15,11 +15,10 @@ import { NextRequest, NextResponse } from "next/server";
 //
 // MESIN & KONFIGURASI:
 //   - API key disimpan di environment HANYA sebagai key: JERE_API_KEY
-//     (Jerexd, utama & gratis), GEMINI_API_KEY/OPENAI_API_KEY (opsional),
-//     OCR_SPACE_KEY (opsional).
-//   - Pilihan MODEL dan ON/OFF fallback OCR.space diatur dari UI
-//     Admin → Pengaturan → AI & OCR (dokumen Firestore settings/ocr)
-//     dan dikirim klien pada body "settings" — BUKAN lewat .env.
+//     (Jerexd — SATU-SATUNYA provider AI, gratis) + IMGBB_API_KEY (hosting).
+//   - ENDPOINT, pilihan MODEL diatur dari UI Admin → Pengaturan → AI & OCR
+//     (dokumen Firestore settings/ocr) dan dikirim klien pada body "settings"
+//     — BUKAN lewat .env.
 //
 // Route ini STATELESS (tidak menyentuh Firestore). Pencocokan nama
 // tim → tim terdaftar memakai MEMORI: nama, tag, kapten, roster
@@ -39,11 +38,8 @@ export async function GET() {
     keys: {
       jere: has(process.env.JERE_API_KEY || process.env.JEREXD_API_KEY),
       imgbb: has(process.env.IMGBB_API_KEY),
-      gemini: has(process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY),
-      openai: has(process.env.OPENAI_API_KEY),
-      ocrSpace: has(process.env.OCR_SPACE_KEY || process.env.OCRSPACE_API_KEY),
     },
-    engine: "jere-vision-v2+v1+aichat",
+    engine: "tesseract-geometri + jere-vision",
     modelConfig: "ui:settings/ocr",
   });
 }
@@ -62,9 +58,9 @@ export async function POST(req: NextRequest) {
   }
   const teams = Array.isArray(body.teams) ? body.teams.slice(0, 60) : [];
   const settings: OcrEngineSettings = {
+    jereEndpoint: typeof body.settings?.jereEndpoint === "string" ? body.settings.jereEndpoint.slice(0, 120) : "",
     jereVisionModel: typeof body.settings?.jereVisionModel === "string" ? body.settings.jereVisionModel.slice(0, 80) : "",
     jereTextModel: typeof body.settings?.jereTextModel === "string" ? body.settings.jereTextModel.slice(0, 80) : "",
-    ocrSpaceEnabled: body.settings?.ocrSpaceEnabled === true,
   };
 
   // MODE UTAMA — OCR dijalankan di BROWSER admin; server menerima blok
@@ -93,9 +89,6 @@ export async function POST(req: NextRequest) {
       teams,
       settings,
       jereApiKey: process.env.JERE_API_KEY || process.env.JEREXD_API_KEY || "",
-      geminiApiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY || "",
-      openaiApiKey: process.env.OPENAI_API_KEY || "",
-      ocrSpaceKey: process.env.OCR_SPACE_KEY || process.env.OCRSPACE_API_KEY || "",
     });
     return NextResponse.json(result);
   } catch (e) {
@@ -108,7 +101,7 @@ export async function POST(req: NextRequest) {
         tried: err.tried ?? undefined,
         hint:
           "Pastikan JERE_API_KEY terisi di Vercel → Settings → Environment Variables. " +
-          "Model & fallback OCR.space diatur dari Admin → Pengaturan → AI & OCR.",
+          "Endpoint & model diatur dari Admin → Pengaturan → AI & OCR.",
       },
       { status: 502 },
     );

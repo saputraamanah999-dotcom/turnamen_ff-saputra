@@ -27,17 +27,28 @@ console.log("KOLEKSI ROOT SAAT INI:", existing.length ? existing.join(", ") : "(
 const docRes = await fetch(`${BASE}/documents/settings/ocr`, { headers: H });
 if (docRes.ok) {
   console.log("settings/ocr: SUDAH ADA ✓");
+  // Migrasi: pastikan field jereEndpoint ada (skema baru — endpoint diatur UI).
+  const cur = (await docRes.json()).fields ?? {};
+  if (!cur.jereEndpoint) {
+    const patch = await fetch(`${BASE}/documents/settings/ocr?updateMask.fieldPaths=jereEndpoint`, {
+      method: "PATCH", headers: H,
+      body: JSON.stringify({ fields: { jereEndpoint: { stringValue: "https://api.jerexd.my.id" } } }),
+    });
+    console.log("settings/ocr jereEndpoint:", patch.ok ? "DITAMBAH ✓ (default jerexd)" : `GAGAL: ${patch.status}`);
+  } else {
+    console.log("settings/ocr jereEndpoint: sudah ada ✓");
+  }
 } else {
   const create = await fetch(`${BASE}/documents/settings?documentId=ocr`, {
     method: "POST", headers: H,
     body: JSON.stringify({ fields: {
+      jereEndpoint: { stringValue: "https://api.jerexd.my.id" },
       jereVisionModel: { stringValue: "" },
       jereTextModel: { stringValue: "google/gemini-3.1-flash-lite" },
-      ocrSpaceEnabled: { booleanValue: false },
       updatedAt: { stringValue: new Date().toISOString() },
     } }),
   });
-  console.log("settings/ocr:", create.ok ? "DIBUAT ✓ (nilai bawaan)" : `GAGAL: ${create.status} ${(await create.text()).slice(0, 200)}`);
+  console.log("settings/ocr:", create.ok ? "DIBUAT ✓ (nilai bawaan, skema baru)" : `GAGAL: ${create.status} ${(await create.text()).slice(0, 200)}`);
 }
 
 // 3. Probe tulis-baca-hapus pada koleksi yang dipakai fitur → bukti rules
