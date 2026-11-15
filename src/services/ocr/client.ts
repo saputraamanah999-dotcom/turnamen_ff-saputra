@@ -26,7 +26,14 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "@/services/firebase/client";
-import { parseKillAnchoredRows, type DigitZone, type OcrWord } from "@/lib/ocr-rows";
+import {
+  assignFinalRanks,
+  mergeBlocks,
+  parseKillAnchoredRows,
+  type DigitZone,
+  type KillBlock,
+  type OcrWord,
+} from "@/lib/ocr-rows";
 import type { OcrAnalysis, OcrRow, OcrUpload, Team } from "@/lib/types";
 
 // ---------- Pengaturan (disimpan di Firestore settings/ocr) ----------
@@ -111,12 +118,13 @@ export async function uploadScreenshot(
   return json as UploadScreenshotResult;
 }
 
-/** Kirim link gambar ke /api/ai/ocr → baris hasil (fallback server). */
-export async function analyzeScreenshot(imageUrl: string): Promise<OcrAnalysis> {
+/** Kirim link gambar ke /api/ai/ocr → baris hasil (fallback server).
+ *  expectedTeams = jumlah tim terdaftar (target deteksi recovery). */
+export async function analyzeScreenshot(imageUrl: string, expectedTeams = 0): Promise<OcrAnalysis> {
   const res = await fetch("/api/ai/ocr", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ imageUrl }),
+    body: JSON.stringify({ imageUrl, expectedTeams }),
     signal: AbortSignal.timeout(70_000),
   });
   const json = await res.json().catch(() => null);
@@ -332,6 +340,19 @@ function createDigitRescuerBrowser(
  * MODE UTAMA — OCR DI BROWSER admin (bebas batas waktu server).
  * 2 pass tesseract → parser kill-anchored (grid band × baris, tanpa nama
  * pemain) → rescue zoom-digit per sel → baris { rank, total kill }.
+ *
+ * v4 RECOVERY AKURASI (fix "10 tim cuma terbaca 3-8"):
+ * 1. Parser kini bebas rank ganda (blok tanpa badge tidak lagi menomori
+ *    ulang dari 1) — lihat assignFinalRanks di ocr-rows.ts.
+ * 2. Bila jumlah blok < jumlah tim terdaftar (teams.length), gambar
+ *    di-OCR ULANG per PARUH (kiri/kanan untuk layar lebar, atas/bawah
+ *    untuk layar tinggi) — tiap paruh dibaca dengan resolusi efektif
+ *    2× lebih besar dan segmentasi lebih bersih, lalu hasilnya DIGABUNG
+ *    (sel duplikat dibuang, blok terkaya yang menang) dan rank dinomori
+ *    ulang 1..N dari urutan layar.
+ * 3. Rank akhir dijamin unik; baris yang tetap hilang dilaporkan jelas
+ *    ("terbaca X dari Y tim") dan bisa ditambah manual di UI.
+ *
  * FALLBACK: bila browser gagal mengenali papan skor (0 blok) dan link
  * gambar tersedia, analisa dilanjutkan otomatis di server.
  */
@@ -342,6 +363,8 @@ export async function analyzeScreenshotClient(
   imageUrl?: string,
 ): Promise<OcrAnalysis> {
   const report = (s: string) => onProgress?.(s);
+  // Jumlah tim terdaftar = target deteksi (fix "10 team cuma kebaca 3").
+  const expectedTeams = Math.max(0, Math.min(24, teams.length || 0));
   void teams; // pencocokan tim dilakukan manual di UI (tanpa nama pemain)
 
   // Downscale di browser: gambar SELALU digambar ke canvas (fix bug
@@ -373,23 +396,87 @@ export async function analyzeScreenshotClient(
 
   const { createWorker } = await import("tesseract.js");
   const worker = await createWorker("eng", 1, { logger: () => {} });
-  let blocks: Awaited<ReturnType<typeof parseKillAnchoredRows>>["blocks"] = [];
+
+  /** OCR 2 pass (PSM 6 + 11) atas satu canvas → kata tergabung. */
+  const recognizeCanvas = async (cnv: HTMLCanvasElement): Promise<OcrWord[]> => {
+    await worker.setParameters({ tessedit_pageseg_mode: "6" as never });
+    const main = toWords((await worker.recognize(cnv)).data ?? {});
+    await worker.setParameters({ tessedit_pageseg_mode: "11" as never });
+    const sparse = toWords((await worker.recognize(cnv)).data ?? {});
+    return mergeWords(main, sparse);
+  };
+
+  /** Parse kata → blok placement (rank + sel kill) pada satu region. */
+  const parseRegion = async (words: OcrWord[], regionW: number, rescuer: ReturnType<typeof createDigitRescuerBrowser> | null) => {
+    const hasil = await parseKillAnchoredRows(words, regionW, rescuer ? { rescueDigit: rescuer } : {});
+    return hasil;
+  };
+
+  let blocks: KillBlock[] = [];
+  let lineH = 0;
   try {
     report("Membaca layar skor (pass 1/2)…");
-    await worker.setParameters({ tessedit_pageseg_mode: "6" as never });
-    const main = toWords((await worker.recognize(canvas)).data ?? {});
-
-    // Pass sparse (PSM 11) — menangkap angka/badge yang lolos dari pass utama.
-    report("Membaca lebih teliti (pass 2/2)…");
-    await worker.setParameters({ tessedit_pageseg_mode: "11" as never });
-    const sparse = toWords((await worker.recognize(canvas)).data ?? {});
-    const words = mergeWords(main, sparse);
+    const words = await recognizeCanvas(canvas);
 
     // Parser kill-anchored + rescue zoom-digit per sel (kunci akurasi).
     report("Meneliti ulang tiap angka (zoom + mask kuning)…");
     const rescue = createDigitRescuerBrowser(canvas, worker);
-    const hasil = await parseKillAnchoredRows(words, canvas.width, { rescueDigit: rescue });
+    const hasil = await parseRegion(words, canvas.width, rescue);
     blocks = hasil.blocks;
+    lineH = hasil.lineH;
+
+    // ===== v4 RECOVERY — bila kurang dari jumlah tim terdaftar =====
+    if (expectedTeams > 0 && blocks.length < expectedTeams) {
+      report(
+        `Baru ${blocks.length}/${expectedTeams} tim terbaca — analisa ulang per bagian gambar…`,
+      );
+      // Arah potong: layar lebar → kiri|kanan (2 kolom tim); layar
+      // tinggi/persegi → atas|bawah (daftar panjang terpotong layar).
+      const vertikal = canvas.width / Math.max(1, canvas.height) > 1.25;
+      const potongan: { x: number; y: number; w: number; h: number }[] = vertikal
+        ? [
+            { x: 0, y: 0, w: Math.ceil(canvas.width / 2) + Math.round(0.02 * canvas.width), h: canvas.height },
+            { x: Math.floor(canvas.width / 2) - Math.round(0.02 * canvas.width), y: 0, w: canvas.width - Math.floor(canvas.width / 2) + Math.round(0.02 * canvas.width), h: canvas.height },
+          ]
+        : [
+            { x: 0, y: 0, w: canvas.width, h: Math.ceil(canvas.height / 2) + Math.round(0.02 * canvas.height) },
+            { x: 0, y: Math.floor(canvas.height / 2) - Math.round(0.02 * canvas.height), w: canvas.width, h: canvas.height - Math.floor(canvas.height / 2) + Math.round(0.02 * canvas.height) },
+          ];
+
+      const extra: KillBlock[] = [];
+      for (let i = 0; i < potongan.length; i++) {
+        const p = potongan[i];
+        const halfCnv = document.createElement("canvas");
+        halfCnv.width = Math.max(1, p.w);
+        halfCnv.height = Math.max(1, p.h);
+        const hctx = halfCnv.getContext("2d", { willReadFrequently: true });
+        if (!hctx) continue;
+        hctx.drawImage(canvas, p.x, p.y, p.w, p.h, 0, 0, p.w, p.h);
+        report(`Membaca ulang bagian ${i + 1}/2 (resolusi lebih besar)…`);
+        const hWords = await recognizeCanvas(halfCnv);
+        const hRescue = createDigitRescuerBrowser(halfCnv, worker);
+        const hHasil = await parseRegion(hWords, halfCnv.width, hRescue);
+        // Geser koordinat paruh → ruang gambar penuh, lalu lepas halfIdx
+        // (penggabungan lintas-pass memakai kolom berbasis stripX).
+        for (const b of hHasil.blocks) {
+          for (const pair of b.pairs) {
+            pair.cx += p.x;
+            pair.cy += p.y;
+          }
+          if (b.stripX !== null) b.stripX += p.x;
+          if (b.ordY !== undefined) b.ordY += p.y;
+          b.halfIdx = undefined;
+        }
+        extra.push(...hHasil.blocks);
+      }
+
+      if (extra.length) {
+        const gabung = mergeBlocks(blocks, extra, lineH || 24);
+        assignFinalRanks(gabung, canvas.width);
+        gabung.sort((a, b) => a.rank - b.rank || (a.stripX ?? 0) - (b.stripX ?? 0));
+        blocks = gabung;
+      }
+    }
   } finally {
     await worker.terminate().catch(() => {});
   }
@@ -399,7 +486,7 @@ export async function analyzeScreenshotClient(
     // server (pipeline sama atas link ImgBB) sebelum menyerah.
     if (imageUrl && /^https:\/\//i.test(imageUrl)) {
       report("Browser sulit membaca layar ini — mencoba mesin server…");
-      return await analyzeScreenshot(imageUrl);
+      return await analyzeScreenshot(imageUrl, expectedTeams);
     }
     throw new Error(
       "Layar tidak dikenali sebagai papan skor Free Fire (kata \"Kill\" tidak ditemukan). " +
@@ -421,15 +508,18 @@ export async function analyzeScreenshotClient(
     };
   });
   const perluCek = blocks.filter((b) => b.flags.length > 0 || b.pairs.length < 4).length;
+  const kurang = expectedTeams > 0 && blocks.length < expectedTeams ? expectedTeams - blocks.length : 0;
   return {
     source: "browser-ocr",
     booyahTeam: null,
     rows,
     notes:
       `${blocks.length} blok placement terbaca` +
+      (expectedTeams > 0 ? ` dari ${expectedTeams} tim terdaftar` : "") +
+      (kurang ? ` — ${kurang} tim belum terbaca, tambah manual lewat "+ Tambah Baris"` : "") +
       (perluCek ? `; ${perluCek} blok perlu diperiksa (angka kurang lengkap / rank otomatis)` : "") +
       `. Total kill = penjumlahan kill 4 pemain per blok.`,
-    needsReview: perluCek > 0,
+    needsReview: perluCek > 0 || kurang > 0,
     analyzedAt: Date.now(),
   };
 }

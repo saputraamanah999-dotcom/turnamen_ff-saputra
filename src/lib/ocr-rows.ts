@@ -70,6 +70,12 @@ export interface KillBlock {
   stripX: number | null;
   /** Catatan masalah pembacaan baris ini (untuk UI admin). */
   flags: string[];
+  /** y urutan blok (cy sel pertama / y badge) — basis urutan final.
+   *  v4: blok tanpa badge TIDAK boleh jadi "kolom sendiri" yang mulai
+   *  dari rank 1 lagi (bug nyata: top 6 jadi "rank 1" kedua). */
+  ordY?: number;
+  /** Indeks paruh/kolom visual (0 = kiri) — dipakai urutan kolom-major. */
+  halfIdx?: number;
 }
 
 export interface RescueDigitResult {
@@ -432,6 +438,108 @@ function findRankStrips(cands: RankCand[], lineH: number): { x: number; members:
 // ============================================================
 // API UTAMA — kata OCR → baris { rank, total kill } (async, rescue)
 // ============================================================
+// v4 — URUTAN RANK FINAL bebas ganda (lihat komentar pemanggil).
+// Dipakai ulang oleh pipeline recovery (merge hasil per-paruh) lewat
+// export ini sehingga browser & server punya aturan yang sama.
+export function assignFinalRanks(allBlocks: KillBlock[], imgW: number): void {
+  if (!allBlocks.length) return;
+  // --- (a) kolom visual tiap blok ---
+  // Prioritas: halfIdx (dari parser); jika tidak ada, kluster stripX;
+  // blok tanpa keduanya diselipkan ke kolom yang x-selnya paling dekat.
+  const stripOnly = allBlocks.filter((b) => b.stripX !== null).map((b) => b.stripX as number);
+  const colTol = Math.max(40, 0.09 * imgW);
+  const stripCols = stripOnly.length >= 2 ? cluster1D(stripOnly, colTol).map((c) => c.center) : stripOnly.length ? [median(stripOnly)] : [];
+
+  const colOf = (b: KillBlock): number => {
+    if (b.halfIdx !== undefined && b.halfIdx >= 0) return b.halfIdx;
+    if (b.stripX !== null) {
+      let best = 0;
+      let bestD = Infinity;
+      stripCols.forEach((cx, i) => {
+        const d = Math.abs(b.stripX! - cx);
+        if (d < bestD) { bestD = d; best = i; }
+      });
+      return best;
+    }
+    // tanpa strip: pakai x sel terkiri, dibandingkan terhadap rentang
+    // x kolom (strip..sel terkanan) blok ber-strip — sel SELALU di
+    // KANAN strip kolomnya, jadi cari kolom dengan jarak paling kecil
+    // ke (strip + lebar kolom tipikal).
+    const cx = b.pairs.length ? Math.min(...b.pairs.map((p) => p.cx)) : 0;
+    if (!stripCols.length) return 0;
+    let best = 0;
+    let bestD = Infinity;
+    for (let i = 0; i < stripCols.length; i++) {
+      const anggota = allBlocks.filter((x) => colOfStrip(x) === i && x !== b && x.pairs.length);
+      const kiri = anggota.length ? Math.min(...anggota.map((x) => x.stripX ?? cx)) : stripCols[i];
+      const d = Math.abs(cx - kiri);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return best;
+  };
+  const colOfStrip = (b: KillBlock): number | null => (b.stripX !== null ? colOf(b) : null);
+
+  const nCols = Math.max(1, stripCols.length, ...allBlocks.map((b) => (b.halfIdx !== undefined ? b.halfIdx + 1 : 1)));
+  const groups: KillBlock[][] = Array.from({ length: nCols }, () => []);
+  for (const b of allBlocks) groups[Math.min(nCols - 1, colOf(b))].push(b);
+
+  // --- (b) penomoran kolom-major + aturan badge ---
+  let cursor = 1;
+  const seen = new Set<number>();
+  for (const g of groups) {
+    g.sort((a, b) => (a.ordY ?? (a.pairs.length ? a.pairs[0].cy : 1e9)) - (b.ordY ?? (b.pairs.length ? b.pairs[0].cy : 1e9)));
+    for (const b of g) {
+      const rd = b.rankRead;
+      const bolehBadge =
+        rd !== null &&
+        rd >= cursor &&
+        rd <= cursor + 2 && // lompatan wajar (satu blok tak terbaca)
+        !seen.has(rd);
+      if (bolehBadge) {
+        if (rd !== cursor) b.flags.push(`badge terbaca ${rd} — urutan melompat dari ${cursor} (kemungkinan ada blok tak terbaca)`);
+        b.rank = rd;
+      } else {
+        if (rd !== null && rd !== cursor) {
+          b.flags.push(`badge terbaca ${rd} — dipakai ${cursor} dari urutan layar`);
+        }
+        b.rank = cursor;
+      }
+      seen.add(b.rank);
+      cursor = b.rank + 1;
+    }
+  }
+}
+
+/** Merge hasil beberapa pass (utama + recovery paruh): buang blok
+ *  duplikat (sel yang sama terbaca lagi) — pertahankan yang paling kaya
+ *  bukti (banyak sel, lalu conf tertinggi). Koordinat HARUS sudah dalam
+ *  satu ruang gambar (hasil paruh sudah digeser offset-nya). */
+export function mergeBlocks(primary: KillBlock[], extra: KillBlock[], lineH: number): KillBlock[] {
+  const tol = Math.max(18, 1.6 * lineH);
+  const same = (a: KillBlock, b: KillBlock): boolean => {
+    if (!a.pairs.length || !b.pairs.length) {
+      // blok tanpa sel: sama bila rank badge sama & y dekat
+      return a.rankRead !== null && a.rankRead === b.rankRead && Math.abs((a.ordY ?? 0) - (b.ordY ?? 0)) <= tol * 2;
+    }
+    return a.pairs.some((p) => b.pairs.some((q) => Math.abs(p.cx - q.cx) <= tol && Math.abs(p.cy - q.cy) <= tol));
+  };
+  const richer = (a: KillBlock, b: KillBlock): number =>
+    b.pairs.length - a.pairs.length || (median(b.pairs.map((p) => p.conf)) || 0) - (median(a.pairs.map((p) => p.conf)) || 0);
+  const out: KillBlock[] = [];
+  for (const c of [...primary, ...extra]) {
+    const dup = out.find((o) => same(o, c));
+    if (!dup) { out.push(c); continue; }
+    if (richer(dup, c) > 0) {
+      // ganti dengan yang lebih kaya, warisi flag
+      c.flags = [...new Set([...c.flags, ...dup.flags])];
+      out[out.indexOf(dup)] = c;
+    } else {
+      dup.flags = [...new Set([...dup.flags, ...c.flags])];
+    }
+  }
+  return out;
+}
+
 export async function parseKillAnchoredRows(words: OcrWord[], imgW: number, opts: ParseRowsOptions = {}): Promise<ParseRowsResult> {
   const prelim = collectPrelimPairs(words);
   if (!prelim.pairs.length) return { blocks: [], strips: [], bands: [], rows: [], lineH: prelim.lineH, rescued: 0 };
@@ -525,7 +633,8 @@ export async function parseKillAnchoredRows(words: OcrWord[], imgW: number, opts
   let rescuedCount = 0;
   const allBlocks: KillBlock[] = [];
   const isiKosong: { bcx: number; rcy: number; block: KillBlock }[] = [];
-  for (const half of halves) {
+  for (let halfIdx = 0; halfIdx < halves.length; halfIdx++) {
+    const half = halves[halfIdx];
     const hCells = cells
       .filter((c) => half.includes(c.bandIdx))
       .sort((a, b) => a.cy - b.cy || a.bandIdx - b.bandIdx);
@@ -549,11 +658,15 @@ export async function parseKillAnchoredRows(words: OcrWord[], imgW: number, opts
     }
     // baris tengah
     const rowCy = hRows.map((m) => median([...m.values()].map((x) => x.cy)));
-    // pecah jadi blok: selisih ≤ 2.45 lineH = masih satu blok (maks 2 baris)
+    // pecah jadi blok: selisih ≤ 2.9 lineH = masih satu blok (maks 2 baris).
+    // v4: 2.45 terlalu ketat — kartu dengan "Kill" kecil (lineH pendek)
+    // dan jarak baris sel 2.5-2.8× lineH terpotong jadi 2 blok (bug nyata:
+    // 1 tim terhitung 2 "tim"). Pitch antar-kartu ≈ 8-12× lineH sehingga
+    // 2.9 masih jauh dari risiko menggabungkan dua kartu berbeda.
     const halfBlocks: { rows: Map<number, Cell>[] }[] = [];
     for (let ri = 0; ri < hRows.length; ri++) {
       const last = halfBlocks[halfBlocks.length - 1];
-      if (last && last.rows.length < 2 && rowCy[ri] - rowCy[ri - 1] <= 2.45 * lineH) {
+      if (last && last.rows.length < 2 && rowCy[ri] - rowCy[ri - 1] <= 2.9 * lineH) {
         last.rows.push(hRows[ri]);
         continue;
       }
@@ -574,7 +687,11 @@ export async function parseKillAnchoredRows(words: OcrWord[], imgW: number, opts
         stripMembers
           .filter((m) => {
             const mCy = m.w.y + m.w.h / 2;
-            return mCy >= rowTop - 1.0 * lineH && mCy <= rowBottom + 1.0 * lineH;
+            // v4: badge boleh di ATAS baris sel pertama (di baris header
+            // kartu) sampai 2.6× lineH — dulu 1.0× sehingga badge header
+            // tidak cocok → blok phantom "kill tak terbaca" mendapat rank
+            // ganjil & blok asli salah nomor.
+            return mCy >= rowTop - 2.6 * lineH && mCy <= rowBottom + 1.0 * lineH;
           })
           .sort((a, b) => a.w.y - b.w.y)[0] ?? null;
       // RESCUE tiap sel (slot = band center + row center + tokenBox)
@@ -607,11 +724,22 @@ export async function parseKillAnchoredRows(words: OcrWord[], imgW: number, opts
         pairs,
         stripX: halfStrip !== null ? Math.round(halfStrip) : null,
         flags: badge ? [] : ["rank tidak terbaca — diisi otomatis dari urutan"],
+        ordY: pairs.length
+          ? Math.round(Math.min(...pairs.map((p) => p.cy)))
+          : badge
+            ? Math.round(badge.w.y)
+            : Math.round(rowTop),
+        halfIdx: halfIdx,
       };
       allBlocks.push(block);
       // (6) catat slot kosong blok ini → diisi dari grid (STRICT conf)
-      const lo = Math.min(...half);
-      const halfBands = [bands[lo], bands[lo + 1]].filter((x, i, a) => x !== undefined && a.indexOf(x) === i);
+      // v4: seluruh band paruh ini (bukan cuma 2 pertama) — blok bisa
+      // punya sel di 2-4 kolom angka tergantung layout.
+      const halfBands: number[] = [];
+      for (const bi of half) {
+        const bx = bands[bi];
+        if (bx !== undefined && !halfBands.includes(bx)) halfBands.push(bx);
+      }
       const wantRows = hb.rows.map((row) => median([...row.values()].map((x) => x.cy)));
       if (hb.rows.length === 1) {
         const pitches: number[] = [];
@@ -645,6 +773,8 @@ export async function parseKillAnchoredRows(words: OcrWord[], imgW: number, opts
   opts.onDebug?.("blocks", allBlocks.map((b) => ({ rank: b.rank, read: b.rankRead, n: b.pairs.length, vals: b.pairs.map((p) => p.value), strip: b.stripX })));
 
   // (9) badge tanpa sel → blok "kill tak terbaca"
+  // v4 FIX: usedBadges diperbarui SETIAP penambahan — dulu snapshot awal,
+  // dua badge yang salah-baca sama-sama "1" menghasilkan 2 blok rank 1.
   const usedBadges = new Set(allBlocks.map((b) => b.rankRead));
   for (const s of rankStrips) {
     for (const m of s.members) {
@@ -653,52 +783,30 @@ export async function parseKillAnchoredRows(words: OcrWord[], imgW: number, opts
         (b) => b.stripX !== null && Math.abs(b.stripX - s.x) <= Math.max(18, 0.9 * lineH) && b.pairs.length > 0,
       );
       if (!adaTetangga) continue;
+      usedBadges.add(m.v);
       allBlocks.push({
         rankRead: m.v,
         rank: m.v,
         pairs: [],
         stripX: Math.round(s.x),
         flags: ["angka kill blok ini tidak terbaca — isi manual"],
+        ordY: Math.round(m.w.y),
       });
     }
   }
 
-  // (10) urutan rank final: kolom kiri mulai 1, kanan lanjut; badge menang
-  {
-    const cols = new Map<number, KillBlock[]>();
-    for (const b of allBlocks) {
-      const key = b.stripX ?? -1;
-      const arr = cols.get(key) ?? [];
-      arr.push(b);
-      cols.set(key, arr);
-    }
-    const colKeys = [...cols.keys()].sort((a, b) => a - b);
-    let expected = 1;
-    const seen = new Map<number, KillBlock>();
-    for (const ck of colKeys) {
-      const list = (cols.get(ck) ?? []).sort((a, b) => {
-        const ay = a.pairs.length ? a.pairs[0].cy : 1e9;
-        const by = b.pairs.length ? b.pairs[0].cy : 1e9;
-        return ay - by;
-      });
-      let cursor = ck === colKeys[0] ? 1 : expected;
-      for (const b of list) {
-        if (b.rankRead !== null) {
-          b.rank = b.rankRead;
-          if (b.rank !== cursor) b.flags.push(`badge terbaca ${b.rank}, urutan memperkirakan ${cursor}`);
-        } else {
-          b.rank = cursor;
-        }
-        const dup = seen.get(b.rank);
-        if (dup) {
-          b.flags.push(`rank ${b.rank} ganda — periksa urutan blok`);
-          dup.flags.push(`rank ${b.rank} ganda — periksa urutan blok`);
-        } else seen.set(b.rank, b);
-        cursor = b.rank + 1;
-        expected = Math.max(expected, cursor);
-      }
-    }
-  }
+  // (10) URUTAN RANK FINAL v4 — bebas ganda.
+  // Bug lama (nyata): blok yang badge-nya tidak terbaca mendapat stripX
+  // null → dianggap "kolom sendiri" (key -1, paling kiri) → penomoran
+  // otomatis MULAI DARI 1 LAGI → top 6 menjadi "rank 1" kedua.
+  // Aturan baru:
+  //   a. Urutan = kolom-major (paruh kiri dulu, atas → bawah), pakai
+  //      halfIdx; blok tanpa halfIdx (hasil merge recovery) dikelompokkan
+  //      lewat stripX/x-sel — BUKAN kolom terpisah.
+  //   b. Badge dipercaya HANYA bila tidak ganda, >= cursor, dan lompatan
+  //      wajar (≤ cursor+2) — selain itu pakai cursor urutan + flag.
+  //   c. Tidak ada dua blok dengan rank sama — selalu.
+  assignFinalRanks(allBlocks, imgW);
 
   // (11) flag kualitas
   for (const b of allBlocks) {

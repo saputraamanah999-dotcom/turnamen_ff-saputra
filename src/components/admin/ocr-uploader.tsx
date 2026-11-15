@@ -9,7 +9,7 @@
 // ============================================================
 
 import { useRef, useState } from "react";
-import { Camera, Check, ChevronDown, ChevronUp, ClipboardCheck, HelpCircle, ImageUp, Loader2, RotateCcw, TriangleAlert } from "lucide-react";
+import { Camera, Check, ChevronDown, ChevronUp, ClipboardCheck, HelpCircle, ImageUp, Loader2, Plus, RotateCcw, TriangleAlert } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import {
   analyzeScreenshotClient, linkScreenshotToMatch,
@@ -147,6 +147,26 @@ export function OcrUploader({
     setRow(i, { teamId: teamId || null, teamName: t?.name ?? null, confidence: teamId ? Math.max(0.75, rows[i].confidence ?? 0) : undefined });
   }
 
+  /** Tambah baris manual — untuk tim yang tidak terbaca OCR
+   *  (mis. daftar terpotong layar). Rank = nomor terkecil yang belum dipakai. */
+  function addManualRow() {
+    const dipakai = new Set(rows.map((r) => r.rank ?? 0));
+    let rank = 1;
+    while (dipakai.has(rank) && rank < 60) rank++;
+    setRows((prev) => [
+      ...prev,
+      {
+        rank,
+        teamRaw: `Top #${rank} (manual)`,
+        teamId: null,
+        teamName: null,
+        kills: 0,
+        confidence: 1, // diinput admin sendiri — yakin penuh
+        selected: true,
+      },
+    ]);
+  }
+
   const cocok = rows.filter((r) => r.selected && r.teamId).length;
   const belum = rows.filter((r) => r.selected && !r.teamId).length;
   const needsReview = analysis?.needsReview;
@@ -219,6 +239,11 @@ export function OcrUploader({
         <>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <BoBadge className="bg-fs-cyan text-black">{LABEL_MESIN[analysis.source] ?? analysis.source}</BoBadge>
+            {teams.length > 0 ? (
+              <BoBadge className={rows.length >= teams.length ? "bg-emerald-500 text-white" : "bg-zb-yellow text-black"}>
+                {rows.length}/{teams.length} TIM TERBACA
+              </BoBadge>
+            ) : null}
             <a
               href={upload.url}
               target="_blank"
@@ -233,6 +258,14 @@ export function OcrUploader({
               </BoBadge>
             ) : null}
           </div>
+          {teams.length > 0 && rows.length < teams.length ? (
+            <p className="mt-2 flex items-start gap-2 border-2 border-zb-yellow/60 bg-zb-yellow/10 px-3 py-2 text-xs font-bold text-zb-yellow">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              Ada {teams.length - rows.length} tim belum terbaca. Coba <b>Upload &amp; Analisa</b> ulang
+              (mesin kini membaca ulang per bagian gambar), atau klik <b>+ Tambah Baris</b> untuk
+              mengisi tim yang hilang secara manual — rank &amp; kill bisa diketik langsung.
+            </p>
+          ) : null}
           {analysis.notes ? (
             <p className="mt-2 text-xs font-semibold text-fs-text/60">Catatan: {analysis.notes}</p>
           ) : null}
@@ -327,6 +360,9 @@ export function OcrUploader({
               <BoButton variant="primary" type="button" onClick={onApplyClick} disabled={cocok === 0}>
                 <ClipboardCheck className="h-4 w-4" /> Terapkan ke Formulir ({cocok})
               </BoButton>
+              <BoButton variant="white" type="button" onClick={addManualRow}>
+                <Plus className="h-4 w-4" /> Tambah Baris
+              </BoButton>
               {belum ? (
                 <span className="text-xs font-bold text-fs-gold">
                   {belum} baris belum punya tim — pilih di kolom &ldquo;Tim terdaftar&rdquo; atau hilangkan
@@ -372,14 +408,19 @@ export function OcrUploader({
               blok placement dari kata &ldquo;Kill&rdquo; → <b>setiap angka di-zoom ulang dan diperiksa
               dengan mask warna + whitelist digit</b> (inilah kunci akurasi) → <b>total kill tim =
               penjumlahan kill 4 pemain dalam satu blok</b> (contoh nyata 3+6+5+5 = 19), nomor blok
-              menjadi placement. Bila browser gagal membaca layar, analisa otomatis dilanjutkan di server.
+              menjadi placement. <b>Baru v4:</b> kalau jumlah blok lebih sedikit dari jumlah tim
+              terdaftar, gambar otomatis dibaca ULANG per bagian (resolusi 2× lebih besar) lalu
+              digabung — nomor urutan dijamin tidak ganda. Bila browser gagal membaca layar, analisa
+              otomatis dilanjutkan di server.
             </p>
             <p className="font-black uppercase text-fs-text">3. Pilih tim untuk tiap rank</p>
             <p>
-              Hasil tampil sebagai daftar <b>rank → total kill</b> (tanpa nama pemain). Untuk tiap baris,
+              Hasil tampil sebagai daftar <b>rank → total kill</b> (tanpa nama pemain) plus badge
+              <b> X/Y TIM TERBACA</b> supaya kelihatan kalau ada yang kurang. Untuk tiap baris,
               pilih tim terdaftar di kolom <b>Tim terdaftar</b> — cocokkan urutan rank di layar dengan
               daftar tim kamu. Semua angka <b>bisa diedit langsung</b> di kolom Kills kalau ada yang
-              kelewat baca. Hilangkan centang baris yang tidak dipakai (mis. blok terpotong tepi layar).
+              kelewat baca, dan tim yang tidak terbaca bisa ditambah lewat <b>+ Tambah Baris</b>.
+              Hilangkan centang baris yang tidak dipakai (mis. blok terpotong tepi layar).
             </p>
             <p className="font-black uppercase text-fs-text">4. Terapkan → Simpan Draft → Publish</p>
             <p>

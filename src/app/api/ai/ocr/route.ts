@@ -39,7 +39,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { imageUrl?: string };
+  let body: { imageUrl?: string; expectedTeams?: number };
   try {
     body = await req.json();
   } catch {
@@ -52,9 +52,13 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+  const expectedTeams = Number(body.expectedTeams ?? 0);
 
   try {
-    const result = await runOcrPipeline({ imageUrl });
+    const result = await runOcrPipeline({
+      imageUrl,
+      expectedTeams: Number.isFinite(expectedTeams) ? expectedTeams : 0,
+    });
     return NextResponse.json(result);
   } catch (e) {
     return NextResponse.json(

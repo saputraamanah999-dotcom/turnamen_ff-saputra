@@ -16,7 +16,7 @@
 // Nama pemain sengaja tidak dibaca (permintaan admin).
 // ============================================================
 
-import { parseKillAnchoredRows, type OcrWord, type RescueDigitFn } from "./ocr-rows";
+import { assignFinalRanks, mergeBlocks, parseKillAnchoredRows, type KillBlock, type OcrWord, type RescueDigitFn } from "./ocr-rows";
 import type { OcrRow } from "./types";
 
 export type { OcrWord };
@@ -307,6 +307,9 @@ export async function createDigitRescuerNode(
 
 // ============================================================
 // PIPELINE SERVER (FALLBACK) — link ImgBB → baris { rank, total kill }
+// v4: bila jumlah blok < expectedTeams (tim terdaftar), gambar di-OCR
+// ulang per PARUH (kiri/kanan untuk layar lebar, atas/bawah selain itu)
+// via sharp crop → hasil digabung + rank dinomori ulang bebas ganda.
 // ============================================================
 export interface OcrPipelineResult {
   ok: true;
@@ -319,12 +322,14 @@ export interface OcrPipelineResult {
 
 export async function runOcrPipeline(opts: {
   imageUrl: string;
+  expectedTeams?: number;
   fetchImage?: (url: string) => Promise<Buffer>;
   settings?: OcrEngineSettings;
   jereApiKey?: string;
 }): Promise<OcrPipelineResult> {
   void opts.settings;
   void opts.jereApiKey;
+  const expectedTeams = Math.max(0, Math.min(24, opts.expectedTeams ?? 0));
   const ambil =
     opts.fetchImage ??
     (async (url: string) => {
@@ -333,15 +338,56 @@ export async function runOcrPipeline(opts: {
       return Buffer.from(await res.arrayBuffer());
     });
   const bytes = await ambil(opts.imageUrl);
-  const { words, width } = await ocrWordBoxes(bytes);
+  const { words, width, height } = await ocrWordBoxes(bytes);
   const rescue: RescueDigitFn = await createDigitRescuerNode(bytes);
   const hasil = await parseKillAnchoredRows(words, width, { rescueDigit: rescue });
-  if (!hasil.blocks.length) {
+  let blocks: KillBlock[] = hasil.blocks;
+
+  // ===== v4 RECOVERY — bila kurang dari jumlah tim terdaftar =====
+  if (expectedTeams > 0 && blocks.length && blocks.length < expectedTeams) {
+    const sharp = (await import("sharp")).default;
+    const vertikal = width / Math.max(1, height) > 1.25;
+    const potongan = vertikal
+      ? [
+          { left: 0, top: 0, width: Math.ceil(width / 2) + Math.round(0.02 * width), height },
+          { left: Math.floor(width / 2) - Math.round(0.02 * width), top: 0, width: width - Math.floor(width / 2) + Math.round(0.02 * width), height },
+        ]
+      : [
+          { left: 0, top: 0, width, height: Math.ceil(height / 2) + Math.round(0.02 * height) },
+          { left: 0, top: Math.floor(height / 2) - Math.round(0.02 * height), width, height: height - Math.floor(height / 2) + Math.round(0.02 * height) },
+        ];
+    const extra: KillBlock[] = [];
+    for (const p of potongan) {
+      if (p.width < 40 || p.height < 40) continue;
+      const crop = await sharp(bytes).extract(p).png().toBuffer();
+      const hOcr = await ocrWordBoxes(crop);
+      const hRescue = await createDigitRescuerNode(crop);
+      const hHasil = await parseKillAnchoredRows(hOcr.words, hOcr.width, { rescueDigit: hRescue });
+      for (const b of hHasil.blocks) {
+        for (const pair of b.pairs) {
+          pair.cx += p.left;
+          pair.cy += p.top;
+        }
+        if (b.stripX !== null) b.stripX += p.left;
+        if (b.ordY !== undefined) b.ordY += p.top;
+        b.halfIdx = undefined;
+      }
+      extra.push(...hHasil.blocks);
+    }
+    if (extra.length) {
+      const gabung = mergeBlocks(blocks, extra, hasil.lineH || 24);
+      assignFinalRanks(gabung, width);
+      gabung.sort((a, b) => a.rank - b.rank || (a.stripX ?? 0) - (b.stripX ?? 0));
+      blocks = gabung;
+    }
+  }
+
+  if (!blocks.length) {
     throw new Error(
       "Layar tidak dikenali sebagai papan skor Free Fire (kata \"Kill\" tidak ditemukan). Gunakan screenshot layar hasil/klasemen akhir match.",
     );
   }
-  const rows: OcrRow[] = hasil.blocks.map((b) => ({
+  const rows: OcrRow[] = blocks.map((b) => ({
     rank: b.rank,
     teamRaw: `Top #${b.rank}`,
     teamId: null,
@@ -349,15 +395,18 @@ export async function runOcrPipeline(opts: {
     kills: b.pairs.reduce((a, p) => a + p.value, 0),
     confidence: Math.round(Math.min(0.97, Math.max(0.2, 0.4 + 0.125 * b.pairs.length + (b.rankRead !== null ? 0.05 : 0))) * 100) / 100,
   }));
-  const perluCek = hasil.blocks.filter((b) => b.flags.length > 0 || b.pairs.length < 4).length;
+  const perluCek = blocks.filter((b) => b.flags.length > 0 || b.pairs.length < 4).length;
+  const kurang = expectedTeams > 0 && blocks.length < expectedTeams ? expectedTeams - blocks.length : 0;
   return {
     ok: true,
     source: "server-ocr",
-    needsReview: perluCek > 0,
+    needsReview: perluCek > 0 || kurang > 0,
     booyahTeam: null,
     rows,
     notes:
-      `${hasil.blocks.length} blok placement terbaca (mesin server)` +
+      `${blocks.length} blok placement terbaca (mesin server)` +
+      (expectedTeams > 0 ? ` dari ${expectedTeams} tim terdaftar` : "") +
+      (kurang ? ` — ${kurang} tim belum terbaca` : "") +
       (perluCek ? `; ${perluCek} blok perlu diperiksa` : "") +
       `. Total kill = penjumlahan kill 4 pemain per blok.`,
   };
