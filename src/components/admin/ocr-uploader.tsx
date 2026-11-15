@@ -399,9 +399,10 @@ export function OcrUploader({
             </p>
             <p className="font-black uppercase text-fs-text">3. Upload &amp; analisa</p>
             <p>
-              Pilih Screenshot → <b>Upload &amp; Analisa</b>. Gambar dikirim ke hosting ImgBB, lalu AI vision membaca
-              setiap blok peringkat: jumlah kill <b>4 pemain dalam satu top # dihitung TOTAL</b> (contoh 3+6+5+5 = 19),
-              nomor blok menjadi placement, dan total kill masuk ke kolom Kills formulir di bawah.
+              Pilih Screenshot → <b>Upload &amp; Analisa</b>. Gambar diarsipkan ke hosting ImgBB, lalu mesin OCR berjalan
+              <b> di perangkat kamu</b> (membaca layar 2 tahap + pemulihan angka — ikuti progres di layar) dan server
+              menghitung sisanya: jumlah kill <b>4 pemain dalam satu top # dihitung TOTAL</b> (contoh 3+6+5+5 = 19),
+              nomor blok menjadi placement, total kill masuk ke kolom Kills formulir di bawah.
             </p>
             <p className="font-black uppercase text-fs-text">4. Periksa tabel hasil, koreksi bila perlu</p>
             <p>
