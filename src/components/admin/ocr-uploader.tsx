@@ -1,17 +1,18 @@
 "use client";
 // ============================================================
-// BOF — OcrUploader (kartu AI OCR di form Entri Hasil)
-// Upload screenshot Free Fire → AI baca placement + kill →
-// admin periksa/koreksi sekilas → TERAPKAN → formulir terisi.
-// Link gambar diarsipkan (ocrUploads) + disematkan ke match,
-// nama mentah layar disimpan sebagai MEMORI alias tim.
+// BOF — OcrUploader (kartu AI OCR di form Entri Hasil) — v3
+// Upload screenshot layar hasil Free Fire → OCR di browser membaca
+// SEMUA blok placement (rank + TOTAL kill tim = penjumlahan kill 4
+// pemain, tiap angka diverifikasi zoom + mask kuning) → admin
+// memilih tim terdaftar per baris → TERAPKAN → formulir terisi.
+// TANPA NAMA PEMAIN (permintaan admin): hasil hanya rank + total kill.
 // ============================================================
 
 import { useRef, useState } from "react";
 import { Camera, Check, ChevronDown, ChevronUp, ClipboardCheck, HelpCircle, ImageUp, Loader2, RotateCcw, TriangleAlert } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import {
-  addOcrAlias, analyzeScreenshotClient, linkScreenshotToMatch,
+  analyzeScreenshotClient, linkScreenshotToMatch,
   markOcrApplied, saveOcrUpload, uploadScreenshot,
   type UploadScreenshotResult,
 } from "@/services/ocr/client";
@@ -20,11 +21,8 @@ import type { OcrAnalysis, OcrRow, Team } from "@/lib/types";
 type Phase = "idle" | "uploading" | "analyzing" | "done" | "applied";
 
 const LABEL_MESIN: Record<string, string> = {
-  "browser-ocr": "OCR BROWSER (GEOMETRI ANGKA)",
-  "browser-ocr+jere": "OCR BROWSER + AI JERE",
-  tesseract: "OCR SERVER (GEOMETRI ANGKA)",
-  "tesseract+jere": "OCR SERVER + AI JERE",
-  jere: "AI JERE VISION",
+  "browser-ocr": "OCR BROWSER (ANGKA TERVERIFIKASI)",
+  "server-ocr": "OCR SERVER (FALLBACK)",
 };
 
 interface EditableRow extends OcrRow {
@@ -99,14 +97,14 @@ export function OcrUploader({
       up = await uploadScreenshot(file, tid, matchId);
       setUpload(up);
       setPhase("analyzing");
-      // OCR dijalankan DI BROWSER (CPU perangkat admin) — tidak membebani
-      // server, bebas batas waktu, dan memakai mesin yang sama (geometri
-      // blok + zoom per sel + penjumlahan kill 4 pemain per top #) via lib
-      // bersama. Bila browser gagal, otomatis lanjut ke mesin server.
+      // OCR dijalankan DI BROWSER (CPU perangkat admin): 2 pass tesseract
+      // → parser kill-anchored (semua blok placement, grid band × baris)
+      // → tiap sel angka di-zoom ulang (mask kuning + whitelist digit)
+      // → total kill = penjumlahan 4 pemain per blok. Tanpa nama pemain.
       const result = await analyzeScreenshotClient(file, teams, (t) => setProgressNote(t), up?.url);
       if (!result.rows.length) {
         throw new Error(
-          "OCR browser tidak membaca satu blok placement pun. Pastikan screenshot adalah layar skor akhir/BOOYAH! dan cukup terang.",
+          "OCR tidak membaca satu blok placement pun. Pastikan screenshot adalah layar skor akhir/BOOYAH! dan cukup terang.",
         );
       }
       setAnalysis(result);
@@ -124,20 +122,13 @@ export function OcrUploader({
   async function onApplyClick() {
     const dipilih = rows.filter((r) => r.selected && r.teamId);
     if (!dipilih.length) return;
-    // Buang flag UI 'selected' sebelum kirim ke formulir.
     onApply(
       dipilih.map((r): OcrRow => ({
         rank: r.rank, teamRaw: r.teamRaw, teamId: r.teamId, teamName: r.teamName,
         kills: r.kills, points: r.points, confidence: r.confidence,
       })),
     );
-    // Perkaya memori + arsip (best-effort, jangan blok UI).
     try {
-      await Promise.all(
-        dipilih
-          .filter((r) => r.teamId && r.teamRaw)
-          .map((r) => addOcrAlias(tid, r.teamId as string, r.teamRaw)),
-      );
       if (uploadId) await markOcrApplied(uploadId);
       if (upload) await linkScreenshotToMatch(tid, matchId, upload.url, upload.thumbUrl);
     } catch {
@@ -150,10 +141,10 @@ export function OcrUploader({
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   }
 
-  /** Pilih ulang tim manual untuk baris yang belum cocok. */
+  /** Pilih tim terdaftar manual untuk baris rank ini. */
   function onManualTeam(i: number, teamId: string) {
     const t = teams.find((x) => x.id === teamId) ?? null;
-    setRow(i, { teamId: teamId || null, teamName: t?.name ?? null, confidence: teamId ? 1 : undefined });
+    setRow(i, { teamId: teamId || null, teamName: t?.name ?? null, confidence: teamId ? Math.max(0.75, rows[i].confidence ?? 0) : undefined });
   }
 
   const cocok = rows.filter((r) => r.selected && r.teamId).length;
@@ -169,8 +160,9 @@ export function OcrUploader({
             Analisa Screenshot (AI OCR)
           </h2>
           <p className="text-xs font-semibold text-fs-text/60">
-            Upload layar BOOYAH!/skor akhir → AI baca <b>placement &amp; total kill</b> otomatis. Pencocokan nama tim
-            otomatis bila memori ada — <b>tanpa kapten/roster pun bisa</b>: pilih tim manual di kolom “Tim terdaftar”.
+            Upload layar hasil match → semua blok placement terbaca otomatis: <b>rank + TOTAL kill tim</b>
+            {" "}(penjumlahan kill 4 pemain, tiap angka diverifikasi ulang). Tinggal pilih timnya di kolom
+            &ldquo;Tim terdaftar&rdquo; — <b>tanpa nama pemain</b>.
           </p>
         </div>
         {phase === "applied" ? (
@@ -227,9 +219,6 @@ export function OcrUploader({
         <>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <BoBadge className="bg-fs-cyan text-black">{LABEL_MESIN[analysis.source] ?? analysis.source}</BoBadge>
-            {analysis.booyahTeam ? (
-              <BoBadge className="bg-fs-gold text-black">BOOYAH: {analysis.booyahTeam}</BoBadge>
-            ) : null}
             <a
               href={upload.url}
               target="_blank"
@@ -240,22 +229,21 @@ export function OcrUploader({
             </a>
             {needsReview ? (
               <BoBadge className="bg-zb-yellow text-black">
-                <TriangleAlert className="mr-1 inline h-3 w-3" /> WAJIB DIPERIKSA
+                <TriangleAlert className="mr-1 inline h-3 w-3" /> PERIKSA BARIS BERTANDA
               </BoBadge>
             ) : null}
           </div>
           {analysis.notes ? (
-            <p className="mt-2 text-xs font-semibold text-fs-text/60">Catatan AI: {analysis.notes}</p>
+            <p className="mt-2 text-xs font-semibold text-fs-text/60">Catatan: {analysis.notes}</p>
           ) : null}
 
-          {/* Tabel hasil — admin koreksi bila perlu */}
+          {/* Tabel hasil — admin pilih tim + koreksi angka bila perlu */}
           <div className="mt-2 max-h-96 overflow-y-auto">
             <table className="w-full min-w-[560px] border-collapse text-sm">
               <thead>
                 <tr className="bg-fs-head text-white">
                   <th className="w-10 px-2 py-2" aria-label="Pilih" />
                   <th className="px-2 py-2 text-left font-display text-xs uppercase tracking-wider">Rank</th>
-                  <th className="px-2 py-2 text-left font-display text-xs uppercase tracking-wider">Tim di layar</th>
                   <th className="px-2 py-2 text-left font-display text-xs uppercase tracking-wider">Tim terdaftar</th>
                   <th className="px-2 py-2 text-center font-display text-xs uppercase tracking-wider w-20">Kills</th>
                   <th className="px-2 py-2 text-center font-display text-xs uppercase tracking-wider w-16">Yakin</th>
@@ -269,7 +257,7 @@ export function OcrUploader({
                         type="checkbox"
                         checked={r.selected}
                         onChange={(e) => setRow(i, { selected: e.target.checked })}
-                        aria-label={`Gunakan baris ${r.teamRaw}`}
+                        aria-label={`Gunakan baris rank ${r.rank ?? i + 1}`}
                       />
                     </td>
                     <td className="px-2 py-1.5">
@@ -282,28 +270,17 @@ export function OcrUploader({
                         onChange={(e) =>
                           setRow(i, { rank: e.target.value === "" ? null : Number(e.target.value) })
                         }
-                        aria-label={`Rank ${r.teamRaw}`}
+                        aria-label={`Rank baris ${i + 1}`}
                       />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <p className="max-w-[220px] truncate font-bold" title={r.teamRaw}>
-                        {r.rank === 1 ? <span className="mr-1 text-fs-gold">#1</span> : null}
-                        {r.teamRaw}
-                      </p>
-                      {r.players?.length ? (
-                        <p className="max-w-[220px] truncate text-[10px] font-semibold text-fs-text/40" title={r.players.join(", ")}>
-                          {r.players.length} pemain: {r.players.join(", ")}
-                        </p>
-                      ) : null}
                     </td>
                     <td className="px-2 py-1.5">
                       <select
                         className="bo-input !h-8 w-full min-w-40 max-w-56 text-xs"
                         value={r.teamId ?? ""}
                         onChange={(e) => onManualTeam(i, e.target.value)}
-                        aria-label={`Tim terdaftar untuk ${r.teamRaw}`}
+                        aria-label={`Tim terdaftar untuk rank ${r.rank ?? i + 1}`}
                       >
-                        <option value="">— tidak cocok / manual —</option>
+                        <option value="">— pilih tim (manual) —</option>
                         {teams.map((t) => (
                           <option key={t.id} value={t.id}>
                             {t.name}{t.tag ? ` [${t.tag}]` : ""}
@@ -321,46 +298,8 @@ export function OcrUploader({
                         onChange={(e) =>
                           setRow(i, { kills: e.target.value === "" ? null : Number(e.target.value) })
                         }
-                        aria-label={`Kill ${r.teamRaw}`}
+                        aria-label={`Total kill rank ${r.rank ?? i + 1}`}
                       />
-                      {r.memberKills?.length ? (
-                        <div className="mt-1 space-y-0.5" title="Total kill tim = penjumlahan kill semua pemain di blok ini (bisa diedit per pemain)">
-                          {r.memberKills.map((m, mi) => (
-                            <div key={mi} className="flex items-center justify-center gap-1">
-                              <input
-                                type="number"
-                                min={0}
-                                max={30}
-                                className={
-                                  "bo-input !h-5 !w-9 !px-1 text-center text-[10px] tabular-nums " +
-                                  (m.disputed ? "!border-fs-gold !text-fs-gold" : "")
-                                }
-                                value={m.kills ?? ""}
-                                aria-label={`Kill pemain ${mi + 1} baris ${i + 1}${m.disputed ? " (dibaca beda oleh 2 mesin)" : ""}`}
-                                onChange={(e) => {
-                                  const v = e.target.value === "" ? null : Number(e.target.value);
-                                  setRows((prev) =>
-                                    prev.map((row, ri) => {
-                                      if (ri !== i || !row.memberKills) return row;
-                                      const mk = row.memberKills.map((x, xi) =>
-                                        xi === mi ? { ...x, kills: v, disputed: false } : x,
-                                      );
-                                      return {
-                                        ...row,
-                                        memberKills: mk,
-                                        kills: mk.reduce((a, x) => a + (x.kills ?? 0), 0),
-                                      };
-                                    }),
-                                  );
-                                }}
-                              />
-                              <span className={"max-w-[92px] truncate text-[9px] font-semibold " + (m.disputed ? "text-fs-gold" : "text-fs-text/40")} title={m.name}>
-                                {m.name}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
                     </td>
                     <td className="px-2 py-1.5 text-center">
                       <span
@@ -381,7 +320,7 @@ export function OcrUploader({
           {phase === "applied" ? (
             <p className="mt-3 flex items-center gap-2 text-xs font-bold text-emerald-500">
               <ClipboardCheck className="h-4 w-4" />
-              {cocok} baris diterapkan ke formulir. Alias nama tim juga disimpan ke memori.
+              {cocok} baris diterapkan ke formulir — placement &amp; kill terisi, poin dihitung otomatis.
             </p>
           ) : (
             <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -390,8 +329,8 @@ export function OcrUploader({
               </BoButton>
               {belum ? (
                 <span className="text-xs font-bold text-fs-gold">
-                  {belum} baris belum cocok tim terdaftar — pilih manual di kolom &ldquo;Tim terdaftar&rdquo;
-                  atau hilangkan centangnya.
+                  {belum} baris belum punya tim — pilih di kolom &ldquo;Tim terdaftar&rdquo; atau hilangkan
+                  centangnya.
                 </span>
               ) : null}
             </div>
@@ -401,8 +340,8 @@ export function OcrUploader({
 
       {!analysis && !errMsg && !busy ? (
         <p className="mt-2 text-[11px] font-semibold text-fs-text/40">
-          Tips: screenshot layar &ldquo;BOOYAH!&rdquo; atau klasemen akhir terbaca paling akurat. Total kill = penjumlahan
-          kill semua pemain dalam satu top # (dihitung otomatis), placement = nomor bloknya. Tanpa kapten/roster pun bisa.
+          Tips: screenshot layar hasil (klasemen akhir dengan angka 1, 2, 3… di kiri) terbaca paling akurat.
+          Total kill = penjumlahan kill semua pemain dalam satu blok rank; placement = nomor bloknya.
         </p>
       ) : null}
 
@@ -419,45 +358,41 @@ export function OcrUploader({
         </button>
         {showGuide ? (
           <div className="space-y-2 px-4 pb-4 text-xs font-semibold leading-relaxed text-fs-text/80">
-            <p className="font-black uppercase text-fs-text">1. Siapkan screenshot yang benar</p>
+            <p className="font-black uppercase text-fs-text">1. Screenshot layar hasil match</p>
             <p>
-              Di Free Fire, setelah match selesai buka layar hasil (papan skor akhir — yang ada angka
-              <b> 1, 2, 3…</b> di kiri dan nama pemain + &ldquo;N Kill&rdquo;), lalu screenshot. Satu screenshot boleh berisi
-              beberapa blok peringkat sekaligus. Jika 12 tim tidak muat dalam satu layar, scroll lalu screenshot lagi —
-              analisa bisa diulang untuk sisa blok (terapkan kedua kalinya, baris yang sama akan diperbarui).
+              Di Free Fire, setelah match selesai buka layar hasil (klasemen akhir — ada angka{" "}
+              <b>1, 2, 3…</b> di kiri dan tulisan &ldquo;N Kill&rdquo; per pemain), lalu screenshot. Kalau
+              12 tim tidak muat dalam satu layar, scroll lalu screenshot lagi — analisa bisa diulang dan
+              baris yang sama akan diperbarui di formulir.
             </p>
-            <p className="font-black uppercase text-fs-text">2. (Opsional) Isi roster pemain di menu Tim</p>
+            <p className="font-black uppercase text-fs-text">2. Upload &amp; analisa</p>
             <p>
-              Tanpa kapten/roster pun OCR TETAP JALAN — semua baris placement + kill tetap muncul, tinggal kamu pilih
-              timnya manual (langkah 4). Kalau roster <b>kapten + 4 pemain (IGN)</b> diisi di menu Tim, pencocokan jadi
-              OTOMATIS. Nama yang pernah cocok tersimpan sebagai alias memori — screenshot berikutnya makin pintar.
-            </p>
-            <p className="font-black uppercase text-fs-text">3. Upload &amp; analisa</p>
-            <p>
-              Pilih Screenshot → <b>Upload &amp; Analisa</b>. Gambar diarsipkan ke hosting ImgBB, lalu mesin OCR berjalan
-              <b> di perangkat kamu</b>: 2 pass pembacaan penuh → deteksi grid blok placement → <b>ZOOM per sel</b>
-              (angka kill diperbesar &amp; dibaca ulang dengan whitelist digit — ini kunci akurasi) → server menghitung
-              total: jumlah kill <b>4 pemain dalam satu top # dihitung TOTAL</b> (contoh 3+6+5+5 = 19), nomor blok
+              Pilih Screenshot → <b>Upload &amp; Analisa</b>. Gambar diarsipkan ke hosting ImgBB sebagai
+              bukti, lalu OCR berjalan <b>di perangkat kamu</b>: pembacaan penuh 2 pass → deteksi semua
+              blok placement dari kata &ldquo;Kill&rdquo; → <b>setiap angka di-zoom ulang dan diperiksa
+              dengan mask warna + whitelist digit</b> (inilah kunci akurasi) → <b>total kill tim =
+              penjumlahan kill 4 pemain dalam satu blok</b> (contoh nyata 3+6+5+5 = 19), nomor blok
               menjadi placement. Bila browser gagal membaca layar, analisa otomatis dilanjutkan di server.
             </p>
-            <p className="font-black uppercase text-fs-text">4. Periksa tabel hasil, atur timnya</p>
+            <p className="font-black uppercase text-fs-text">3. Pilih tim untuk tiap rank</p>
             <p>
-              Kolom <b>Tim terdaftar</b>: kalau sudah cocok otomatis, tidak perlu apa-apa. Bila &ldquo;tidak cocok / manual&rdquo;,
-              pilih nama tim dari dropdown — cocokkan urutan placement di layar dengan daftar di bawah (lihat kolom pemain
-              sebagai petunjuk). Angka <b>kill per pemain BISA DIEDIT langsung</b> (kotak kecil di bawah kolom Kills) —
-              total otomatis mengikuti. Angka <span className="text-fs-gold font-black">kuning</span> = dibaca beda oleh
-              2 mesin, wajib dicek. Hilangkan centang baris yang tidak dipakai (mis. blok terpotong).
+              Hasil tampil sebagai daftar <b>rank → total kill</b> (tanpa nama pemain). Untuk tiap baris,
+              pilih tim terdaftar di kolom <b>Tim terdaftar</b> — cocokkan urutan rank di layar dengan
+              daftar tim kamu. Semua angka <b>bisa diedit langsung</b> di kolom Kills kalau ada yang
+              kelewat baca. Hilangkan centang baris yang tidak dipakai (mis. blok terpotong tepi layar).
             </p>
-            <p className="font-black uppercase text-fs-text">5. Terapkan → Simpan Draft → Publish</p>
+            <p className="font-black uppercase text-fs-text">4. Terapkan → Simpan Draft → Publish</p>
             <p>
-              Klik <b>Terapkan ke Formulir</b> — placement &amp; kill terisi otomatis, PLACEMENT PTS, KILL PTS dan TOTAL
-              dihitung otomatis sesuai aturan resmi (kill = 2 poin). Admin hanya perlu menyetel ulang angka yang
-              salah. Lalu Simpan Draft → Preview → Publish seperti biasa.
+              Klik <b>Terapkan ke Formulir</b> — placement &amp; kill terisi otomatis, PLACEMENT PTS,
+              KILL PTS dan TOTAL dihitung otomatis sesuai aturan resmi (kill = 2 poin). Lalu Simpan
+              Draft → Preview → Publish seperti biasa.
             </p>
             <p className="border border-fs-edge bg-fs-panel px-3 py-2 text-[11px]">
-              <b>Pengaturan mesin:</b> ENDPOINT &amp; model diatur di menu <b>Pengaturan → AI &amp; OCR</b> (tersimpan di
-              database — bukan .env). Environment hanya berisi 2 key: <code>JERE_API_KEY</code> + <code>IMGBB_API_KEY</code>.
-              Status key juga tampil di halaman itu.
+              <b>Akurasi:</b> tiap angka dibaca 2× (teks penuh + zoom mask kuning) dan angka yang tidak
+              yakin ditolak, bukan ditebak. Baris dengan tanda &ldquo;periksa&rdquo; = angka kurang
+              lengkap atau rank otomatis — selalu cek baris itu. <b>Pengaturan mesin:</b> endpoint &amp;
+              model di menu <b>Pengaturan → AI &amp; OCR</b> (database, bukan .env). Environment hanya
+              berisi key: <code>JERE_API_KEY</code> + <code>IMGBB_API_KEY</code>.
             </p>
           </div>
         ) : null}

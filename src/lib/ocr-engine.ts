@@ -1,31 +1,35 @@
 // ============================================================
-// STIKAR ESPORTS — BOF · MESIN AI OCR SCREENSHOT FREE FIRE
+// STIKAR ESPORTS — BOF · MESIN OCR SERVER (FALLBACK)
 // Lib server MURNI (tanpa import next/server) — dipakai oleh
-// route /api/ai/ocr DAN script uji (scripts/test-ocr-engine.ts)
+// route /api/ai/ocr DAN script uji (scripts/test-ocr-rows.ts)
 // sehingga pipeline yang diuji = pipeline yang berjalan produksi.
 //
-// ATURAN INTI (kesalahan lama yang sudah diperbaiki):
-//   Layar hasil Free Fire menampilkan blok peringkat (Top 1, Top 2, ...)
-//   dan SETIAP BLOK BERISI SAMPAI 4 PEMAIN dengan kill per pemain.
-//   Kill tim = JUMLAH kill semua anggota blok (dihitung total),
-//   BUKAN kill satu pemain. Nama tim sering TIDAK ditampilkan —
-//   pencocokan tim terdaftar memakai NAMA PEMAIN (roster/kapten).
+// PERAN: fallback bila OCR browser admin gagal membaca layar.
+// Pipeline sama dengan browser: tesseract 2 pass (koordinat kata)
+// → parser kill-anchored (src/lib/ocr-rows.ts — tanpa nama pemain)
+// → rescue zoom-digit (mask kuning + whitelist digit) → baris
+// { rank, total kill }.
+//
+// ATURAN HITUNG: 1 blok placement (top #) = 1 tim berisi sampai 4
+// PEMAIN; KILL TIM = PENJUMLAHAN kill semua anggota blok — dihitung
+// ulang oleh parser dari sel-sel yang sudah diverifikasi rescue.
+// Nama pemain sengaja tidak dibaca (permintaan admin).
 // ============================================================
 
-import {
-  matchOcrRowToTeam,
-  sanitizeOcrRows,
-} from "./ocr";
-import {
-  imageDimensions,
-  parseWordBoxesToBlocks,
-  type OcrWord,
-  type ParsedBlock,
-  type ParsedMember,
-} from "./ocr-blocks";
-
-export type { ParsedBlock, ParsedMember };
+import { parseKillAnchoredRows, type OcrWord, type RescueDigitFn } from "./ocr-rows";
 import type { OcrRow } from "./types";
+
+export type { OcrWord };
+
+/** Pengaturan mesin OCR — diatur dari UI Admin → Pengaturan (dokumen
+ *  settings/ocr), BUKAN dari .env. Env hanya menyimpan API key
+ *  (SATU key per provider). Disimpan agar kompatibel dengan panel
+ *  pengaturan yang sudah ada; pipeline saat ini berjalan tanpa AI. */
+export interface OcrEngineSettings {
+  jereEndpoint?: string;
+  jereVisionModel?: string;
+  jereTextModel?: string;
+}
 
 export interface RegistryTeam {
   id: string;
@@ -36,193 +40,35 @@ export interface RegistryTeam {
   ocrAliases?: string[];
 }
 
-/** Pengaturan mesin OCR — diatur dari UI Admin → Pengaturan (dokumen settings/ocr),
- *  BUKAN dari .env. Env hanya menyimpan API key (SATU key per provider). */
-export interface OcrEngineSettings {
-  /** Base URL API jerexd (default https://api.jerexd.my.id) — bisa diganti dari UI. */
-  jereEndpoint?: string;
-  /** Model vision jerexd (chatvision-v2/v1). Kosong = default server jerexd. */
-  jereVisionModel?: string;
-  /** Model teks jerexd (aichat) untuk menstrukturkan bacaan ke JSON. */
-  jereTextModel?: string;
-}
-
-/** Normalisasi base URL endpoint jerexd — aman dipakai langsung di fetch. */
-export function jereBaseUrl(endpoint?: string): string {
-  const s = String(endpoint ?? "").trim().replace(/\/+$/, "");
-  return /^https:\/\//i.test(s) ? s.slice(0, 120) : "https://api.jerexd.my.id";
-}
-
-export interface OcrPipelineResult {
-  ok: true;
-  source: string;
-  needsReview: boolean;
-  booyahTeam: string | null;
-  rows: OcrRow[];
-  notes: string | null;
-  tried: string[];
-  detail?: string[];
-}
-
-// ============================================================
-// PROMPT UTAMA — jelaskan tata letak layar FF + aturan penjumlahan
-// ============================================================
-export function buildVisionPrompt(teams: RegistryTeam[]): string {
-  const daftar = teams.length
-    ? teams
-        .map((t) => {
-          const pemain = (t.roster ?? []).map((r) => r.nickname).filter(Boolean).join(", ");
-          const alias = (t.ocrAliases ?? []).filter(Boolean).join(", ");
-          return `- id=${t.id} | nama=${t.name}${t.tag ? ` | tag=${t.tag}` : ""}${
-            t.captain ? ` | kapten=${t.captain}` : ""
-          }${pemain ? ` | pemain=${pemain}` : ""}${alias ? ` | alias=${alias}` : ""}`;
-        })
-        .join("\n")
-    : "(belum ada tim terdaftar)";
-
-  return `Kamu operator resmi turnamen Free Fire (BOF — Battle Off Friends).
-Tugas: baca screenshot LAYAR HASIL match Free Fire (layar BOOYAH!, papan skor akhir, atau klasemen) dan ubah menjadi JSON.
-
-TATA LETAK LAYAR — PAHAMI DULU SEBELUM MEMBACA:
-- Layar berisi daftar blok peringkat: nomor placement BESAR (1, 2, 3, 4, ...) di sisi kiri setiap blok. Nomor 1 biasanya kotak emas.
-- SATU BLOK PLACEMENT = SATU TIM, dan berisi SAMPAI 4 PEMAIN (susunan 2 kolom x 2 baris).
-- Setiap pemain tertulis: NAMA PEMAIN lalu angka kill dan kata "Kill" — contoh: "U.Dogss  6 Kill".
-- Kill adalah PER PEMAIN. KILL TIM = JUMLAH (penjumlahan) kill SEMUA anggota dalam blok itu. Contoh blok Top 1 berisi "aangtzc 3 Kill", "U.Dogss 6 Kill", "Nuglieeie 5 Kill", "Nuglieeie 5 Kill" → kill tim = 3+6+5+5 = 19.
-- Sering kali NAMA TIM TIDAK DITAMPILKAN sama sekali — hanya nama pemain. JANGAN MENGARANG nama tim; biarkan "screenTeam": null.
-- Beberapa varian layar menampilkan nama tim/kru di blok — bila ada, tulis persis di "screenTeam".
-
-DAFTAR TIM TERDAFTAR turnamen ini (id | nama | tag | kapten | pemain roster | alias):
-${daftar}
-
-ATURAN WAJIB:
-1. Satu blok placement = SATU entri di "rows". "rank" = nomor placement blok (1, 2, 3, ...).
-2. "memberKills" = SEMUA pemain di blok itu, sampai 4 orang: [{"name":"nama persis di layar","kills":6}, ...]. Jangan melewatkan satu pun pemain.
-3. "kills" = TOTAL penjumlahan kills semua anggota blok (kill tim, bukan kill satu pemain). Hitung ulang penjumlahannya dengan cermat.
-4. Cocokkan setiap blok ke tim terdaftar memakai NAMA PEMAIN (bandingkan dengan kolom "pemain" dan "kapten" daftar di atas — simbol/hiasan diabaikan, ejaan mirip dianggap sama, mis. "RBL GraceeSB" = "RBL Gracee"). Bila 2 pemain atau lebih dalam satu blok cocok dengan roster tim yang sama, isi "teamId" = id tim itu. Bila hanya 1 pemain cocok dan tidak persis sama, atau tidak ada yang cocok: "teamId": null. JANGAN MENEBAK.
-5. Abaikan elemen UI: tombol KEMBALI, logo FREE FIRE, waktu, ping, mode, latar belakang, ikon.
-6. Blok yang terpotong tepi layar tetap dimasukkan bila nomor placementnya terlihat — isi hanya pemain yang terlihat, dan sebutkan di "notes" bahwa ada blok terpotong.
-7. Bila suatu angka benar-benar tidak terbaca, isi null — JANGAN menebak.
-8. Balas HANYA JSON tanpa penjelasan apa pun, dengan skema persis:
-{"rows":[{"rank":1,"screenTeam":null,"memberKills":[{"name":"aangtzc","kills":3},{"name":"U.Dogss","kills":6},{"name":"Nuglieeie","kills":5},{"name":"Nuglieeie","kills":5}],"kills":19,"teamId":"id-atau-null","confidence":0.95}],"booyahTeam":"nama tim rank 1 atau null","notes":"catatan singkat atau null"}`;
-}
-
-// ============================================================
-// PANGGILAN JEREXD (SATU provider AI — key tunggal JERE_API_KEY)
-// Endpoint bisa diganti dari UI Admin (settings/ocr) tanpa deploy.
-// ============================================================
-/** Jerexd chatvision-v2 — kirim LINK gambar (ImgBB), form-urlencoded. */
-async function callJerexd(apiKey: string, baseUrl: string, imageUrl: string, prompt: string, model?: string): Promise<string> {
-  const params = new URLSearchParams();
-  params.set("url", imageUrl);
-  params.set("prompt", prompt);
-  if (model && model !== "default") params.set("model", model);
-  const res = await fetch(`${baseUrl}/api/ai/chatvision-v2?apikey=${encodeURIComponent(apiKey)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: params.toString(),
-    signal: AbortSignal.timeout(25_000),
-  });
-  const raw = await res.text();
-  let json: Record<string, unknown> | null = null;
-  try {
-    json = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    throw new Error(`Jerexd: respon bukan JSON (HTTP ${res.status}): ${raw.slice(0, 120)}`);
+/** Baca dimensi gambar dari header PNG/JPEG (tanpa dependensi). */
+export function imageDimensions(bytes: Buffer): { width: number; height: number } {
+  // PNG: IHDR pada byte 16..24
+  if (bytes.length > 24 && bytes[0] === 0x89 && bytes[1] === 0x50) {
+    return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
   }
-  if (!res.ok || json?.status === false || (typeof json?.statusCode === "number" && json.statusCode >= 400)) {
-    const msg = json?.message ?? json?.error ?? `HTTP ${res.status}`;
-    throw new Error(`Jerexd: ${String(msg).slice(0, 300)}`);
-  }
-  const data = json?.data as { answer?: string } | undefined;
-  const result = json?.result as string | { answer?: string } | undefined;
-  const text = String(data?.answer ?? (typeof result === "string" ? result : result?.answer) ?? "").trim();
-  if (!text) throw new Error("Jerexd mengembalikan jawaban kosong.");
-  return text;
-}
-
-/** Jerexd chatvision v1 — upload FILE langsung (multipart), model gemini/gpt. */
-async function callJerexdV1(apiKey: string, baseUrl: string, b64: string, mime: string, prompt: string, model?: string): Promise<string> {
-  const form = new FormData();
-  form.append("prompt", prompt);
-  form.append("model", model || "gemini");
-  const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
-  const bytes = Buffer.from(b64, "base64");
-  form.append("file", new Blob([new Uint8Array(bytes)], { type: mime }), `screenshot.${ext}`);
-  const res = await fetch(`${baseUrl}/api/ai/chatvision?apikey=${encodeURIComponent(apiKey)}`, {
-    method: "POST",
-    body: form,
-    signal: AbortSignal.timeout(25_000),
-  });
-  const raw = await res.text();
-  let json: Record<string, unknown> | null = null;
-  try {
-    json = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    throw new Error(`JerexdV1: respon bukan JSON (HTTP ${res.status}): ${raw.slice(0, 120)}`);
-  }
-  if (!res.ok || json?.status === false || (typeof json?.statusCode === "number" && json.statusCode >= 400)) {
-    const msg = json?.message ?? json?.error ?? `HTTP ${res.status}`;
-    throw new Error(`JerexdV1: ${String(msg).slice(0, 300)}`);
-  }
-  const data = json?.data as { answer?: string } | undefined;
-  const result = json?.result as string | { answer?: string } | undefined;
-  const text = String(data?.answer ?? (typeof result === "string" ? result : result?.answer) ?? "").trim();
-  if (!text) throw new Error("JerexdV1 mengembalikan jawaban kosong.");
-  return text;
-}
-
-// ============================================================
-// UTIL
-// ============================================================
-export function extractJson(text: string): string {
-  const cleaned = text.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) return cleaned;
-  return cleaned.slice(start, end + 1);
-}
-
-/** True bila teks memuat JSON dengan array "rows" berisi minimal 1 baris. */
-export function hasRowsJson(text: string): boolean {
-  try {
-    const obj = JSON.parse(extractJson(text)) as { rows?: unknown };
-    return Array.isArray(obj.rows) && obj.rows.length > 0;
-  } catch {
-    return false;
-  }
-}
-
-/** Validasi ulang teamId dari AI + pencocokan lokal per-pemain (voting). */
-export function resolveRows(rows: OcrRow[], teams: RegistryTeam[]): OcrRow[] {
-  const byId = new Map(teams.map((t) => [t.id, t]));
-  return rows.map((r) => {
-    let teamId = r.teamId && byId.has(r.teamId) ? r.teamId : null;
-    let teamName = teamId ? (byId.get(teamId)?.name ?? null) : r.teamName ?? null;
-    let confidence = r.confidence ?? 0.5;
-    if (teamId) {
-      confidence = Math.max(confidence, 0.75);
-    } else {
-      const m = matchOcrRowToTeam(r, teams as never);
-      if (m) {
-        teamId = m.teamId;
-        teamName = m.teamName;
-        // Voting ≥2 pemain → keyakinan naik; 1 pemain persis → sedang.
-        confidence = Math.max(confidence, m.votes >= 2 ? Math.min(0.95, 0.6 + 0.1 * m.votes) : 0.7);
-      } else {
-        confidence = Math.min(confidence, 0.5);
+  // JPEG: cari marker SOF0..SOF15 (kecuali DHT C4/C8/CC)
+  if (bytes.length > 4 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+    let off = 2;
+    while (off + 9 < bytes.length) {
+      if (bytes[off] !== 0xff) { off++; continue; }
+      const marker = bytes[off + 1];
+      if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { off += 2; continue; }
+      const len = bytes.readUInt16BE(off + 2);
+      if ((marker >= 0xc0 && marker <= 0xcf) && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+        return { height: bytes.readUInt16BE(off + 5), width: bytes.readUInt16BE(off + 7) };
       }
+      off += 2 + len;
     }
-    return { ...r, teamId, teamName, confidence };
-  });
+  }
+  return { width: 0, height: 0 };
 }
 
 // ============================================================
 // TESSERACT.JS — OCR DENGAN KOORDINAT KATA (TANPA API KEY, GRATIS)
 // DUA pass: PSM 6 (struktur blok lengkap) + PSM 11 (sparse — menangkap
-// angka yang lolos dari pass utama). Hasil digabung per posisi.
-// Worker script & core diselesaikan EKSPLISIT via createRequire —
-// bundling Next/Vercel merusak __dirname bawaan tesseract.js
-// (error "Cannot find module '/ROOT/node_modules/tesseract.js/...").
+// angka yang lolos dari pass utama). Worker script & core diselesaikan
+// EKSPLISIT via createRequire — bundling Next/Vercel merusak
+// __dirname bawaan tesseract.js.
 // ============================================================
 import { createRequire as nodeCreateRequire } from "node:module";
 import nodePath from "node:path";
@@ -284,7 +130,7 @@ export async function ocrWordBoxes(bytes: Buffer): Promise<{ words: OcrWord[]; w
     height = Math.max(height, w.y + w.h);
   }
   // Pass sparse (PSM 11) hanya bila pass utama kurang meyakinkan —
-  // ini booster recall angka, bukan keharusan (hemat ~40% waktu CPU).
+  // booster recall angka, bukan keharusan (hemat waktu CPU lambda).
   let sparse: OcrWord[] = [];
   if (main.length < 60) {
     sparse = await runPass("11").catch(() => [] as OcrWord[]);
@@ -295,9 +141,8 @@ export async function ocrWordBoxes(bytes: Buffer): Promise<{ words: OcrWord[]; w
   }
 
   // Gabungkan: kata sparse yang tidak ada padanannya di pass utama
-  // ditambahkan. Pengecualian: bila posisi bertabrakan dengan kata "Kill"
-  // (bukan nama/digit), kata sparse tetap ditambahkan — ini yang memulihkan
-  // angka kill yang terlewat pass utama (mis. "9" tepat di area "Kill").
+  // ditambahkan; angka yang bertabrakan dengan kata "Kill" tetap masuk
+  // (memulihkan angka kill yang terlewat pass utama).
   const words = [...main];
   for (const s of sparse) {
     const scx = s.x + s.w / 2;
@@ -314,378 +159,206 @@ export async function ocrWordBoxes(bytes: Buffer): Promise<{ words: OcrWord[]; w
   return { words, width, height };
 }
 
-/** Blok geometris → baris OCR mentah (belum dicocokkan tim). */
-export function blocksToRows(blocks: ParsedBlock[]): OcrRow[] {
-  return blocks.map((b) => {
-    const dipulihkan = b.members.filter((m) => m.recovered).length;
-    const takTerbaca = b.members.filter((m) => m.kills == null && !m.recovered).length;
-    const diperselisihkan = b.members.filter((m) => m.disputed).length;
-    return {
-      rank: b.rank,
-      teamRaw: b.members.map((m) => m.name).join(", "),
-      teamId: null,
-      teamName: null,
-      kills: b.members.reduce((a, m) => a + (m.kills ?? 0), 0),
-      // Ada angka yang tak terbaca / diperselisihkan → total bisa meleset →
-      // keyakinan turun supaya admin WAJIB memeriksa kolom Kills sebelum publish.
-      confidence: takTerbaca > 0 ? 0.45 : diperselisihkan > 0 ? 0.6 : dipulihkan > 0 ? 0.75 : 0.85,
-      players: b.members.map((m) => m.name),
-      memberKills: b.members.map((m) => ({ name: m.name, kills: m.kills, disputed: m.disputed })),
-    };
-  });
-}
-
-/**
- * RECOVERY PASS — untuk pemain yang angka killnya gagal terbaca pass awal,
- * OCR ulang TEPAT di area angka kill (rectangle zoom, whitelist digit saja,
- * PSM single-line). Meningkatkan recall angka tanpa mengorbankan akurasi:
- * bila tetap tidak terbaca, kills dibiarkan null (admin isi manual).
- */
-async function recoverMissedKills(blocks: ParsedBlock[], bytes: Buffer): Promise<number> {
-  const targets: ParsedMember[] = [];
-  for (const b of blocks) for (const m of b.members) if (m.kills == null && m.killHint) targets.push(m);
-  if (!targets.length) return 0;
-  const batas = Date.now() + 22_000; // anggaran waktu recovery (lambda 60s)
+// ============================================================
+// RESCUE DIGIT (NODE) — mask kuning + normalisasi glyph + whitelist 0-9
+// ============================================================
+// Angka kill di layar Free Fire berwarna KUNING PEKAT (R-B besar),
+// sedangkan nama pemain/bintang lebih putih dan kata "Kill" lebih
+// pucat — mask saturasi memisahkan angka dari semuanya. Bbox glyph
+// lalu dinormalisasi ke tinggi 48 px (Tesseract akurat di ukuran itu —
+// glyph terlalu besar/kecil sering gagal terbaca) dan dibaca dengan
+// whitelist digit. Browser punya versi canvas-nya sendiri di
+// src/services/ocr/client.ts.
+// ============================================================
+export async function createDigitRescuerNode(
+  bytes: Buffer,
+): Promise<(zone: { x0: number; y0: number; x1: number; y1: number }) => Promise<{ value: number; conf: number } | null>> {
+  const sharp = (await import("sharp")).default;
   const { createWorker } = await import("tesseract.js");
-  const worker = await createWorker("eng", 1, { cachePath: "/tmp/bof-tessdata", logger: () => {}, ...resolveTessPaths() });
-  let pulih = 0;
-  try {
-    await worker.setParameters({ tessedit_pageseg_mode: "7" as import("tesseract.js").PSM, tessedit_char_whitelist: "0123456789" });
-    for (const m of targets.slice(0, 16)) {
-      if (Date.now() > batas) break;
-      const r = m.killHint!;
-      try {
-        const { data } = await worker.recognize(bytes, {
-          rectangle: { left: r.x, top: r.y, width: r.w, height: r.h },
-        });
-        const teks = String(data.text ?? "").trim();
-        if (r.kind === "zone") {
-          // Zona kosong: hanya terima SATU digit persis (0-9) — mencegah
-          // digit dari ID pemain di dekatnya ikut terhitung.
-          if (/^\d$/.test(teks)) {
-            m.kills = Number(teks);
-            m.recovered = true;
-            pulih++;
-          }
-        } else {
-          // Token salah baca: ambil angka pertama yang wajar — whitelist
-          // digit membuat hasil jauh lebih andal daripada bacaan bebas.
-          const digits = teks.match(/\d{1,2}/);
-          if (digits) {
-            const n = Number(digits[0]);
-            if (n >= 0 && n <= 23) {
-              m.kills = n;
-              m.recovered = true;
-              pulih++;
-            }
-          }
-        }
-      } catch {
-        // satu area gagal — lanjut area berikutnya
+  const paths = resolveTessPaths();
+  const worker = await createWorker("eng", 1, {
+    cachePath: "/tmp/bof-tessdata",
+    logger: () => {},
+    ...paths,
+  });
+  const meta = await sharp(bytes).metadata();
+  const W = meta.width ?? 1;
+  const H = meta.height ?? 1;
+
+  const recognize = async (png: Buffer, psm: string): Promise<{ digits: string; conf: number } | null> => {
+    try {
+      await worker.setParameters({
+        tessedit_pageseg_mode: psm as import("tesseract.js").PSM,
+        tessedit_char_whitelist: "0123456789",
+      });
+      const { data } = await worker.recognize(png);
+      const digits = String(data.text ?? "").replace(/\D/g, "");
+      const ws = (data.words ?? []) as { confidence?: number }[];
+      const conf = ws.length ? ws.reduce((a, w) => a + (w.confidence ?? 0), 0) / ws.length : 0;
+      return digits ? { digits, conf } : null;
+    } catch {
+      return null;
+    }
+  };
+
+  return async (zone) => {
+    const x0 = Math.max(0, Math.round(zone.x0));
+    const y0 = Math.max(0, Math.round(zone.y0));
+    const x1 = Math.min(W, Math.round(zone.x1));
+    const y1 = Math.min(H, Math.round(zone.y1));
+    const w = x1 - x0;
+    const h = y1 - y0;
+    if (w < 4 || h < 5) return null;
+
+    const S = Math.min(12, Math.max(4, Math.round(120 / h)));
+    const { data: raw, info } = await sharp(bytes)
+      .extract({ left: x0, top: y0, width: w, height: h })
+      .resize(w * S, h * S, { kernel: "mitchell" })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const cw = info.width;
+    const ch = info.height;
+    const chn = info.channels;
+
+    // MASK KUNING PEKAT: R≥110, G≥85, R-B≥85, G-B≥55
+    const mask = new Uint8Array(cw * ch);
+    let on = 0;
+    for (let i = 0; i < cw * ch; i++) {
+      const R = raw[i * chn];
+      const G = raw[i * chn + 1];
+      const B = raw[i * chn + 2];
+      if (R >= 110 && G >= 85 && R - B >= 85 && G - B >= 55) {
+        mask[i] = 1;
+        on++;
       }
     }
-  } finally {
-    await worker.terminate().catch(() => {});
-  }
-  return pulih;
-}
 
-/**
- * Perbaiki nama pemain hasil OCR (sering tergaris-garis/salah baca) memakai
- * aichat jerexd — ANGKA KILL TIDAK DIUBAH (angka dari geometri adalah sumber
- * kebenaran). Bila aichat gagal/balasan tidak valid → nama asli dipakai.
- */
-async function refineNamesWithJerexd(
-  apiKey: string,
-  baseUrl: string,
-  blocks: ParsedBlock[],
-  teams: RegistryTeam[],
-  textModel: string,
-): Promise<ParsedBlock[]> {
-  const daftar = teams.length
-    ? teams.map((t) => {
-        const pemain = (t.roster ?? []).map((r) => r.nickname).filter(Boolean).join(", ");
-        return `- ${t.name}${t.tag ? ` [${t.tag}]` : ""}: ${pemain || "(roster kosong)"}`;
-      }).join("\n")
-    : "(belum ada)";
-  const dump = blocks
-    .map((b) => `Top ${b.rank}: ${b.members.map((m) => `"${m.name}"=${m.kills ?? "?"}`).join(", ")}`)
-    .join("\n");
-  const prompt = `Hasil OCR layar skor Free Fire (bisa salah huruf, simbol hilang) — perbaiki NAMA PEMAIN saja.
-Daftar tim terdaftar (nama tim [tag]: pemain):
-${daftar}
-
-Data OCR:
-${dump}
-
-TUGAS:
-1. Untuk setiap nama, koreksi salah baca agar cocok dengan pemain terdaftar bila jelas mirip (contoh "RBLCeltssh"→"RBL Celutss", "indrea®"→"RBL Andrea"). Bila tidak yakin, tulis ulang apa adanya. JANGAN mengarang nama baru, JANGAN mengubah angka.
-2. Balas HANYA JSON: {"blocks":[{"rank":1,"members":[{"name":"nama yang sudah dikoreksi","kills":3}]}]} — rank & jumlah members & angka kills HARUS sama persis dengan data OCR.
-Balas HANYA JSON.`;
-  const params = new URLSearchParams();
-  params.set("model", textModel);
-  params.set("prompt", prompt);
-  const res = await fetch(`${baseUrl}/api/ai/aichat?apikey=${encodeURIComponent(apiKey)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: params.toString(),
-    signal: AbortSignal.timeout(20_000),
-  });
-  const raw = await res.text();
-  let json: Record<string, unknown> | null = null;
-  try { json = JSON.parse(raw) as Record<string, unknown>; } catch { throw new Error(`aichat bukan JSON (HTTP ${res.status})`); }
-  if (!res.ok || json?.status === false) throw new Error(String(json?.error ?? json?.message ?? `HTTP ${res.status}`).slice(0, 200));
-  const data = json?.data as { answer?: string } | undefined;
-  const result = json?.result as string | { answer?: string } | undefined;
-  const text = String(data?.answer ?? (typeof result === "string" ? result : result?.answer) ?? "");
-  const obj = JSON.parse(extractJson(text)) as { blocks?: { rank?: number; members?: { name?: string; kills?: number }[] }[] };
-  if (!Array.isArray(obj.blocks)) throw new Error("balasan tanpa blocks");
-  const fixed: ParsedBlock[] = [];
-  for (const b of obj.blocks) {
-    const orig = blocks.find((x) => x.rank === b.rank);
-    if (!orig || !Array.isArray(b.members) || b.members.length !== orig.members.length) { if (orig) fixed.push(orig); continue; }
-    const members = orig.members.map((m, i) => ({
-      name: String(b.members![i]?.name ?? m.name).trim().slice(0, 48) || m.name,
-      kills: m.kills, // angka TIDAK diubah dari geometri
-      recovered: m.recovered,
-    }));
-    fixed.push({ rank: orig.rank, members });
-  }
-  return fixed;
-}
-
-
-/**
- * MODE BARU — OCR dijalankan di BROWSER admin (CPU perangkat admin, bebas
- * batas waktu server). Klien mengirim blok hasil parser geometris
- * (src/lib/ocr-blocks.ts dipakai langsung di browser); server hanya
- * memperbaiki nama via aichat jerexd, menghitung total kill (penjumlahan
- * per blok) dan mencocokkan tim terdaftar.
- */
-export async function analyzeBlocks(opts: {
-  blocks: ParsedBlock[];
-  teams: RegistryTeam[];
-  settings?: OcrEngineSettings;
-  jereApiKey?: string;
-}): Promise<OcrPipelineResult> {
-  const { teams } = opts;
-  const settings = opts.settings ?? {};
-  let blocks = opts.blocks
-    .filter((b) => b && Number.isFinite(b.rank) && Array.isArray(b.members))
-    .map((b) => ({ rank: Math.trunc(b.rank), members: b.members.slice(0, 4).map((m) => ({ name: String(m.name ?? "").slice(0, 48), kills: Number.isFinite(m.kills) ? Math.trunc(m.kills as number) : null })) }))
-    .filter((b) => b.members.length > 0);
-  if (blocks.length < 2) throw new Error("Data blok dari browser tidak cukup (minimal 2 blok placement).");
-
-  const jereKey = opts.jereApiKey || "";
-  const jereBase = jereBaseUrl(settings.jereEndpoint);
-  let catatan = "";
-  if (jereKey && teams.length) {
-    const textModel = settings.jereTextModel?.trim() || "google/gemini-3.1-flash-lite";
-    try {
-      blocks = await refineNamesWithJerexd(jereKey, jereBase, blocks, teams, textModel);
-    } catch (e) {
-      catatan = `Perbaikan nama AI gagal (${String((e as Error).message ?? e).slice(0, 120)}) — nama asli OCR dipakai.`;
+    if (on >= 12) {
+      // bbox piksel mask yang punya tetangga (buang piksel liar 1 px)
+      let bx0 = cw, by0 = ch, bx1 = 0, by1 = 0, hitung = 0;
+      for (let y = 1; y < ch - 1; y++) {
+        for (let x = 1; x < cw - 1; x++) {
+          const i = y * cw + x;
+          if (!mask[i]) continue;
+          const tetangga = mask[i - 1] + mask[i + 1] + mask[i - cw] + mask[i + cw];
+          if (tetangga < 2) continue;
+          if (x < bx0) bx0 = x;
+          if (x > bx1) bx1 = x;
+          if (y < by0) by0 = y;
+          if (y > by1) by1 = y;
+          hitung++;
+        }
+      }
+      if (hitung >= 10 && bx1 > bx0 && by1 > by0) {
+        const bw = bx1 - bx0 + 1;
+        const bh = by1 - by0 + 1;
+        // normalisasi: tinggi glyph 48 px, lebar proporsional (maks 96)
+        const targetH = 48;
+        const scale = targetH / bh;
+        let targetW = Math.round(bw * scale);
+        if (targetW > 96) targetW = 96;
+        if (targetW < 8) targetW = 8;
+        const padX = Math.max(12, Math.round((112 - targetW) / 2));
+        const maskBuf = Buffer.alloc(cw * ch * 3);
+        for (let i = 0; i < cw * ch; i++) {
+          const v = mask[i] ? 0 : 255;
+          maskBuf[i * 3] = v;
+          maskBuf[i * 3 + 1] = v;
+          maskBuf[i * 3 + 2] = v;
+        }
+        const glyph = await sharp(maskBuf, { raw: { width: cw, height: ch, channels: 3 } })
+          .extract({ left: bx0, top: by0, width: bw, height: bh })
+          .resize(targetW, targetH, { kernel: "mitchell" })
+          .extend({ top: 12, bottom: 12, left: padX, right: Math.max(12, 112 - targetW - padX), background: { r: 255, g: 255, b: 255 } })
+          .png()
+          .toBuffer();
+        let best: { value: number; conf: number } | null = null;
+        for (const psm of ["10", "7", "8"]) {
+          const r = await recognize(glyph, psm);
+          if (!r) continue;
+          const v = Number(r.digits.slice(0, 2));
+          if (!Number.isFinite(v)) continue;
+          if (!best || r.conf > best.conf) best = { value: v, conf: r.conf };
+        }
+        if (best && best.conf >= 35) return best;
+      }
     }
-  }
 
-  let rows = blocksToRows(blocks);
-  rows = rows.filter((r) => r.kills != null);
-  rows = resolveRows(rows, teams);
-  const booyah = rows.find((r) => r.rank === 1)?.teamName ?? rows.find((r) => r.rank === 1)?.teamRaw ?? null;
-  const takCocok = rows.filter((r) => !r.teamId).length;
-  // Kill pemain yang gagal terbaca (null) — total bisa kurang dari seharusnya.
-  const killTakTerbaca = rows.reduce(
-    (a, r) => a + (r.memberKills ?? []).filter((m) => m.kills == null).length, 0,
-  );
-  const killDiperselisihkan = rows.reduce(
-    (a, r) => a + (r.memberKills ?? []).filter((m) => m.disputed).length, 0,
-  );
-  return {
-    ok: true,
-    source: jereKey ? "browser-ocr+jere" : "browser-ocr",
-    needsReview: takCocok > rows.length / 2 || killTakTerbaca > 0 || killDiperselisihkan > 0,
-    booyahTeam: booyah,
-    rows,
-    notes:
-      `${rows.length} blok placement terbaca. Kill tim = penjumlahan kill semua pemain di blok ` +
-      `(dihitung otomatis). ${takCocok ? takCocok + " baris belum cocok tim terdaftar — pilih manual di kolom Tim terdaftar (tanpa kapten/roster pun bisa)." : "Semua baris cocok tim terdaftar."}` +
-      (killTakTerbaca ? ` ${killTakTerbaca} angka kill pemain tak terbaca — total bisa KURANG; koreksi angka sebelum publish.` : "") +
-      (killDiperselisihkan ? ` ${killDiperselisihkan} angka dibaca beda oleh 2 mesin (ditandai kuning) — periksa sebelum publish.` : "") +
-      (catatan ? ` ${catatan}` : ""),
-    tried: ["browser-tesseract"],
+    // fallback abu-abu (mask gagal — mis. tema warna lain)
+    const gray = await sharp(bytes)
+      .extract({ left: x0, top: y0, width: w, height: h })
+      .resize(w * S, h * S, { kernel: "mitchell" })
+      .grayscale()
+      .normalise()
+      .png()
+      .toBuffer();
+    let best2: { value: number; conf: number } | null = null;
+    for (const psm of ["7", "8"]) {
+      const r = await recognize(gray, psm);
+      if (!r) continue;
+      const v = Number(r.digits.slice(0, 2));
+      if (!Number.isFinite(v)) continue;
+      if (!best2 || r.conf > best2.conf) best2 = { value: v, conf: r.conf };
+    }
+    if (best2 && best2.conf < 55) return null;
+    return best2;
   };
 }
 
 // ============================================================
-// PIPELINE UTAMA
+// PIPELINE SERVER (FALLBACK) — link ImgBB → baris { rank, total kill }
 // ============================================================
+export interface OcrPipelineResult {
+  ok: true;
+  source: string;
+  needsReview: boolean;
+  booyahTeam: string | null;
+  rows: OcrRow[];
+  notes: string | null;
+}
+
 export async function runOcrPipeline(opts: {
   imageUrl: string;
-  teams: RegistryTeam[];
+  fetchImage?: (url: string) => Promise<Buffer>;
   settings?: OcrEngineSettings;
   jereApiKey?: string;
 }): Promise<OcrPipelineResult> {
-  const { imageUrl, teams } = opts;
-  const settings = opts.settings ?? {};
-  const prompt = buildVisionPrompt(teams);
-
-  // Unduh gambar satu kali untuk semua provider.
-  const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(30_000) });
-  if (!imgRes.ok) throw new Error(`Gagal mengunduh gambar: HTTP ${imgRes.status}`);
-  let buf = Buffer.from(await imgRes.arrayBuffer());
-  if (buf.length < 64) throw new Error("berkas terlalu kecil");
-  if (buf.length > 16 * 1024 * 1024) throw new Error("berkas > 16 MB");
-  let mime = imgRes.headers.get("content-type")?.split(";")[0] ?? "image/png";
-  if (!mime.startsWith("image/")) mime = "image/png";
-  // Downscale: OCR 1600px sudah akurat dan ±4x lebih cepat — screenshot HP
-  // mentah (2400-4000px) membuat mesin melebihi batas waktu lambda Vercel.
-  try {
-    const sharp = (await import("sharp")).default;
-    const meta = await sharp(buf).metadata();
-    if ((meta.width ?? 0) > 1600) {
-      buf = await sharp(buf).resize({ width: 1600 }).jpeg({ quality: 88 }).toBuffer();
-      mime = "image/jpeg";
-    }
-  } catch {
-    // sharp gagal (mis. binary tidak tersedia) — lanjut dengan gambar asli.
-  }
-  const bytes = buf;
-  const b64 = bytes.toString("base64");
-
-  const providers: { name: string; run: () => Promise<string>; needsReview?: boolean }[] = [];
-  const jereKeyForNames = opts.jereApiKey || "";
-  let catatanRecovery = "";
-
-  // ============================================================
-  // MESIN UTAMA — TESSERACT.JS (word boxes, tanpa API key) + JEREXD aichat
-  // Angka (rank & kill) dibaca geometris — akurat & tidak tergantung AI.
-  // Nama pemain diperbaiki aichat jerexd (bila key ada).
-  // ============================================================
-  let tesseractBlocks: ParsedBlock[] = [];
-  try {
-    const { words, width, height } = await ocrWordBoxes(bytes);
-    if (width && height && words.length >= 6) {
-      tesseractBlocks = parseWordBoxesToBlocks(words, width, height);
-      if (tesseractBlocks.length >= 2) {
-        try {
-          const pulih = await recoverMissedKills(tesseractBlocks, bytes);
-          if (pulih) catatanRecovery = `${pulih} angka kill dipulihkan lewat re-OCR terarah.`;
-        } catch (e) {
-          // recovery opsional — lanjut dengan hasil pass awal
-          console.error("[ocr] recovery gagal:", String((e as Error).message ?? e).slice(0, 200));
-        }
-      }
-    }
-  } catch (e) {
-    console.error("[ocr] tesseract path gagal:", String((e as Error).message ?? e).slice(0, 300));
-    tesseractBlocks = [];
-  }
-
-  if (tesseractBlocks.length >= 2) {
-    const textModel = settings.jereTextModel?.trim() || "google/gemini-3.1-flash-lite";
-    let blocks = tesseractBlocks;
-    let catatan = "";
-    if (jereKeyForNames && teams.length) {
-      try {
-        blocks = await refineNamesWithJerexd(jereKeyForNames, jereBaseUrl(settings.jereEndpoint), blocks, teams, textModel);
-      } catch (e) {
-        catatan = `Perbaikan nama AI gagal (${String((e as Error).message ?? e).slice(0, 120)}) — nama asli OCR dipakai.`;
-      }
-    }
-    let rows = blocksToRows(blocks);
-    // Baris yang sama sekali tak terbaca angkanya (kill null semua) dibuang.
-    rows = rows.filter((r) => r.kills != null);
-    if (rows.length) {
-      rows = resolveRows(rows, teams);
-      const booyah = rows.find((r) => r.rank === 1)?.teamName ?? rows.find((r) => r.rank === 1)?.teamRaw ?? null;
-      const takCocok = rows.filter((r) => !r.teamId).length;
-      return {
-        ok: true,
-        source: jereKeyForNames ? "tesseract+jere" : "tesseract",
-        needsReview: takCocok > rows.length / 2,
-        booyahTeam: booyah,
-        rows,
-        notes:
-          `${rows.length} blok placement terbaca. Kill tim = penjumlahan kill semua pemain di blok ` +
-          `(dihitung otomatis). ${takCocok ? takCocok + " baris belum cocok tim terdaftar — pilih manual di kolom Tim terdaftar." : "Semua baris cocok tim terdaftar."}` +
-          (catatanRecovery ? ` ${catatanRecovery}` : "") +
-          (catatan ? ` ${catatan}` : ""),
-        tried: ["tesseract"],
-        detail: undefined,
-      };
-    }
-  }
-
-  // ============================================================
-  // MESIN CADANGAN — JEREXD VISION (SATU provider AI, key tunggal)
-  // ============================================================
-  const jereKey = opts.jereApiKey || "";
-  const jereBase = jereBaseUrl(settings.jereEndpoint);
-  if (jereKey) {
-    const visionModel = settings.jereVisionModel?.trim() || "";
-    providers.push({
-      name: "jere",
-      run: async () => {
-        // PERINGATAN AKURASI (hasil uji nyata): endpoint vision jerexd
-        // (chatvision v1/v2) kerap menjawab DESKRIPSI gambar (caption),
-        // bukan mengikuti prompt — dan bisa terkena rate-limit 502/530.
-        // Karena itu HANYA balasan JSON "rows" yang valid diterima.
-        // Teks deskripsi TIDAK dijadikan bahan konstruksi data (dulu ada
-        // langkah "structuring" caption via aichat → menghasilkan baris
-        // fiktif — berbahaya untuk data turnamen, kini dihapus).
-        const catatan: string[] = [];
-        const [r2, r1] = await Promise.allSettled([
-          callJerexd(jereKey, jereBase, imageUrl, prompt, visionModel || undefined),
-          callJerexdV1(jereKey, jereBase, b64, mime, prompt, "gemini"),
-        ]);
-        if (r2.status === "fulfilled" && hasRowsJson(r2.value)) return r2.value;
-        if (r2.status === "rejected") catatan.push(`v2: ${String((r2.reason as Error)?.message ?? r2.reason).slice(0, 140)}`);
-        else if (r2.status === "fulfilled") catatan.push("v2: balasan deskripsi, bukan JSON");
-        if (r1.status === "fulfilled" && hasRowsJson(r1.value)) return r1.value;
-        if (r1.status === "rejected") catatan.push(`v1: ${String((r1.reason as Error)?.message ?? r1.reason).slice(0, 140)}`);
-        else if (r1.status === "fulfilled") catatan.push("v1: balasan deskripsi, bukan JSON");
-        throw new Error(catatan.join(" | ") || "Jerexd kosong");
-      },
+  void opts.settings;
+  void opts.jereApiKey;
+  const ambil =
+    opts.fetchImage ??
+    (async (url: string) => {
+      const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+      if (!res.ok) throw new Error(`Gagal mengunduh gambar (HTTP ${res.status}).`);
+      return Buffer.from(await res.arrayBuffer());
     });
-  }
-
-  if (!providers.length) {
+  const bytes = await ambil(opts.imageUrl);
+  const { words, width } = await ocrWordBoxes(bytes);
+  const rescue: RescueDigitFn = await createDigitRescuerNode(bytes);
+  const hasil = await parseKillAnchoredRows(words, width, { rescueDigit: rescue });
+  if (!hasil.blocks.length) {
     throw new Error(
-      "Belum ada API key mesin analisa. Isi JERE_API_KEY (key Jerexd — gratis) di environment Vercel.",
+      "Layar tidak dikenali sebagai papan skor Free Fire (kata \"Kill\" tidak ditemukan). Gunakan screenshot layar hasil/klasemen akhir match.",
     );
   }
-
-  const errors: string[] = [];
-  const tried: string[] = [];
-  for (const p of providers) {
-    tried.push(p.name);
-    try {
-      const text = await p.run();
-      const cleaned = extractJson(text);
-      const parsed = JSON.parse(cleaned);
-      const obj = parsed as Record<string, unknown>;
-      let rows = sanitizeOcrRows(obj.rows ?? obj.data ?? obj.results);
-      if (!rows.length) throw new Error("AI tidak menemukan blok placement — pastikan screenshot layar skor/BOOYAH.");
-      rows = resolveRows(rows, teams);
-      const booyahRaw = typeof obj.booyahTeam === "string" ? obj.booyahTeam : null;
-      const booyah = booyahRaw ?? rows.find((r) => r.rank === 1)?.teamName ?? rows.find((r) => r.rank === 1)?.teamRaw ?? null;
-      return {
-        ok: true,
-        source: p.name,
-        needsReview: false,
-        booyahTeam: booyah,
-        rows,
-        notes: typeof obj.notes === "string" ? obj.notes.slice(0, 400) : null,
-        tried,
-        detail: errors.length ? errors : undefined,
-      };
-    } catch (e) {
-      errors.push(`${p.name}: ${String((e as Error).message ?? e).slice(0, 220)}`);
-    }
-  }
-
-  const err = new Error("Semua mesin analisa gagal.") as Error & { detail?: string[]; tried?: string[] };
-  err.detail = errors;
-  err.tried = tried;
-  throw err;
+  const rows: OcrRow[] = hasil.blocks.map((b) => ({
+    rank: b.rank,
+    teamRaw: `Top #${b.rank}`,
+    teamId: null,
+    teamName: null,
+    kills: b.pairs.reduce((a, p) => a + p.value, 0),
+    confidence: Math.round(Math.min(0.97, Math.max(0.2, 0.4 + 0.125 * b.pairs.length + (b.rankRead !== null ? 0.05 : 0))) * 100) / 100,
+  }));
+  const perluCek = hasil.blocks.filter((b) => b.flags.length > 0 || b.pairs.length < 4).length;
+  return {
+    ok: true,
+    source: "server-ocr",
+    needsReview: perluCek > 0,
+    booyahTeam: null,
+    rows,
+    notes:
+      `${hasil.blocks.length} blok placement terbaca (mesin server)` +
+      (perluCek ? `; ${perluCek} blok perlu diperiksa` : "") +
+      `. Total kill = penjumlahan kill 4 pemain per blok.`,
+  };
 }

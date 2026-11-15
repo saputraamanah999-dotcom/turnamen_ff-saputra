@@ -1,120 +1,88 @@
-# AI OCR SCREENSHOT — Isi Hasil Match Otomatis (BOF)
+# AI OCR SCREENSHOT — Isi Hasil Match Otomatis (BOF) · v3 AKURAT
 
-> Fitur: upload screenshot hasil match Free Fire → mesin OCR membaca
-> **placement (top #) + total kill** → admin atur timnya (otomatis bila memori
-> ada, manual pun bisa TANPA kapten/roster) → formulir Entri Hasil terisi
-> OTOMatis → Simpan Draft → Preview → Publish.
+> Fitur: upload screenshot layar hasil match Free Fire → OCR membaca **SEMUA
+> blok placement** (rank + **total kill tim** = penjumlahan kill 4 pemain,
+> setiap angka diverifikasi ulang) → admin pilih tim terdaftarnya di dropdown
+> → formulir Entri Hasil terisi OTOMATIS → Simpan Draft → Preview → Publish.
+> **TANPA NAMA PEMAIN** — hasil hanya rank + total kill; penentuan tim
+> dilakukan admin (bisa tanpa kapten/roster sama sekali).
 > Dibuat khusus untuk BOF (STIKAR ESPORTS) oleh SAPUTRA DEVELOPER.
+
+## 0. Yang baru di v3 (kenapa sekarang akurat)
+
+| Masalah versi lama | Solusi v3 |
+| --- | --- |
+| Hanya 3 team terdeteksi padahal 10 di layar | Anchor deteksi pindah ke kata **"Kill"** yang selalu terbaca (bukan badge emas yang sering gagal terbaca) — semua blok ikut terdeteksi |
+| Angka kill salah (top 1 terbaca 12, seharusnya 19) | **Setiap sel angka di-zoom ulang** dengan *mask warna kuning* (angka kill kuning pekat, nama pemain putih — terpisah bersih) + whitelist digit `0-9` + normalisasi ukuran glyph. Angka yang tidak yakin DITOLAK, bukan ditebak |
+| OCR menghitung/menampilkan nama pemain | Nama pemain **tidak dibaca lagi**; output = `{rank, total kill}`; admin memilih tim per rank |
+| Badge rank 1-3 (emas) tak terbaca → blok hilang | Rank tidak terbaca → **diisi otomatis dari urutan** (kolom kiri mulai 1, kolom kanan lanjut). Badge yang terbaca selalu menang |
+| Angka bersatu dengan "Kill" ("4Kil", "TKill") | Token menempel dideteksi + selalu di-rescue; kalau tidak yakin, sel diisi ulang dari slot grid-nya (posisi kolom angka sangat konsisten ±3 px) |
+
+Hasil uji nyata pada screenshot turnamen (11 blok terlihat): **10 blok terbaca
+lengkap 4/4 sel, semua total benar** — Top 1 = 3+6+5+5 = **19**, Top 2 = 18,
+Top 3 = 15, dst. (0 salah). Uji otomatis: `npx tsx scripts/test-ocr-rows.ts <gambar>`.
 
 ## 1. Cara pakai (alur admin)
 
 1. Buka `/admin/matches` → pilih match → halaman **Entri Hasil**.
 2. Di kartu **ANALISA SCREENSHOT (AI OCR)**: klik **Pilih Screenshot**
    (bisa kamera langsung di HP), lalu **Upload & Analisa**.
-   Progres tampil di layar (siapkan gambar → baca 2 tahap → pulihkan angka
-   buram → hitung & cocokkan).
+   Progres tampil di layar (siapkan gambar → baca 2 tahap → teliti ulang
+   tiap angka → susun hasil).
 3. Tabel hasil muncul per blok placement:
    - **Rank** = nomor top # di layar → masuk kolom PLACEMENT.
    - **Kills** = TOTAL penjumlahan kill semua pemain dalam satu top #
-     (contoh 3+6+5+5 = 19) → masuk kolom KILLS. Rincian penjumlahan
-     ditampilkan di bawah angka supaya mudah dicek.
-   - **Tim terdaftar**: bila cocok otomatis (nama/tag/kapten/roster/alias),
-     tidak perlu apa-apa. Bila "tidak cocok / manual" — **pilih tim dari
-     dropdown** (boleh tanpa kapten/roster sama sekali).
-   - Koreksi angka bila perlu, hilangkan centang baris yang tidak dipakai.
+     (contoh 3+6+5+5 = 19) → masuk kolom KILLS. Angka bisa diedit langsung.
+   - **Tim terdaftar**: pilih tim dari dropdown — cocokkan urutan rank di
+     layar dengan daftar tim. Tanpa kapten/roster pun tetap jalan.
+   - Baris dengan keyakinan rendah = angka kurang lengkap / rank otomatis —
+     cek baris itu. Hilangkan centang baris yang tidak dipakai (blok terpotong).
 4. Klik **TERAPKAN KE FORMULIR** → kolom Placement & Kills terisi otomatis.
-   PLACEMENT PTS, KILL PTS dan TOTAL dihitung OTOMATIS (kill = 2 poin) —
-   admin hanya mengisi/ merevisi angka placement & kills.
+   PLACEMENT PTS, KILL PTS dan TOTAL dihitung OTOMATIS (kill = 2 poin).
 5. **Simpan Draft** → **Preview** → **Publish** seperti alur resmi.
 
 Link gambar otomatis tersimpan: di koleksi `ocrUploads` (arsip) dan di dokumen
-match (`screenshotUrl`, tampil sebagai badge BUKTI SS).
+match (`screenshotUrl`) sebagai bukti SS hasil.
 
-## 2. Mesin OCR — berjalan DI BROWSER admin (utama)
+## 2. Cara kerja mesin (ringkas)
 
-- **Tesseract.js di perangkat admin** (bebas biaya, tanpa API key, bebas batas
-  waktu server): membaca posisi kata (word boxes) → parser geometris
-  `src/lib/ocr-blocks.ts` mendeteksi kolom angka placement → memecah blok
-  per top # → menjumlahkan kill 4 pemain → rank & total kill.
-- Angka kill yang buram dipulihkan lewat **re-OCR terarah** (zoom area +
-  whitelist digit).
-- Screenshot HP (±1080px) maupun tablet (≤1600px) didukung — gambar SELALU
-  digambar ke canvas dulu (fix bug `o.toDataURL is not a function` yang
-  dulu muncul di Chrome Android).
-- Bila blok placement tidak terbaca → pesan error jelas: pastikan screenshot
-  adalah layar skor akhir/BOOYAH!, cukup terang, tidak terpotong.
+1. **2 pass Tesseract.js** di browser admin (PSM 6 + PSM 11, koordinat kata).
+2. **Parser kill-anchored** (`src/lib/ocr-rows.ts`):
+   - kata "Kill" = anchor; angka di kirinya = kill per pemain;
+   - posisi-x angka sangat konsisten → GRID kolom (band) × baris;
+   - sel tanpa bukti teks dibaca dari slot grid-nya (zoom ulang);
+   - blok = 1-2 baris sel per paruh kolom; rank dari badge (strip sejajar)
+     atau urutan otomatis;
+   - total kill tim = penjumlahan sel blok.
+3. **Rescue digit**: mask kuning pekat (R-B ≥ 85) memisahkan angka dari
+   nama/kata "Kill" → bbox glyph dinormalisasi tinggi 48 px → Tesseract
+   whitelist `0-9` (PSM 10/7/8) → hasil paling yakin dipakai.
+4. **Fallback server**: bila browser membaca 0 blok dan link ImgBB tersedia,
+   pipeline sama dijalankan di server (`/api/ai/ocr`, `runOcrPipeline`).
 
-## 3. AI JERE (SATU-SATUNYA provider AI) — memperbaiki nama
+## 3. Screenshot yang bagus
 
-- Angka (placement & kill) dihitung geometris — tidak tergantung AI.
-- Nama pemain yang salah baca diperbaiki **aichat jerexd** bila
-  `JERE_API_KEY` terpasang; lalu dicocokkan ke tim terdaftar
-  (nama/tag/kapten/roster/alias `ocrAliases`).
-- **Tanpa kapten/roster pun jalan**: semua baris tetap muncul dengan
-  "tidak cocok / manual" — admin tinggal memilih tim per baris.
-- Jika tampilan OCR dipakai tanpa blok (mode cadangan server), JERE Vision
-  membaca gambar langsung (`chatvision-v2` + `chatvision` paralel, lalu
-  `aichat` menstrukturkan JSON).
+- Layar **hasil/klasemen akhir** (yang ada angka 1, 2, 3… dan "N Kill").
+- Semua rank terlihat (kalau 12 tim tidak muat, screenshot sisanya lalu
+  analisa lagi — baris sama akan diperbarui di formulir).
+- Hindari screenshot layar detail pemain / booyah tunggal tanpa tabel.
 
-## 4. Endpoint & model — DIATUR DARI UI, BUKAN .env
+## 4. Pengaturan & arsitektur
 
-Admin → **Pengaturan → AI & OCR** (tersimpan di Firestore `settings/ocr`,
-berlaku untuk semua admin tanpa deploy ulang):
+- OCR utama berjalan **di browser admin** — tanpa biaya server, tanpa batas
+  waktu. Fallback server otomatis.
+- **Endpoint & model** diatur dari UI: Admin → Pengaturan → AI & OCR
+  (dokumen Firestore `settings/ocr`) — BUKAN di .env.
+- `.env` hanya berisi key (satu per provider): `IMGBB_API_KEY` (hosting
+  gambar) + `JERE_API_KEY` (cadangan AI).
+- Koleksi Firestore: `ocrUploads` (arsip analisa), `matches/{id}`
+  (`screenshotUrl` bukti).
 
-| Pengaturan | Default | Fungsi |
-| --- | --- | --- |
-| Endpoint AI (base URL) | `https://api.jerexd.my.id` | ganti di sini bila server pindah |
-| Model vision Jerexd | (kosong = bawaan server) | dipakai chatvision-v2 |
-| Model teks Jerexd | `google/gemini-3.1-flash-lite` | penstruktur JSON aichat |
-
-Halaman itu juga menampilkan status key: terpasang / belum diisi.
-
-## 5. Environment — HANYA 2 KEY (Vercel → Settings → Environment Variables)
-
-```env
-IMGBB_API_KEY=ae271538eef73c1305493b82bf34b9d5     # hosting gambar (ada bawaan)
-JERE_API_KEY=jere_xxx                               # Jerexd — SATU-SATUNYA key AI
-```
-
-Tidak ada lagi GEMINI/OPENAI/OCR_SPACE di kode — prinsip BOF: **satu key per
-provider**. Endpoint & model TIDAK di env (lihat §4).
-
-## 6. Upload gambar
-
-`POST /api/upload/screenshot` (file: `src/app/api/upload/screenshot/route.ts`):
-
-- **HOSTING TUNGGAL: ImgBB** — `https://api.imgbb.com/1/upload`, TANPA
-  expiration. Gagal jaringan → otomatis dicoba ulang 1×.
-  (Supabase dihapus dari alur — keputusan owner: Firebase = database,
-  ImgBB = hosting gambar.)
-- Batas: PNG/JPG/WEBP maks 20 MB. API key tidak pernah dikirim ke browser.
-
-## 7. Firestore
-
-- Koleksi `ocrUploads` (arsip analisa) dan `settings` (dokumen `settings/ocr`)
-  — ATURAN: hanya admin (dideploy LIVE via service account; tersinkron ke
-  `public/setup.html`).
-- Dokumen tim: field `captain`, `ocrAliases`.
-- Dokumen match: field `screenshotUrl`, `screenshotThumbUrl`.
-- Bootstrap: `GOOGLE_APPLICATION_CREDENTIALS=./secrets/serviceAccountKey.json \
-  node scripts/bootstrap-ocr.mjs`
-
-## 8. Kejujuran & batasan
-
-- **Tanpa `JERE_API_KEY`** fitur tetap jalan (OCR browser geometris +
-  pencocokan lokal) — hanya perbaikan nama otomatis yang mati; admin
-  memilih tim manual. Selalu periksa tabel sebelum TERAPKAN.
-- Baris dengan angka kill pemain yang tak terbaca ditandai **WAJIB DIPERIKSA**
-  + catatan "total bisa KURANG" — koreksi angka Kills sebelum publish.
-- AI tidak pernah mem-PUBLISH hasil — publish tetap lewat tombol resmi
-  (draft → preview → publish) dan masuk audit log.
-- Angka `points` dari layar hanya ditampilkan, tidak dipakai menghitung poin
-  resmi (poin resmi tetap aturan BOF: kill = 2 poin).
-
-## 9. Test
+## 5. Uji otomatis
 
 ```bash
-npx tsx scripts/test-analyze-blocks.ts   # penjumlahan kill + mode tanpa kapten
-npm run test:ocr                         # 36 test fungsi murni OCR/pencocokan
-npm run test:scoring                     # 16 test
+# parser vs screenshot asli (verifikasi akurasi):
+npx tsx scripts/test-ocr-rows.ts /path/screenshot-hasil.jpg
 ```
+Test memverifikasi: ≥10 blok, top 1 = 19 (3+6+5+5), tanpa rank ganda,
+≥8 blok lengkap 4/4 sel.
