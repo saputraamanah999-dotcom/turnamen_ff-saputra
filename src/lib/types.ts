@@ -238,7 +238,7 @@ export interface OcrRow {
   /** Nama-nama pemain yang terbaca di blok placement ini (0..4 orang). */
   players?: string[];
   /** Rincian kill per pemain — sumber kebenaran kills = penjumlahan ini. */
-  memberKills?: { name: string; kills: number | null }[];
+  memberKills?: { name: string; kills: number | null; disputed?: boolean }[];
 }
 
 export interface OcrAnalysis {

@@ -23,6 +23,8 @@ import {
   type ParsedBlock,
   type ParsedMember,
 } from "./ocr-blocks";
+
+export type { ParsedBlock, ParsedMember };
 import type { OcrRow } from "./types";
 
 export interface RegistryTeam {
@@ -104,33 +106,6 @@ ATURAN WAJIB:
 {"rows":[{"rank":1,"screenTeam":null,"memberKills":[{"name":"aangtzc","kills":3},{"name":"U.Dogss","kills":6},{"name":"Nuglieeie","kills":5},{"name":"Nuglieeie","kills":5}],"kills":19,"teamId":"id-atau-null","confidence":0.95}],"booyahTeam":"nama tim rank 1 atau null","notes":"catatan singkat atau null"}`;
 }
 
-/** Prompt langkah penstrukturan (aichat teks) — aturan penjumlahan yang sama. */
-export function buildStructPrompt(caption: string, teams: RegistryTeam[]): string {
-  const daftar = teams.length
-    ? teams
-        .map((t) => {
-          const pemain = (t.roster ?? []).map((r) => r.nickname).filter(Boolean).join(", ");
-          return `- ${t.name}${t.tag ? ` (tag ${t.tag})` : ""}${pemain ? ` — pemain: ${pemain}` : ""}`;
-        })
-        .join("; ")
-    : "(belum ada tim terdaftar)";
-  return `Kamu asisten data turnamen Free Fire (BOF). Teks di bawah adalah HASIL PEMBACAAN screenshot papan skor Free Fire.
-Ubah menjadi JSON murni. ATURAN:
-- Satu blok placement (top 1, top 2, ...) = satu entri rows. "rank" = nomor placementnya.
-- Layar berisi nama PEMAIN dengan kill per pemain (contoh "U.Dogss 6 Kill"). Satu blok = sampai 4 pemain.
-- "memberKills" = semua pemain blok: [{"name":"nama","kills":6}, ...].
-- "kills" = JUMLAH TOTAL kill semua anggota blok (contoh 3+6+5+5 = 19) — kill TIM, bukan satu pemain.
-- "teamId": cocokkan nama pemain dengan daftar tim berikut (roster/kapten); bila ≥2 pemain satu blok masuk roster tim yang sama, isi id-nya; kalau tidak yakin, null.
-- Nama ditulis PERSIS; jangan mengarang.
-Daftar tim (nama — pemain): ${daftar}
-Skema JSON: {"rows":[{"rank":1,"screenTeam":null,"memberKills":[{"name":"...","kills":0}],"kills":0,"teamId":null,"confidence":0.9}],"booyahTeam":null,"notes":null}
-TEKS HASIL BACAAN:
-"""
-${caption.slice(0, 3500)}
-"""
-Balas HANYA JSON tanpa penjelasan.`;
-}
-
 // ============================================================
 // PANGGILAN JEREXD (SATU provider AI — key tunggal JERE_API_KEY)
 // Endpoint bisa diganti dari UI Admin (settings/ocr) tanpa deploy.
@@ -193,36 +168,6 @@ async function callJerexdV1(apiKey: string, baseUrl: string, b64: string, mime: 
   const result = json?.result as string | { answer?: string } | undefined;
   const text = String(data?.answer ?? (typeof result === "string" ? result : result?.answer) ?? "").trim();
   if (!text) throw new Error("JerexdV1 mengembalikan jawaban kosong.");
-  return text;
-}
-
-/** Jerexd aichat (teks, gratis) — strukturkan hasil bacaan menjadi JSON. */
-async function callJerexdStruct(apiKey: string, baseUrl: string, caption: string, teams: RegistryTeam[], model: string): Promise<string> {
-  const prompt = buildStructPrompt(caption, teams);
-  const params = new URLSearchParams();
-  params.set("model", model);
-  params.set("prompt", prompt);
-  const res = await fetch(`${baseUrl}/api/ai/aichat?apikey=${encodeURIComponent(apiKey)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: params.toString(),
-    signal: AbortSignal.timeout(20_000),
-  });
-  const raw = await res.text();
-  let json: Record<string, unknown> | null = null;
-  try {
-    json = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    throw new Error(`JerexdStruct: respon bukan JSON (HTTP ${res.status}): ${raw.slice(0, 120)}`);
-  }
-  if (!res.ok || json?.status === false || (typeof json?.statusCode === "number" && json.statusCode >= 400)) {
-    const msg = json?.message ?? json?.error ?? `HTTP ${res.status}`;
-    throw new Error(`JerexdStruct: ${String(msg).slice(0, 300)}`);
-  }
-  const data = json?.data as { answer?: string } | undefined;
-  const result = json?.result as string | { answer?: string } | undefined;
-  const text = String(data?.answer ?? (typeof result === "string" ? result : result?.answer) ?? "").trim();
-  if (!text) throw new Error("JerexdStruct mengembalikan jawaban kosong.");
   return text;
 }
 
@@ -374,17 +319,18 @@ export function blocksToRows(blocks: ParsedBlock[]): OcrRow[] {
   return blocks.map((b) => {
     const dipulihkan = b.members.filter((m) => m.recovered).length;
     const takTerbaca = b.members.filter((m) => m.kills == null && !m.recovered).length;
+    const diperselisihkan = b.members.filter((m) => m.disputed).length;
     return {
       rank: b.rank,
       teamRaw: b.members.map((m) => m.name).join(", "),
       teamId: null,
       teamName: null,
       kills: b.members.reduce((a, m) => a + (m.kills ?? 0), 0),
-      // Ada angka yang tak terbaca → total bisa kurang → keyakinan turun
-      // supaya admin WAJIB memeriksa kolom Kills sebelum publish.
-      confidence: takTerbaca > 0 ? 0.45 : dipulihkan > 0 ? 0.55 : 0.6,
+      // Ada angka yang tak terbaca / diperselisihkan → total bisa meleset →
+      // keyakinan turun supaya admin WAJIB memeriksa kolom Kills sebelum publish.
+      confidence: takTerbaca > 0 ? 0.45 : diperselisihkan > 0 ? 0.6 : dipulihkan > 0 ? 0.75 : 0.85,
       players: b.members.map((m) => m.name),
-      memberKills: b.members.map((m) => ({ name: m.name, kills: m.kills })),
+      memberKills: b.members.map((m) => ({ name: m.name, kills: m.kills, disputed: m.disputed })),
     };
   });
 }
@@ -551,16 +497,20 @@ export async function analyzeBlocks(opts: {
   const killTakTerbaca = rows.reduce(
     (a, r) => a + (r.memberKills ?? []).filter((m) => m.kills == null).length, 0,
   );
+  const killDiperselisihkan = rows.reduce(
+    (a, r) => a + (r.memberKills ?? []).filter((m) => m.disputed).length, 0,
+  );
   return {
     ok: true,
     source: jereKey ? "browser-ocr+jere" : "browser-ocr",
-    needsReview: takCocok > rows.length / 2 || killTakTerbaca > 0,
+    needsReview: takCocok > rows.length / 2 || killTakTerbaca > 0 || killDiperselisihkan > 0,
     booyahTeam: booyah,
     rows,
     notes:
       `${rows.length} blok placement terbaca. Kill tim = penjumlahan kill semua pemain di blok ` +
       `(dihitung otomatis). ${takCocok ? takCocok + " baris belum cocok tim terdaftar — pilih manual di kolom Tim terdaftar (tanpa kapten/roster pun bisa)." : "Semua baris cocok tim terdaftar."}` +
-      (killTakTerbaca ? ` ${killTakTerbaca} angka kill pemain tak terbaca — total bisa KURANG; koreksi angka Kills sebelum publish.` : "") +
+      (killTakTerbaca ? ` ${killTakTerbaca} angka kill pemain tak terbaca — total bisa KURANG; koreksi angka sebelum publish.` : "") +
+      (killDiperselisihkan ? ` ${killDiperselisihkan} angka dibaca beda oleh 2 mesin (ditandai kuning) — periksa sebelum publish.` : "") +
       (catatan ? ` ${catatan}` : ""),
     tried: ["browser-tesseract"],
   };
@@ -673,38 +623,28 @@ export async function runOcrPipeline(opts: {
   const jereBase = jereBaseUrl(settings.jereEndpoint);
   if (jereKey) {
     const visionModel = settings.jereVisionModel?.trim() || "";
-    const textModel = settings.jereTextModel?.trim() || "google/gemini-3.1-flash-lite";
     providers.push({
       name: "jere",
       run: async () => {
+        // PERINGATAN AKURASI (hasil uji nyata): endpoint vision jerexd
+        // (chatvision v1/v2) kerap menjawab DESKRIPSI gambar (caption),
+        // bukan mengikuti prompt — dan bisa terkena rate-limit 502/530.
+        // Karena itu HANYA balasan JSON "rows" yang valid diterima.
+        // Teks deskripsi TIDAK dijadikan bahan konstruksi data (dulu ada
+        // langkah "structuring" caption via aichat → menghasilkan baris
+        // fiktif — berbahaya untuk data turnamen, kini dihapus).
         const catatan: string[] = [];
-        // Kedua endpoint vision dijalankan PARALEL (server jerexd kadang lambat).
         const [r2, r1] = await Promise.allSettled([
           callJerexd(jereKey, jereBase, imageUrl, prompt, visionModel || undefined),
           callJerexdV1(jereKey, jereBase, b64, mime, prompt, "gemini"),
         ]);
-        let caption = "";
-        if (r2.status === "fulfilled") {
-          if (hasRowsJson(r2.value)) return r2.value;
-          caption = r2.value;
-          catatan.push("v2: balasan deskripsi, bukan JSON");
-        } else {
-          catatan.push(`v2: ${String((r2.reason as Error)?.message ?? r2.reason).slice(0, 140)}`);
-        }
-        if (r1.status === "fulfilled") {
-          if (hasRowsJson(r1.value)) return r1.value;
-          if (r1.value.length > caption.length) caption = r1.value;
-          catatan.push("v1: balasan deskripsi, bukan JSON");
-        } else {
-          catatan.push(`v1: ${String((r1.reason as Error)?.message ?? r1.reason).slice(0, 140)}`);
-        }
-        if (!caption) throw new Error(catatan.join(" | ") || "Jerexd kosong");
-        // Strukturkan teks bacaan via aichat (gratis) → JSON skema tetap.
-        const structured = await callJerexdStruct(jereKey, jereBase, caption, teams, textModel);
-        if (!hasRowsJson(structured)) {
-          throw new Error(`Jerexd: ${catatan.join(" | ")} | structuring gagal: ${structured.slice(0, 100)}`);
-        }
-        return structured;
+        if (r2.status === "fulfilled" && hasRowsJson(r2.value)) return r2.value;
+        if (r2.status === "rejected") catatan.push(`v2: ${String((r2.reason as Error)?.message ?? r2.reason).slice(0, 140)}`);
+        else if (r2.status === "fulfilled") catatan.push("v2: balasan deskripsi, bukan JSON");
+        if (r1.status === "fulfilled" && hasRowsJson(r1.value)) return r1.value;
+        if (r1.status === "rejected") catatan.push(`v1: ${String((r1.reason as Error)?.message ?? r1.reason).slice(0, 140)}`);
+        else if (r1.status === "fulfilled") catatan.push("v1: balasan deskripsi, bukan JSON");
+        throw new Error(catatan.join(" | ") || "Jerexd kosong");
       },
     });
   }

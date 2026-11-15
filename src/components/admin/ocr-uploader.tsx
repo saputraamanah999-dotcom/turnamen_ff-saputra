@@ -101,8 +101,9 @@ export function OcrUploader({
       setPhase("analyzing");
       // OCR dijalankan DI BROWSER (CPU perangkat admin) — tidak membebani
       // server, bebas batas waktu, dan memakai mesin yang sama (geometri
-      // blok + penjumlahan kill 4 pemain per top #) via lib bersama.
-      const result = await analyzeScreenshotClient(file, teams, (t) => setProgressNote(t));
+      // blok + zoom per sel + penjumlahan kill 4 pemain per top #) via lib
+      // bersama. Bila browser gagal, otomatis lanjut ke mesin server.
+      const result = await analyzeScreenshotClient(file, teams, (t) => setProgressNote(t), up?.url);
       if (!result.rows.length) {
         throw new Error(
           "OCR browser tidak membaca satu blok placement pun. Pastikan screenshot adalah layar skor akhir/BOOYAH! dan cukup terang.",
@@ -323,9 +324,42 @@ export function OcrUploader({
                         aria-label={`Kill ${r.teamRaw}`}
                       />
                       {r.memberKills?.length ? (
-                        <p className="mt-0.5 text-[10px] font-semibold tabular-nums text-fs-text/40" title="Total kill tim = penjumlahan kill semua pemain di blok ini">
-                          {r.memberKills.map((m) => (m.kills ?? "?")).join("+")}={r.kills ?? "?"}
-                        </p>
+                        <div className="mt-1 space-y-0.5" title="Total kill tim = penjumlahan kill semua pemain di blok ini (bisa diedit per pemain)">
+                          {r.memberKills.map((m, mi) => (
+                            <div key={mi} className="flex items-center justify-center gap-1">
+                              <input
+                                type="number"
+                                min={0}
+                                max={30}
+                                className={
+                                  "bo-input !h-5 !w-9 !px-1 text-center text-[10px] tabular-nums " +
+                                  (m.disputed ? "!border-fs-gold !text-fs-gold" : "")
+                                }
+                                value={m.kills ?? ""}
+                                aria-label={`Kill pemain ${mi + 1} baris ${i + 1}${m.disputed ? " (dibaca beda oleh 2 mesin)" : ""}`}
+                                onChange={(e) => {
+                                  const v = e.target.value === "" ? null : Number(e.target.value);
+                                  setRows((prev) =>
+                                    prev.map((row, ri) => {
+                                      if (ri !== i || !row.memberKills) return row;
+                                      const mk = row.memberKills.map((x, xi) =>
+                                        xi === mi ? { ...x, kills: v, disputed: false } : x,
+                                      );
+                                      return {
+                                        ...row,
+                                        memberKills: mk,
+                                        kills: mk.reduce((a, x) => a + (x.kills ?? 0), 0),
+                                      };
+                                    }),
+                                  );
+                                }}
+                              />
+                              <span className={"max-w-[92px] truncate text-[9px] font-semibold " + (m.disputed ? "text-fs-gold" : "text-fs-text/40")} title={m.name}>
+                                {m.name}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       ) : null}
                     </td>
                     <td className="px-2 py-1.5 text-center">
@@ -401,16 +435,18 @@ export function OcrUploader({
             <p className="font-black uppercase text-fs-text">3. Upload &amp; analisa</p>
             <p>
               Pilih Screenshot → <b>Upload &amp; Analisa</b>. Gambar diarsipkan ke hosting ImgBB, lalu mesin OCR berjalan
-              <b> di perangkat kamu</b> (membaca layar 2 tahap + pemulihan angka — ikuti progres di layar) dan server
-              menghitung sisanya: jumlah kill <b>4 pemain dalam satu top # dihitung TOTAL</b> (contoh 3+6+5+5 = 19),
-              nomor blok menjadi placement, total kill masuk ke kolom Kills formulir di bawah.
+              <b> di perangkat kamu</b>: 2 pass pembacaan penuh → deteksi grid blok placement → <b>ZOOM per sel</b>
+              (angka kill diperbesar &amp; dibaca ulang dengan whitelist digit — ini kunci akurasi) → server menghitung
+              total: jumlah kill <b>4 pemain dalam satu top # dihitung TOTAL</b> (contoh 3+6+5+5 = 19), nomor blok
+              menjadi placement. Bila browser gagal membaca layar, analisa otomatis dilanjutkan di server.
             </p>
             <p className="font-black uppercase text-fs-text">4. Periksa tabel hasil, atur timnya</p>
             <p>
               Kolom <b>Tim terdaftar</b>: kalau sudah cocok otomatis, tidak perlu apa-apa. Bila &ldquo;tidak cocok / manual&rdquo;,
               pilih nama tim dari dropdown — cocokkan urutan placement di layar dengan daftar di bawah (lihat kolom pemain
-              sebagai petunjuk). Kolom Kills menampilkan rincian penjumlahan (mis. 3+6+5+5=19) supaya mudah dicek.
-              Hilangkan centang baris yang tidak dipakai (mis. blok terpotong).
+              sebagai petunjuk). Angka <b>kill per pemain BISA DIEDIT langsung</b> (kotak kecil di bawah kolom Kills) —
+              total otomatis mengikuti. Angka <span className="text-fs-gold font-black">kuning</span> = dibaca beda oleh
+              2 mesin, wajib dicek. Hilangkan centang baris yang tidak dipakai (mis. blok terpotong).
             </p>
             <p className="font-black uppercase text-fs-text">5. Terapkan → Simpan Draft → Publish</p>
             <p>

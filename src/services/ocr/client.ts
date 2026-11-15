@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/services/firebase/client";
 import { normalizeTeamKey } from "@/lib/ocr";
-import type { OcrWord } from "@/lib/ocr-blocks";
+import { computeCellZones, type OcrWord, type ParsedMember } from "@/lib/ocr-blocks";
 import type { OcrAnalysis, OcrRow, OcrUpload, Team } from "@/lib/types";
 
 // ---------- Pengaturan mesin AI OCR (disimpan di Firestore settings/ocr) ----------
@@ -141,15 +141,18 @@ export async function analyzeScreenshot(imageUrl: string, teams: Team[]): Promis
 /**
  * MODE UTAMA — OCR DI BROWSER admin (bebas batas waktu server).
  * Alur: file → tesseract.js (2 pass, koordinat kata) → parser geometris
- * blok placement (lib bersama src/lib/ocr-blocks.ts) → recovery re-OCR
- * whitelist digit → kirim BLOK ke /api/ai/ocr → server menghitung total
- * (penjumlahan kill per blok), memperbaiki nama via aichat (bila key ada),
- * mencocokkan tim terdaftar → baris siap dipakai formulir.
+ * blok placement (lib bersama src/lib/ocr-blocks.ts) → ZOOM re-OCR per sel
+ * (piksel + whitelist digit, normal+invert) → kirim BLOK ke /api/ai/ocr →
+ * server menghitung total (penjumlahan kill per blok), memperbaiki nama via
+ * aichat (bila key ada), mencocokkan tim terdaftar → baris siap dipakai.
+ * FALLBACK: bila browser gagal mengenali papan skor (< 2 blok) dan link
+ * gambar tersedia, analisa dilanjutkan otomatis di server (pipeline penuh).
  */
 export async function analyzeScreenshotClient(
   file: File,
   teams: Team[],
   onProgress?: (note: string) => void,
+  imageUrl?: string,
 ): Promise<OcrAnalysis> {
   const { createWorker } = await import("tesseract.js");
   const { parseWordBoxesToBlocks } = await import("@/lib/ocr-blocks");
@@ -207,56 +210,244 @@ export async function analyzeScreenshotClient(
     words = main;
     blocks = parseWordBoxesToBlocks(words, width, height);
 
-    if (main.length < 60) {
-      report("Membaca lebih teliti (pass 2/2)…");
-      await worker.setParameters({ tessedit_pageseg_mode: "11" as never });
-      const sparse = toWords((await worker.recognize(imageLike)).data ?? {});
-      // Gabungkan kata sparse yang tidak tabrakan posisi dengan pass utama.
-      for (const s of sparse) {
-        const scx = s.x + s.w / 2;
-        const scy = s.y + s.h / 2;
-        const tabrak = main.find((m) => {
-          const mcx = m.x + m.w / 2;
-          const mcy = m.y + m.h / 2;
-          return Math.abs(mcx - scx) <= Math.max(14, m.w * 0.6) && Math.abs(mcy - scy) <= Math.max(10, m.h * 0.6);
-        });
-        if (!tabrak) words.push(s);
-        else if (/^[((]?[Kk][A-Za-z]{0,4}$/.test(tabrak.text) && /^[0-9]{1,2}$/.test(s.text)) words.push(s);
-      }
-      blocks = parseWordBoxesToBlocks(words, width, height);
+    // Pass sparse (PSM 11) — selalu dijalankan: menangkap angka/badge yang
+    // lolos dari pass utama (badge rank emas sering tak terbaca pass 6).
+    report("Membaca lebih teliti (pass 2/2)…");
+    await worker.setParameters({ tessedit_pageseg_mode: "11" as never });
+    const sparse = toWords((await worker.recognize(imageLike)).data ?? {});
+    for (const s of sparse) {
+      const scx = s.x + s.w / 2;
+      const scy = s.y + s.h / 2;
+      const tabrak = main.find((m) => {
+        const mcx = m.x + m.w / 2;
+        const mcy = m.y + m.h / 2;
+        return Math.abs(mcx - scx) <= Math.max(14, m.w * 0.6) && Math.abs(mcy - scy) <= Math.max(10, m.h * 0.6);
+      });
+      if (!tabrak) words.push(s);
+      else if (/^[((]?[Kk][A-Za-z]{0,4}$/.test(tabrak.text) && /^[0-9]{1,2}$/.test(s.text)) words.push(s);
     }
+    blocks = parseWordBoxesToBlocks(words, width, height);
 
-    // RECOVERY — re-OCR area kill yang gagal terbaca (whitelist digit).
-    const targets = blocks.flatMap((b) => b.members.filter((m) => m.kills == null && m.killHint));
-    if (targets.length) {
-      report(`Memulihkan angka kill yang buram (${targets.length})…`);
-      await worker.setParameters({ tessedit_pageseg_mode: "7" as never, tessedit_char_whitelist: "0123456789" });
-      for (const m of targets.slice(0, 20)) {
-        const r = m.killHint!;
-        try {
-          const rect = { left: r.x, top: r.y, width: r.w, height: r.h };
-          const { data } = await worker.recognize(imageLike, { rectangle: rect });
-          const teks = String(data.text ?? "").trim();
-          if (r.kind === "zone") {
-            if (/^\d$/.test(teks)) { m.kills = Number(teks); m.recovered = true; }
-          } else {
-            const digits = teks.match(/\d{1,2}/);
-            if (digits) {
-              const n = Number(digits[0]);
-              if (n >= 0 && n <= 23) { m.kills = n; m.recovered = true; }
-            }
-          }
-        } catch {
-          // satu area gagal — lanjut
+    // ============================================================
+    // ZOOM RE-OCR PER SEL — mekanisme AKURASI utama (fix angka salah).
+    // Grid blok sudah diketahui → 4 sel (2x2) per blok. Untuk setiap sel:
+    //   1. zona angka kill dianalisis PIKSEL (profil kolom terang) → segmen
+    //      digit = segmen tepat sebelum kata "Kill";
+    //   2. segmen itu di-zoom 8x → OCR whitelist digit (normal + invert,
+    //      pilih conf tertinggi);
+    //   3. bila piksel gagal → OCR teks sel utuh 3x → digit terakhir
+    //      sebelum kata Kill (format menempel "NAMA9Kill" pun terbaca).
+    // Hasil digabung dengan pass-1: sepakat → angka final; beda → angka
+    // zoom dipakai + ditandai disputed (kuning di UI).
+    // ============================================================
+    const zoneCanvas = document.createElement("canvas");
+    const zctx = zoneCanvas.getContext("2d", { willReadFrequently: true });
+    const dataCanvas = document.createElement("canvas");
+    const dctx = dataCanvas.getContext("2d", { willReadFrequently: true });
+
+    const grayAt = (x0: number, y0: number, w: number, h: number): Uint8ClampedArray | null => {
+      if (!dctx || w < 2 || h < 2 || x0 < 0 || y0 < 0 || x0 + w > width || y0 + h > height) return null;
+      dctx.clearRect(0, 0, dataCanvas.width, dataCanvas.height);
+      dctx.drawImage(canvas, x0, y0, w, h, 0, 0, w, h);
+      const img = dctx.getImageData(0, 0, w, h);
+      const g = new Uint8ClampedArray(w * h);
+      for (let i = 0; i < w * h; i++) {
+        g[i] = (img.data[i * 4] * 299 + img.data[i * 4 + 1] * 587 + img.data[i * 4 + 2] * 114) / 1000;
+      }
+      return g;
+    };
+
+    /** Segmen kolom terang dalam zona (profil kolom) → [start,end] per segmen. */
+    const columnSegments = (g: Uint8ClampedArray, w: number, h: number, thr: number): [number, number][] => {
+      const prof = new Array<number>(w).fill(0);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (g[y * w + x] > thr) prof[x]++;
+      const cols: number[] = [];
+      for (let x = 0; x < w; x++) if (prof[x] >= 1) cols.push(x);
+      if (!cols.length) return [];
+      const segs: [number, number][] = [];
+      let start = cols[0];
+      let prev = cols[0];
+      for (const c of cols.slice(1)) {
+        if (c - prev > 3) { segs.push([start, prev]); start = c; }
+        prev = c;
+      }
+      segs.push([start, prev]);
+      return segs.filter(([s, e]) => e - s >= 1);
+    };
+
+    /** recognize helper async pada zoneCanvas saat ini. */
+    const recognizeZone = async (psm: string, whitelist: string | null): Promise<{ text: string; conf: number }> => {
+      await worker.setParameters({
+        tessedit_pageseg_mode: psm as never,
+        ...(whitelist ? { tessedit_char_whitelist: whitelist } : {}),
+      });
+      const { data } = await worker.recognize(zoneCanvas);
+      const txt = String(data.text ?? "").trim();
+      let conf = 0;
+      const ws = ((data as unknown as { words?: { confidence?: number }[] }).words ?? []);
+      if (ws.length) conf = ws.reduce((a, w) => a + (w.confidence ?? 0), 0) / ws.length;
+      return { text: txt, conf };
+    };
+
+    /** Zoom digit: normal + invert, ambil bacaan conf tertinggi yang valid. */
+    const zoomDigitAsync = async (rect: { x0: number; y0: number; x1: number; y1: number }): Promise<{ v: number; conf: number } | null> => {
+      if (!zctx) return null;
+      const w = rect.x1 - rect.x0;
+      const h = rect.y1 - rect.y0;
+      if (w < 3 || h < 5) return null;
+      const S = Math.min(10, Math.max(4, Math.round(160 / h)));
+      zoneCanvas.width = w * S;
+      zoneCanvas.height = h * S;
+      let best: { v: number; conf: number } | null = null;
+      for (const invert of [true, false]) {
+        zctx.save();
+        zctx.imageSmoothingEnabled = true;
+        zctx.imageSmoothingQuality = "high";
+        if (invert) zctx.filter = "invert(1)";
+        zctx.drawImage(canvas, rect.x0, rect.y0, w, h, 0, 0, zoneCanvas.width, zoneCanvas.height);
+        zctx.restore();
+        for (const psm of ["7", "8"]) {
+          try {
+            const { text, conf } = await recognizeZone(psm, "0123456789");
+            const d = text.replace(/\D/g, "");
+            if (!d) continue;
+            const v = Number(d.slice(0, 2));
+            if (v >= 0 && v <= 30 && (!best || conf > best.conf)) best = { v, conf };
+          } catch { /* satu psm gagal — lanjut */ }
         }
       }
-      // Nama tidak diubah di sini — server yang memperbaiki via AI (bila key ada).
+      await worker.setParameters({ tessedit_char_whitelist: "" });
+      return best;
+    };
+
+    /** OCR teks sel utuh (nama + kill) → {name, kills}. */
+    const LETTER_TO_DIGIT: Record<string, string> = { O: "0", D: "0", Q: "0", I: "1", l: "1", i: "1", "|": "1", L: "1", Z: "2", z: "2", A: "4", S: "5", s: "5", b: "6", B: "8", g: "9", q: "9" };
+    const zoomCellText = async (rect: { x0: number; y0: number; x1: number; y1: number }): Promise<{ name: string; kills: number | null } | null> => {
+      if (!zctx) return null;
+      const w = rect.x1 - rect.x0;
+      const h = rect.y1 - rect.y0;
+      if (w < 12 || h < 8) return null;
+      const S = 3;
+      zoneCanvas.width = w * S;
+      zoneCanvas.height = h * S;
+      zctx.imageSmoothingEnabled = true;
+      zctx.imageSmoothingQuality = "high";
+      zctx.clearRect(0, 0, zoneCanvas.width, zoneCanvas.height);
+      zctx.drawImage(canvas, rect.x0, rect.y0, w, h, 0, 0, zoneCanvas.width, zoneCanvas.height);
+      try {
+        const { text } = await recognizeZone("7", null);
+        const t = text.replace(/\s+/g, " ").trim();
+        if (!t) return null;
+        const re = /([0-9OoDdQqIiLlZzAaSsBbgq|])[ \t]*[KkGg][AaEeIiLl1|!]{0,4}/g;
+        let m: RegExpExecArray | null;
+        let last: RegExpExecArray | null = null;
+        while ((m = re.exec(t))) last = m;
+        if (last) {
+          let d = last[1];
+          if (!/[0-9]/.test(d)) d = LETTER_TO_DIGIT[d] ?? "";
+          if (d && /[0-9]/.test(d)) {
+            const name = t.slice(0, last.index).replace(/[|!.,;:'"^~`_-]+$/, "").trim();
+            return { name: name.slice(0, 40), kills: Number(d) };
+          }
+        }
+        const digits = [...t.matchAll(/(?:^|\s)(\d{1,2})(?:$|\s)/g)];
+        if (digits.length) {
+          const v = Number(digits[digits.length - 1][1]);
+          if (v >= 0 && v <= 30) {
+            const name = t.replace(digits[digits.length - 1][0], " ").trim();
+            return { name: name.slice(0, 40), kills: v };
+          }
+        }
+        return { name: t.slice(0, 40), kills: null };
+      } catch {
+        return null;
+      }
+    };
+
+    const targets = blocks.filter((b) => b.grid);
+    if (targets.length) {
+      const totalSel = targets.reduce((a, t) => a + 4, 0);
+      let done = 0;
+      report(`Zoom per sel untuk akurasi angka (${totalSel} sel)…`);
+      for (const b of targets) {
+        const zones = computeCellZones(b.grid!);
+        const merged: ParsedMember[] = [];
+        for (let i = 0; i < 4; i++) {
+          const z = zones[i];
+          const pass1 = b.members[i] ?? null;
+          // (1) analisis piksel zona kill → segmen digit sebelum kata Kill
+          let pixelRect: { x0: number; y0: number; x1: number; y1: number } | null = null;
+          if (zctx) {
+            const kx0 = z.killX0;
+            const g = grayAt(kx0, z.y0 + 1, z.x1 - kx0, z.y1 - z.y0 - 2);
+            if (g) {
+              const zw = z.x1 - kx0;
+              const zh = z.y1 - z.y0 - 2;
+              // pita baris teks
+              let ya = 0, yb = zh;
+              {
+                const rp = new Array<number>(zh).fill(0);
+                for (let y = 0; y < zh; y++) for (let x = 0; x < zw; x++) if (g[y * zw + x] > 100) rp[y]++;
+                const rowsOn: number[] = [];
+                for (let y = 0; y < zh; y++) if (rp[y] >= 1) rowsOn.push(y);
+                if (rowsOn.length >= 3) { ya = rowsOn[0]; yb = rowsOn[rowsOn.length - 1] + 1; }
+              }
+              const bandG = g.subarray(ya * zw, yb * zw);
+              const segs = columnSegments(bandG as unknown as Uint8ClampedArray, zw, yb - ya, 100);
+              if (segs.length >= 2) {
+                const [s, e] = segs[segs.length - 2];
+                if (segs[segs.length - 1][0] - e <= Math.max(30, (z.x1 - z.x0) * 0.5)) {
+                  pixelRect = { x0: kx0 + s - 2, y0: z.y0 + 1 + ya - 1, x1: kx0 + e + 2, y1: z.y0 + 1 + yb + 1 };
+                }
+              } else if (segs.length === 1) {
+                const [s, e] = segs[0];
+                if (e - s <= 26) pixelRect = { x0: kx0 + s - 2, y0: z.y0 + 1 + ya - 1, x1: kx0 + e + 2, y1: z.y0 + 1 + yb + 1 };
+              }
+            }
+          }
+          const pixel = pixelRect ? await zoomDigitAsync(pixelRect) : null;
+          // (2) OCR teks sel utuh → digit terakhir sebelum Kill + nama
+          const cell = await zoomCellText({ x0: z.x0, y0: z.y0 + 1, x1: z.x1, y1: z.y1 - 1 });
+          done++;
+          if (done % 8 === 0) report(`Zoom per sel (${done}/${totalSel})…`);
+          // (3) gabungkan sumber
+          let kills: number | null = pass1?.kills ?? null;
+          let disputed = false;
+          let recovered = pass1?.recovered ?? false;
+          if (pixel && pixel.conf >= 55) {
+            if (kills != null && kills !== pixel.v) disputed = true;
+            kills = pixel.v;
+            recovered = true;
+          }
+          if (cell?.kills != null) {
+            if (kills == null) { kills = cell.kills; recovered = true; }
+            else if (kills !== cell.kills) {
+              if (pixel && pixel.conf >= 55) disputed = true; // pixel vs cell beda → tetap pixel
+              else { kills = cell.kills; disputed = true; recovered = true; }
+            }
+          }
+          const name = (pass1?.name && pass1.name !== "(tak terbaca)" ? pass1.name : cell?.name?.trim()) || pass1?.name || "";
+          merged.push({
+            name: name || "(tak terbaca)",
+            kills,
+            recovered,
+            disputed,
+          });
+        }
+        b.members = merged;
+      }
     }
   } finally {
     await worker.terminate().catch(() => {});
   }
 
   if (blocks.length < 2) {
+    // FALLBACK OTOMATIS — browser tak mengenali papan skor; coba mesin
+    // server (pipeline penuh atas link ImgBB) sebelum menyerah.
+    if (imageUrl && /^https:\/\//i.test(imageUrl)) {
+      report("Browser sulit membaca layar ini — mencoba mesin server…");
+      return await analyzeScreenshot(imageUrl, teams);
+    }
     throw new Error(
       "Layar tidak dikenali sebagai papan skor Free Fire (blok placement tidak ditemukan). " +
         "Gunakan screenshot layar hasil/klasemen akhir.",
