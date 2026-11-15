@@ -349,13 +349,41 @@ export function resolveRows(rows: OcrRow[], teams: RegistryTeam[]): OcrRow[] {
 // TESSERACT.JS — OCR DENGAN KOORDINAT KATA (TANPA API KEY, GRATIS)
 // DUA pass: PSM 6 (struktur blok lengkap) + PSM 11 (sparse — menangkap
 // angka yang lolos dari pass utama). Hasil digabung per posisi.
+// Worker script & core diselesaikan EKSPLISIT via createRequire —
+// bundling Next/Vercel merusak __dirname bawaan tesseract.js
+// (error "Cannot find module '/ROOT/node_modules/tesseract.js/...").
 // ============================================================
+import { createRequire as nodeCreateRequire } from "node:module";
+import nodePath from "node:path";
+
+interface TessPaths {
+  workerPath?: string;
+  corePath?: string;
+}
+let tessPathsCache: TessPaths | null = null;
+function resolveTessPaths(): TessPaths {
+  if (tessPathsCache) return tessPathsCache;
+  try {
+    const req = nodeCreateRequire(import.meta.url);
+    const pkgDir = nodePath.dirname(req.resolve("tesseract.js/package.json"));
+    tessPathsCache = {
+      workerPath: nodePath.join(pkgDir, "src", "worker-script", "node", "index.js"),
+      corePath: nodePath.join(pkgDir, "src", "core"),
+    };
+  } catch {
+    tessPathsCache = {};
+  }
+  return tessPathsCache;
+}
+
 export async function ocrWordBoxes(bytes: Buffer): Promise<{ words: OcrWord[]; width: number; height: number }> {
   const { createWorker } = await import("tesseract.js");
+  const paths = resolveTessPaths();
   const runPass = async (psm: string) => {
     const worker = await createWorker("eng", 1, {
       cachePath: "/tmp/bof-tessdata",
       logger: () => {},
+      ...paths,
     });
     try {
       await worker.setParameters({ tessedit_pageseg_mode: psm as import("tesseract.js").PSM });
@@ -433,7 +461,7 @@ async function recoverMissedKills(blocks: ParsedBlock[], bytes: Buffer): Promise
   for (const b of blocks) for (const m of b.members) if (m.kills == null && m.killHint) targets.push(m);
   if (!targets.length) return 0;
   const { createWorker } = await import("tesseract.js");
-  const worker = await createWorker("eng", 1, { cachePath: "/tmp/bof-tessdata", logger: () => {} });
+  const worker = await createWorker("eng", 1, { cachePath: "/tmp/bof-tessdata", logger: () => {}, ...resolveTessPaths() });
   let pulih = 0;
   try {
     await worker.setParameters({ tessedit_pageseg_mode: "7" as import("tesseract.js").PSM, tessedit_char_whitelist: "0123456789" });
