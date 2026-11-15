@@ -404,13 +404,23 @@ export async function ocrWordBoxes(bytes: Buffer): Promise<{ words: OcrWord[]; w
     }
   };
 
-  const [main, sparse] = await Promise.all([runPass("6"), runPass("11").catch(() => [] as OcrWord[])]);
+  const main = await runPass("6");
   const dim = imageDimensions(bytes);
   let width = dim.width;
   let height = dim.height;
-  for (const w of [...main, ...sparse]) {
+  for (const w of main) {
     width = Math.max(width, w.x + w.w);
     height = Math.max(height, w.y + w.h);
+  }
+  // Pass sparse (PSM 11) hanya bila pass utama kurang meyakinkan —
+  // ini booster recall angka, bukan keharusan (hemat ~40% waktu CPU).
+  let sparse: OcrWord[] = [];
+  if (main.length < 60) {
+    sparse = await runPass("11").catch(() => [] as OcrWord[]);
+    for (const w of sparse) {
+      width = Math.max(width, w.x + w.w);
+      height = Math.max(height, w.y + w.h);
+    }
   }
 
   // Gabungkan: kata sparse yang tidak ada padanannya di pass utama
@@ -460,12 +470,14 @@ async function recoverMissedKills(blocks: ParsedBlock[], bytes: Buffer): Promise
   const targets: ParsedMember[] = [];
   for (const b of blocks) for (const m of b.members) if (m.kills == null && m.killHint) targets.push(m);
   if (!targets.length) return 0;
+  const batas = Date.now() + 22_000; // anggaran waktu recovery (lambda 60s)
   const { createWorker } = await import("tesseract.js");
   const worker = await createWorker("eng", 1, { cachePath: "/tmp/bof-tessdata", logger: () => {}, ...resolveTessPaths() });
   let pulih = 0;
   try {
     await worker.setParameters({ tessedit_pageseg_mode: "7" as import("tesseract.js").PSM, tessedit_char_whitelist: "0123456789" });
-    for (const m of targets) {
+    for (const m of targets.slice(0, 16)) {
+      if (Date.now() > batas) break;
       const r = m.killHint!;
       try {
         const { data } = await worker.recognize(bytes, {
@@ -585,12 +597,24 @@ export async function runOcrPipeline(opts: {
   // Unduh gambar satu kali untuk semua provider.
   const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(30_000) });
   if (!imgRes.ok) throw new Error(`Gagal mengunduh gambar: HTTP ${imgRes.status}`);
-  const buf = Buffer.from(await imgRes.arrayBuffer());
+  let buf = Buffer.from(await imgRes.arrayBuffer());
   if (buf.length < 64) throw new Error("berkas terlalu kecil");
   if (buf.length > 16 * 1024 * 1024) throw new Error("berkas > 16 MB");
-  const bytes = buf;
   let mime = imgRes.headers.get("content-type")?.split(";")[0] ?? "image/png";
   if (!mime.startsWith("image/")) mime = "image/png";
+  // Downscale: OCR 1600px sudah akurat dan ±4x lebih cepat — screenshot HP
+  // mentah (2400-4000px) membuat mesin melebihi batas waktu lambda Vercel.
+  try {
+    const sharp = (await import("sharp")).default;
+    const meta = await sharp(buf).metadata();
+    if ((meta.width ?? 0) > 1600) {
+      buf = await sharp(buf).resize({ width: 1600 }).jpeg({ quality: 88 }).toBuffer();
+      mime = "image/jpeg";
+    }
+  } catch {
+    // sharp gagal (mis. binary tidak tersedia) — lanjut dengan gambar asli.
+  }
+  const bytes = buf;
   const b64 = bytes.toString("base64");
 
   const providers: { name: string; run: () => Promise<string>; needsReview?: boolean }[] = [];
