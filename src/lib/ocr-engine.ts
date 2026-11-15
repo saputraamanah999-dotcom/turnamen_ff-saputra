@@ -578,6 +578,58 @@ Balas HANYA JSON.`;
   return fixed;
 }
 
+
+/**
+ * MODE BARU — OCR dijalankan di BROWSER admin (CPU perangkat admin, bebas
+ * batas waktu server). Klien mengirim blok hasil parser geometris
+ * (src/lib/ocr-blocks.ts dipakai langsung di browser); server hanya
+ * memperbaiki nama via aichat jerexd, menghitung total kill (penjumlahan
+ * per blok) dan mencocokkan tim terdaftar.
+ */
+export async function analyzeBlocks(opts: {
+  blocks: ParsedBlock[];
+  teams: RegistryTeam[];
+  settings?: OcrEngineSettings;
+  jereApiKey?: string;
+}): Promise<OcrPipelineResult> {
+  const { teams } = opts;
+  const settings = opts.settings ?? {};
+  let blocks = opts.blocks
+    .filter((b) => b && Number.isFinite(b.rank) && Array.isArray(b.members))
+    .map((b) => ({ rank: Math.trunc(b.rank), members: b.members.slice(0, 4).map((m) => ({ name: String(m.name ?? "").slice(0, 48), kills: Number.isFinite(m.kills) ? Math.trunc(m.kills as number) : null })) }))
+    .filter((b) => b.members.length > 0);
+  if (blocks.length < 2) throw new Error("Data blok dari browser tidak cukup (minimal 2 blok placement).");
+
+  const jereKey = opts.jereApiKey || "";
+  let catatan = "";
+  if (jereKey && teams.length) {
+    const textModel = settings.jereTextModel?.trim() || "google/gemini-3.1-flash-lite";
+    try {
+      blocks = await refineNamesWithJerexd(jereKey, blocks, teams, textModel);
+    } catch (e) {
+      catatan = `Perbaikan nama AI gagal (${String((e as Error).message ?? e).slice(0, 120)}) — nama asli OCR dipakai.`;
+    }
+  }
+
+  let rows = blocksToRows(blocks);
+  rows = rows.filter((r) => r.kills != null);
+  rows = resolveRows(rows, teams);
+  const booyah = rows.find((r) => r.rank === 1)?.teamName ?? rows.find((r) => r.rank === 1)?.teamRaw ?? null;
+  const takCocok = rows.filter((r) => !r.teamId).length;
+  return {
+    ok: true,
+    source: jereKey ? "browser-ocr+jere" : "browser-ocr",
+    needsReview: takCocok > rows.length / 2,
+    booyahTeam: booyah,
+    rows,
+    notes:
+      `${rows.length} blok placement terbaca. Kill tim = penjumlahan kill semua pemain di blok ` +
+      `(dihitung otomatis). ${takCocok ? takCocok + " baris belum cocok tim terdaftar — pilih manual di kolom Tim terdaftar." : "Semua baris cocok tim terdaftar."}` +
+      (catatan ? ` ${catatan}` : ""),
+    tried: ["browser-tesseract"],
+  };
+}
+
 // ============================================================
 // PIPELINE UTAMA
 // ============================================================

@@ -11,7 +11,7 @@ import { useRef, useState } from "react";
 import { Camera, Check, ChevronDown, ChevronUp, ClipboardCheck, HelpCircle, ImageUp, Loader2, RotateCcw, TriangleAlert } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import {
-  addOcrAlias, analyzeScreenshot, linkScreenshotToMatch,
+  addOcrAlias, analyzeScreenshotClient, linkScreenshotToMatch,
   markOcrApplied, saveOcrUpload, uploadScreenshot,
   type UploadScreenshotResult,
 } from "@/services/ocr/client";
@@ -54,6 +54,7 @@ export function OcrUploader({
   const [uploadId, setUploadId] = useState<string>("");
   const [analysis, setAnalysis] = useState<OcrAnalysis | null>(null);
   const [rows, setRows] = useState<EditableRow[]>([]);
+  const [progressNote, setProgressNote] = useState("");
 
   const busy = phase === "uploading" || phase === "analyzing";
 
@@ -97,10 +98,13 @@ export function OcrUploader({
       up = await uploadScreenshot(file, tid, matchId);
       setUpload(up);
       setPhase("analyzing");
-      const result = await analyzeScreenshot(up.url, teams);
+      // OCR dijalankan DI BROWSER (CPU perangkat admin) — tidak membebani
+      // server, bebas batas waktu, dan memakai mesin yang sama (geometri
+      // blok + penjumlahan kill 4 pemain per top #) via lib bersama.
+      const result = await analyzeScreenshotClient(file, teams, (t) => setProgressNote(t));
       if (!result.rows.length) {
         throw new Error(
-          "AI tidak membaca satu baris tim pun. Pastikan screenshot adalah layar skor akhir/BOOYAH! dan cukup terang.",
+          "OCR browser tidak membaca satu blok placement pun. Pastikan screenshot adalah layar skor akhir/BOOYAH! dan cukup terang.",
         );
       }
       setAnalysis(result);
@@ -421,7 +425,7 @@ export function OcrUploader({
       </div>
       {phase === "analyzing" ? (
         <p className="mt-2 flex items-center gap-2 text-xs font-bold text-fs-cyan">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> AI sedang membaca screenshot… jangan tutup halaman.
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> {progressNote || "OCR sedang membaca screenshot di perangkat ini…"} jangan tutup halaman.
         </p>
       ) : null}
       {phase === "uploading" ? (

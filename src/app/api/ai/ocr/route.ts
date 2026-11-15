@@ -29,7 +29,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-import { runOcrPipeline, type OcrEngineSettings, type RegistryTeam } from "@/lib/ocr-engine";
+import { analyzeBlocks, runOcrPipeline, type OcrEngineSettings, type RegistryTeam } from "@/lib/ocr-engine";
 
 /** GET /api/ai/ocr — status kesiapan mesin (tanpa pernah membocorkan nilai key). */
 export async function GET() {
@@ -49,22 +49,40 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { imageUrl?: string; teams?: RegistryTeam[]; settings?: OcrEngineSettings };
+  let body: {
+    imageUrl?: string;
+    teams?: RegistryTeam[];
+    settings?: OcrEngineSettings;
+    blocks?: { rank: number; members: { name: string; kills: number | null }[] }[];
+  };
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "Body harus JSON { imageUrl, teams, settings? }." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Body harus JSON { imageUrl, teams, settings? } atau { blocks, teams }." }, { status: 400 });
   }
-  const imageUrl = String(body.imageUrl ?? "").trim();
   const teams = Array.isArray(body.teams) ? body.teams.slice(0, 60) : [];
   const settings: OcrEngineSettings = {
     jereVisionModel: typeof body.settings?.jereVisionModel === "string" ? body.settings.jereVisionModel.slice(0, 80) : "",
     jereTextModel: typeof body.settings?.jereTextModel === "string" ? body.settings.jereTextModel.slice(0, 80) : "",
     ocrSpaceEnabled: body.settings?.ocrSpaceEnabled === true,
   };
+
+  // MODE UTAMA — OCR dijalankan di BROWSER admin; server menerima blok
+  // placement siap-pakai (cepat, bebas batas waktu lambda).
+  if (Array.isArray(body.blocks) && body.blocks.length) {
+    try {
+      const result = await analyzeBlocks({ blocks: body.blocks, teams, settings, jereApiKey: process.env.JERE_API_KEY || process.env.JEREXD_API_KEY || "" });
+      return NextResponse.json(result);
+    } catch (e) {
+      return NextResponse.json({ ok: false, error: String((e as Error).message ?? e).slice(0, 300) }, { status: 400 });
+    }
+  }
+
+  // MODE CADANGAN — server menerima link gambar dan menjalankan mesin penuh.
+  const imageUrl = String(body.imageUrl ?? "").trim();
   if (!/^https:\/\//i.test(imageUrl)) {
     return NextResponse.json(
-      { ok: false, error: "imageUrl wajib berupa link https gambar yang sudah di-upload." },
+      { ok: false, error: "imageUrl wajib berupa link https gambar yang sudah di-upload (atau kirim blocks dari OCR browser)." },
       { status: 400 },
     );
   }
