@@ -8,7 +8,7 @@
 // ============================================================
 
 import { useRef, useState } from "react";
-import { Camera, Check, ClipboardCheck, ImageUp, Loader2, RotateCcw, TriangleAlert } from "lucide-react";
+import { Camera, Check, ChevronDown, ChevronUp, ClipboardCheck, HelpCircle, ImageUp, Loader2, RotateCcw, TriangleAlert } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import {
   addOcrAlias, analyzeScreenshot, linkScreenshotToMatch,
@@ -153,6 +153,7 @@ export function OcrUploader({
   const cocok = rows.filter((r) => r.selected && r.teamId).length;
   const belum = rows.filter((r) => r.selected && !r.teamId).length;
   const needsReview = analysis?.needsReview;
+  const [showGuide, setShowGuide] = useState(false);
 
   return (
     <BoCard className="mt-4 border-2 border-fs-cyan/40 bg-fs-panel p-4">
@@ -279,10 +280,15 @@ export function OcrUploader({
                       />
                     </td>
                     <td className="px-2 py-1.5">
-                      <p className="max-w-[180px] truncate font-bold" title={r.teamRaw}>
+                      <p className="max-w-[220px] truncate font-bold" title={r.teamRaw}>
                         {r.rank === 1 ? <span className="mr-1 text-fs-gold">#1</span> : null}
                         {r.teamRaw}
                       </p>
+                      {r.players?.length ? (
+                        <p className="max-w-[220px] truncate text-[10px] font-semibold text-fs-text/40" title={r.players.join(", ")}>
+                          {r.players.length} pemain: {r.players.join(", ")}
+                        </p>
+                      ) : null}
                     </td>
                     <td className="px-2 py-1.5">
                       <select
@@ -311,6 +317,11 @@ export function OcrUploader({
                         }
                         aria-label={`Kill ${r.teamRaw}`}
                       />
+                      {r.memberKills?.length ? (
+                        <p className="mt-0.5 text-[10px] font-semibold tabular-nums text-fs-text/40" title="Total kill tim = penjumlahan kill semua pemain di blok ini">
+                          {r.memberKills.map((m) => (m.kills ?? "?")).join("+")}={r.kills ?? "?"}
+                        </p>
+                      ) : null}
                     </td>
                     <td className="px-2 py-1.5 text-center">
                       <span
@@ -355,6 +366,59 @@ export function OcrUploader({
           Semakin lengkap kapten & roster di menu Tim, semakin tepat pencocokan.
         </p>
       ) : null}
+
+      {/* CARA PAKAI — panduan lengkap fitur OCR */}
+      <div className="mt-3 border border-fs-edge/40 bg-fs-bg/40">
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-black uppercase tracking-wider text-fs-cyan"
+          onClick={() => setShowGuide((v) => !v)}
+          aria-expanded={showGuide}
+        >
+          <HelpCircle className="h-4 w-4" /> CARA PAKAI AI OCR — BACA INI KALAU BELUM PERNAH
+          {showGuide ? <ChevronUp className="ml-auto h-4 w-4" /> : <ChevronDown className="ml-auto h-4 w-4" />}
+        </button>
+        {showGuide ? (
+          <div className="space-y-2 px-4 pb-4 text-xs font-semibold leading-relaxed text-fs-text/80">
+            <p className="font-black uppercase text-fs-text">1. Siapkan screenshot yang benar</p>
+            <p>
+              Di Free Fire, setelah match selesai buka layar hasil (papan skor akhir — yang ada angka
+              <b> 1, 2, 3…</b> di kiri dan nama pemain + &ldquo;N Kill&rdquo;), lalu screenshot. Satu screenshot boleh berisi
+              beberapa blok peringkat sekaligus. Jika 12 tim tidak muat dalam satu layar, scroll lalu screenshot lagi —
+              analisa bisa diulang untuk sisa blok (terapkan kedua kalinya, baris yang sama akan diperbarui).
+            </p>
+            <p className="font-black uppercase text-fs-text">2. Isi dulu roster pemain di menu Tim</p>
+            <p>
+              Karena layar hasil FF hanya menampilkan NAMA PEMAIN (bukan nama tim), AI mencocokkan lewat roster.
+              Buka menu <b>Tim</b>, isi <b>kapten + 4 nama pemain (IGN)</b> tim kamu. Semakin lengkap, semakin otomatis
+              pencocokannya. Nama yang pernah cocok juga tersimpan sebagai alias memori.
+            </p>
+            <p className="font-black uppercase text-fs-text">3. Upload &amp; analisa</p>
+            <p>
+              Pilih Screenshot → <b>Upload &amp; Analisa</b>. Gambar dikirim ke hosting ImgBB, lalu AI vision membaca
+              setiap blok peringkat: jumlah kill <b>4 pemain dalam satu top # dihitung TOTAL</b> (contoh 3+6+5+5 = 19),
+              nomor blok menjadi placement, dan total kill masuk ke kolom Kills formulir di bawah.
+            </p>
+            <p className="font-black uppercase text-fs-text">4. Periksa tabel hasil, koreksi bila perlu</p>
+            <p>
+              Kolom <b>Tim terdaftar</b> menunjukkan hasil pencocokan — bila &ldquo;tidak cocok / manual&rdquo;, pilih nama tim
+              dari dropdown (lihat kolom pemain sebagai petunjuk). Kolom Kills menampilkan rincian penjumlahan
+              (mis. 3+6+5+5=19) supaya mudah dicek. Hilangkan centang baris yang tidak dipakai (mis. blok terpotong).
+            </p>
+            <p className="font-black uppercase text-fs-text">5. Terapkan → Simpan Draft → Publish</p>
+            <p>
+              Klik <b>Terapkan ke Formulir</b> — placement &amp; kill terisi otomatis, PLACEMENT PTS, KILL PTS dan TOTAL
+              dihitung otomatis sesuai aturan resmi (kill = 2 poin). Admin hanya perlu menyetel ulang angka yang
+              salah. Lalu Simpan Draft → Preview → Publish seperti biasa.
+            </p>
+            <p className="border border-fs-edge bg-fs-panel px-3 py-2 text-[11px]">
+              <b>Pengaturan mesin:</b> pilihan model &amp; fallback ada di menu <b>Pengaturan → AI &amp; OCR</b>.
+              API key diatur di environment (Vercel): <code>JERE_API_KEY</code> + <code>IMGBB_API_KEY</code>.
+              Status key terpasang/belum juga tampil di halaman itu.
+            </p>
+          </div>
+        ) : null}
+      </div>
       {phase === "analyzing" ? (
         <p className="mt-2 flex items-center gap-2 text-xs font-bold text-fs-cyan">
           <Loader2 className="h-3.5 w-3.5 animate-spin" /> AI sedang membaca screenshot… jangan tutup halaman.

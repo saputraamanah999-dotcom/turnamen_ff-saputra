@@ -30,6 +30,12 @@ export function normalizeTeamKey(raw: string): string {
   return core;
 }
 
+/**
+ * Ambang kemiripan nama PEMAIN sedikit lebih longgar daripada nama tim:
+ * ID Free Fire sering memakai simbol/angka ganda ("RBL Graceeᴮ", "17Sezyyyqt").
+ */
+export const PLAYER_MATCH_MIN_SCORE = 0.7;
+
 /** Jarak Levenshtein (tanpa batas — input pendek, aman). */
 export function levenshtein(a: string, b: string): number {
   if (a === b) return 0;
@@ -109,32 +115,143 @@ export function bestTeamMatch(
   return best && best.score >= minScore ? best : null;
 }
 
-/** Lembutkan hasil AI: pastikan tipe angka/null dan string terpotong wajar. */
-export function sanitizeOcrRows(input: unknown, maxRows = 24): OcrRow[] {
+/**
+ * Lembutkan hasil AI: pastikan tipe angka/null dan string terpotong wajar.
+ *
+ * ATURAN INTI BOF: satu baris = SATU blok placement (top #). Layar Free Fire
+ * menampilkan sampai 4 PEMAIN per blok (nama + "N Kill"). Kill tim = JUMLAH
+ * kill semua anggota blok (dihitung total, bukan 1 orang). Penjumlahan
+ * dilakukan ulang DI SERVER dari memberKills — angka kills dari AI hanya
+ * pembanding; bila beda, dipakai hasil penjumlahan rincian.
+ */
+export function sanitizeOcrRows(input: unknown, maxRows = 60): OcrRow[] {
   if (!Array.isArray(input)) return [];
   const rows: OcrRow[] = [];
   for (const item of input.slice(0, maxRows)) {
     if (typeof item !== "object" || item === null) continue;
     const o = item as Record<string, unknown>;
-    const teamRaw = String(o.teamRaw ?? o.team ?? o.name ?? "").trim();
-    if (!teamRaw) continue;
     const num = (v: unknown): number | null => {
       if (v === null || v === undefined || v === "") return null;
       const n = Number(v);
       return Number.isFinite(n) && n >= 0 ? Math.trunc(n) : null;
     };
+
+    // --- Rincian pemain: [{name, kills}] | {name: kills} | ["nama", ...] ---
+    const memberKills: { name: string; kills: number | null }[] = [];
+    const playerNames: string[] = [];
+    const members = o.memberKills ?? o.members ?? o.players_detail ?? o.playersDetail ?? null;
+    if (Array.isArray(members)) {
+      for (const m of members) {
+        if (typeof m === "string") {
+          const nm = m.trim().slice(0, 48);
+          if (nm) { playerNames.push(nm); memberKills.push({ name: nm, kills: null }); }
+        } else if (m && typeof m === "object") {
+          const mo = m as Record<string, unknown>;
+          const nm = String(mo.name ?? mo.player ?? mo.nama ?? "").trim().slice(0, 48);
+          const k = num(mo.kills ?? mo.kill ?? mo.poin_kill);
+          if (nm) {
+            playerNames.push(nm);
+            memberKills.push({ name: nm, kills: k });
+          }
+        }
+      }
+    } else if (members && typeof members === "object") {
+      for (const [nm, k] of Object.entries(members as Record<string, unknown>)) {
+        const name = nm.trim().slice(0, 48);
+        const kNum = num(k);
+        if (name) { playerNames.push(name); memberKills.push({ name, kills: kNum }); }
+      }
+    } else if (Array.isArray(o.players)) {
+      for (const p of o.players) {
+        if (typeof p === "string") {
+          const nm = p.trim().slice(0, 48);
+          if (nm) { playerNames.push(nm); memberKills.push({ name: nm, kills: null }); }
+        } else if (p && typeof p === "object") {
+          const po = p as Record<string, unknown>;
+          const nm = String(po.name ?? po.player ?? po.nama ?? "").trim().slice(0, 48);
+          const k = num(po.kills ?? po.kill);
+          if (nm) { playerNames.push(nm); memberKills.push({ name: nm, kills: k }); }
+        }
+      }
+    }
+
+    // --- Nama di layar: bisa nama tim ATAU gabungan nama pemain ---
+    let teamRaw = String(o.teamRaw ?? o.team ?? o.screenTeam ?? o.name ?? o.screen ?? o.diLayar ?? "").trim();
+    if (!teamRaw && playerNames.length) teamRaw = playerNames.join(", ");
+    if (!teamRaw) continue;
+
+    // --- KILLS = penjumlahan rincian (otoritatif) | angka AI sebagai cadangan ---
+    let kills = num(o.kills);
+    if (memberKills.length) {
+      const sum = memberKills.reduce((acc, m) => acc + (Number.isFinite(m.kills) ? (m.kills as number) : 0), 0);
+      kills = sum;
+    }
+
     const conf = Number(o.confidence);
     rows.push({
       rank: num(o.rank ?? o.placement),
-      teamRaw: teamRaw.slice(0, 64),
+      teamRaw: teamRaw.slice(0, 120),
       teamId: typeof o.teamId === "string" && o.teamId ? o.teamId : null,
       teamName: typeof o.teamName === "string" ? o.teamName : null,
-      kills: num(o.kills),
+      kills,
       points: num(o.points),
       confidence: Number.isFinite(conf) ? Math.min(1, Math.max(0, conf)) : 0.5,
+      players: playerNames.length ? playerNames.slice(0, 8) : undefined,
+      memberKills: memberKills.length ? memberKills.slice(0, 8) : undefined,
     });
   }
   return rows;
+}
+
+/**
+ * Cocokkan SATU BARIS hasil OCR (satu blok placement) ke tim terdaftar
+ * dengan PEMUNGUTAN SUARA: setiap nama pemain di blok dicocokkan ke memori
+ * tim (nama, tag, kapten, roster, alias). Blok milik tim yang paling banyak
+ * pemainnya cocok. Cocok dipakai bila:
+ *   - ≥ 2 pemain berbeda menunjuk tim yang sama, ATAU
+ *   - 1 pemain cocok SEMPURNA (skor 1) / nama tim di layar cocok.
+ * Ini kunci pencocokan untuk layar hasil FF yang TIDAK menampilkan nama tim.
+ */
+export function matchOcrRowToTeam(
+  row: OcrRow,
+  teams: Pick<Team, "id" | "name" | "tag" | "captain" | "roster" | "ocrAliases">[],
+): { teamId: string; teamName: string; score: number; votes: number; matchedOn: string[] } | null {
+  const candidates = [
+    row.teamRaw,
+    ...(row.players ?? []),
+    ...(row.memberKills ?? []).map((m) => m.name),
+  ].map((s) => (s ?? "").trim()).filter(Boolean);
+
+  if (!candidates.length) return null;
+
+  // (1) Coba nama lengkap baris (nama tim bila layar menampilkannya).
+  if (row.teamRaw && !(row.players?.length && row.teamRaw.includes(","))) {
+    const m = bestTeamMatch(row.teamRaw, teams, 0.72);
+    if (m && m.score >= 0.9) {
+      return { teamId: m.teamId, teamName: m.teamName, score: m.score, votes: 1, matchedOn: [m.matchedOn] };
+    }
+  }
+
+  // (2) Voting per pemain.
+  const votes = new Map<string, { teamName: string; count: number; score: number; matchedOn: string[] }>();
+  for (const cand of candidates) {
+    const m = bestTeamMatch(cand, teams, 0.72);
+    if (!m) continue;
+    const cur = votes.get(m.teamId) ?? { teamName: m.teamName, count: 0, score: 0, matchedOn: [] };
+    cur.count += 1;
+    cur.score = Math.max(cur.score, m.score);
+    if (!cur.matchedOn.includes(m.matchedOn)) cur.matchedOn.push(m.matchedOn);
+    votes.set(m.teamId, cur);
+  }
+  let best: { teamId: string; teamName: string; score: number; votes: number; matchedOn: string[] } | null = null;
+  for (const [teamId, v] of votes) {
+    const ok = v.count >= 2 || v.score === 1;
+    if (!ok) continue;
+    if (!best || v.count > best.votes || (v.count === best.votes && v.score > best.score)) {
+      best = { teamId, teamName: v.teamName, score: v.score, votes: v.count, matchedOn: v.matchedOn };
+    }
+  }
+  return best;
 }
 
 /**

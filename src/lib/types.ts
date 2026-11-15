@@ -220,17 +220,25 @@ export interface Match {
 export interface OcrRow {
   /** Placement/peringkat pada screenshot; null bila tidak terbaca. */
   rank: number | null;
-  /** Nama tim PERSIS seperti tertulis di layar (mentah dari AI). */
+  /** Nama tim PERSIS seperti tertulis di layar (mentah dari AI).
+   *  Bila layar hanya menampilkan pemain (tanpa nama tim), berisi
+   *  daftar nama pemain di blok placement tersebut. */
   teamRaw: string;
   /** Tim terdaftar yang dicocokkan AI (id di teams/{tid}); null bila tidak cocok. */
   teamId: string | null;
   /** Nama tim terdaftar hasil pencocokan (untuk tampilan). */
   teamName?: string | null;
+  /** TOTAL kill tim = JUMLAH kill semua anggota di blok placement ini
+   *  (1 blok top # berisi sampai 4 pemain — dihitung total, bukan 1 orang). */
   kills: number | null;
   /** Poin total yang tertulis di layar (bila ada); tidak dipakai untuk hitung resmi. */
   points?: number | null;
   /** 0..1 — keyakinan pembacaan baris ini. */
   confidence?: number;
+  /** Nama-nama pemain yang terbaca di blok placement ini (0..4 orang). */
+  players?: string[];
+  /** Rincian kill per pemain — sumber kebenaran kills = penjumlahan ini. */
+  memberKills?: { name: string; kills: number | null }[];
 }
 
 export interface OcrAnalysis {

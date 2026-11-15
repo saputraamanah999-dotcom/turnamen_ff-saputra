@@ -1,13 +1,19 @@
 "use client";
-// /admin/settings — wizard setup 11 langkah + pengaturan tema (§24)
+// /admin/settings — wizard setup 11 langkah + pengaturan tema (§24) + AI & OCR
 import { useState, useEffect } from "react";
-import { CheckCircle2, Circle, Database, Palette, RotateCcw } from "lucide-react";
+import { Bot, CheckCircle2, Circle, Database, Palette, RotateCcw, Save } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import { useActiveTournament, useMatches, useStandings, useTeams, useBroadcast } from "@/services/firestore/hooks";
 import { checkObserverStatus } from "@/services/observer/client";
+import {
+  loadOcrSettings, saveOcrSettings,
+  OCR_SETTINGS_DEFAULT, type OcrSettings,
+} from "@/services/ocr/client";
 import { applyTheme, DEFAULT_THEME, getStoredTheme, THEMES } from "@/lib/themes";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+
+interface KeyStatus { jere: boolean; imgbb: boolean; gemini: boolean; openai: boolean; ocrSpace: boolean }
 
 export default function AdminSettingsPage() {
   const { tournament, status } = useActiveTournament();
@@ -18,6 +24,31 @@ export default function AdminSettingsPage() {
   const broadcast = useBroadcast(tid);
   const { toast } = useToast();
   const [theme, setTheme] = useState("firestorm");
+  // AI & OCR — model diatur dari UI (tersimpan di Firestore settings/ocr),
+  // API key TIDAK diatur di sini (hanya di environment).
+  const [ocr, setOcr] = useState<OcrSettings>({ ...OCR_SETTINGS_DEFAULT });
+  const [ocrLoaded, setOcrLoaded] = useState(false);
+  const [ocrSaving, setOcrSaving] = useState(false);
+  const [keyStatus, setKeyStatus] = useState<KeyStatus | null>(null);
+  useEffect(() => {
+    loadOcrSettings().then((s) => { setOcr(s); setOcrLoaded(true); }).catch(() => setOcrLoaded(true));
+    fetch("/api/ai/ocr")
+      .then((r) => r.json())
+      .then((j) => { if (j?.keys) setKeyStatus(j.keys); })
+      .catch(() => setKeyStatus(null));
+  }, []);
+
+  async function onSaveOcr() {
+    setOcrSaving(true);
+    try {
+      await saveOcrSettings(ocr);
+      toast({ title: "Pengaturan AI & OCR tersimpan", description: "Berlaku untuk semua admin & semua match berikutnya." });
+    } catch (e) {
+      toast({ title: "Gagal menyimpan", description: String((e as Error).message ?? e), variant: "destructive" });
+    } finally {
+      setOcrSaving(false);
+    }
+  }
   // Sinyal nyata untuk wizard: status AI Observer diprobe sekali saat halaman dibuka.
   const [observerOnline, setObserverOnline] = useState(false);
   useEffect(() => {
@@ -110,6 +141,67 @@ export default function AdminSettingsPage() {
           onClick={() => { setTheme(DEFAULT_THEME); applyTheme(DEFAULT_THEME); toast({ title: "Tema kembali ke Firestorm Orange" }); }}
         >
           <RotateCcw className="h-3.5 w-3.5" /> Reset ke Tema Default
+        </BoButton>
+      </BoCard>
+
+      <BoCard className="mt-4 p-5">
+        <h2 className="flex items-center gap-2 font-display text-base font-bold uppercase tracking-wide">
+          <Bot className="h-4 w-4 text-fs-cyan" /> AI &amp; OCR — Analisa Screenshot Hasil Match
+        </h2>
+        <p className="mt-1.5 text-sm font-semibold text-fs-muted">
+          API KEY diatur di environment (Vercel → Settings → Environment Variables): <code>JERE_API_KEY</code> (mesin utama,
+          gratis) dan <code>IMGBB_API_KEY</code> (hosting gambar). Model dan fallback diatur DI SINI — tersimpan di database
+          (dokumen <code>settings/ocr</code>) dan berlaku untuk semua admin tanpa deploy ulang.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {([
+            ["JERE_API_KEY", keyStatus?.jere, "key Jerexd — mesin vision utama"],
+            ["IMGBB_API_KEY", keyStatus?.imgbb, "hosting gambar screenshot"],
+            ["GEMINI_API_KEY (opsional)", keyStatus?.gemini, "fallback vision Google"],
+            ["OPENAI_API_KEY (opsional)", keyStatus?.openai, "fallback vision OpenAI"],
+            ["OCR_SPACE_KEY (opsional)", keyStatus?.ocrSpace, "OCR polos tanpa AI"],
+          ] as [string, boolean | undefined, string][]).map(([name, ok, note]) => (
+            <span key={name} className="inline-flex items-center gap-1.5 border border-fs-edge bg-fs-bg/60 px-2 py-1 text-[11px] font-bold">
+              <span className={cn("h-2 w-2 rounded-full", ok === undefined ? "bg-fs-text/30" : ok ? "bg-emerald-500" : "bg-fs-err")} />
+              {name}
+              <span className="font-semibold text-fs-text/40">— {ok === undefined ? "memeriksa…" : ok ? "terpasang" : "belum diisi"} ({note})</span>
+            </span>
+          ))}
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-xs font-black uppercase tracking-wider text-fs-text/70">Model vision Jerexd (kosongkan = bawaan)</span>
+            <input
+              className="bo-input mt-1 w-full"
+              placeholder="mis. gemini — kosong = default server Jerexd"
+              value={ocr.jereVisionModel}
+              onChange={(e) => setOcr((s) => ({ ...s, jereVisionModel: e.target.value }))}
+              disabled={ocrSaving}
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-black uppercase tracking-wider text-fs-text/70">Model teks Jerexd (penstruktur JSON)</span>
+            <input
+              className="bo-input mt-1 w-full"
+              placeholder="google/gemini-3.1-flash-lite"
+              value={ocr.jereTextModel}
+              onChange={(e) => setOcr((s) => ({ ...s, jereTextModel: e.target.value }))}
+              disabled={ocrSaving}
+            />
+          </label>
+        </div>
+        <label className="mt-3 flex items-center gap-2 text-sm font-bold">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={ocr.ocrSpaceEnabled}
+            onChange={(e) => setOcr((s) => ({ ...s, ocrSpaceEnabled: e.target.checked }))}
+            disabled={ocrSaving}
+          />
+          Fallback OCR polos OCR.space bila semua AI vision gagal (hasil selalu ditandai WAJIB DIPERIKSA)
+        </label>
+        <BoButton variant="cyan" className="mt-3" onClick={onSaveOcr} disabled={ocrSaving || !ocrLoaded}>
+          <Save className="h-4 w-4" /> {ocrSaving ? "Menyimpan…" : "Simpan Pengaturan AI & OCR"}
         </BoButton>
       </BoCard>
 

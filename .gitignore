@@ -45,3 +45,4 @@ Thumbs.db
 .firebase/
 firebase-debug.log*
 firestore-debug.log*
+eng.traineddata

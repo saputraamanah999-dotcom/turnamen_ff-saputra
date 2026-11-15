@@ -57,7 +57,10 @@ async function uploadToImgbb(
   }
   const d = json.data;
   return {
-    url: d.display_url ?? d.url,
+    // PENTING: pakai d.url / d.image.url = berkas ASLI (penuh). display_url
+    // kini menunjuk versi medium 640px — merusak pembacaan AI OCR (teks
+    // jadi terlalu kecil). thumb dipakai hanya untuk pratinjau UI.
+    url: d.url ?? d.image?.url ?? d.display_url,
     thumbUrl: d.thumb?.url ?? d.medium?.url ?? d.url,
     deleteUrl: d.delete_url,
     host: "imgbb",
@@ -94,7 +97,6 @@ export async function POST(req: NextRequest) {
     const tid = String(form.get("tid") ?? "tid").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64) || "tid";
     const matchId = String(form.get("matchId") ?? "match").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64) || "match";
     const stamp = Date.now().toString(36);
-    const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
     const name = `bof-${tid.slice(0, 10)}-m${matchId.slice(0, 10)}-${stamp}`;
 
     const imgbbKey = process.env.IMGBB_API_KEY || IMGBB_KEY_DEFAULT;

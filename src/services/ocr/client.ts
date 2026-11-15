@@ -12,12 +12,59 @@ import {
   arrayUnion,
   collection,
   doc,
+  getDoc,
   serverTimestamp,
+  setDoc,
   updateDoc,
 } from "firebase/firestore";
 import { db } from "@/services/firebase/client";
 import { normalizeTeamKey } from "@/lib/ocr";
 import type { OcrAnalysis, OcrRow, OcrUpload, Team } from "@/lib/types";
+
+// ---------- Pengaturan mesin AI OCR (disimpan di Firestore settings/ocr) ----------
+// Prinsip: .env hanya berisi API KEY. Model & fallback diatur dari UI Admin.
+export interface OcrSettings {
+  /** Model vision jerexd (kosong = default server jerexd). */
+  jereVisionModel: string;
+  /** Model teks jerexd (aichat) untuk penstrukturan JSON. */
+  jereTextModel: string;
+  /** Aktifkan fallback OCR polos OCR.space bila AI gagal. */
+  ocrSpaceEnabled: boolean;
+}
+
+export const OCR_SETTINGS_DEFAULT: OcrSettings = {
+  jereVisionModel: "",
+  jereTextModel: "google/gemini-3.1-flash-lite",
+  ocrSpaceEnabled: false,
+};
+
+/** Baca pengaturan AI OCR dari dokumen settings/ocr (fallback: nilai bawaan). */
+export async function loadOcrSettings(): Promise<OcrSettings> {
+  if (!db) return { ...OCR_SETTINGS_DEFAULT };
+  try {
+    const snap = await getDoc(doc(db, "settings", "ocr"));
+    if (!snap.exists()) return { ...OCR_SETTINGS_DEFAULT };
+    const d = snap.data() as Partial<OcrSettings>;
+    return {
+      jereVisionModel: String(d.jereVisionModel ?? "").slice(0, 80),
+      jereTextModel: String(d.jereTextModel ?? OCR_SETTINGS_DEFAULT.jereTextModel).slice(0, 80),
+      ocrSpaceEnabled: d.ocrSpaceEnabled === true,
+    };
+  } catch {
+    return { ...OCR_SETTINGS_DEFAULT };
+  }
+}
+
+/** Simpan pengaturan AI OCR (dipakai halaman Admin → Pengaturan → AI & OCR). */
+export async function saveOcrSettings(s: OcrSettings): Promise<void> {
+  if (!db) throw new Error("Firebase belum terhubung.");
+  await setDoc(doc(db, "settings", "ocr"), {
+    jereVisionModel: s.jereVisionModel.trim().slice(0, 80),
+    jereTextModel: s.jereTextModel.trim().slice(0, 80) || OCR_SETTINGS_DEFAULT.jereTextModel,
+    ocrSpaceEnabled: s.ocrSpaceEnabled === true,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
 
 export interface UploadScreenshotResult {
   url: string;
@@ -60,10 +107,12 @@ export async function analyzeScreenshot(imageUrl: string, teams: Team[]): Promis
     roster: (t.roster ?? []).map((r) => ({ nickname: r.nickname })),
     ocrAliases: t.ocrAliases ?? [],
   }));
+  // Pengaturan mesin dari Firestore (Admin → Pengaturan → AI & OCR).
+  const settings = await loadOcrSettings();
   const res = await fetch("/api/ai/ocr", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ imageUrl, teams: registry }),
+    body: JSON.stringify({ imageUrl, teams: registry, settings }),
     signal: AbortSignal.timeout(70_000),
   });
   const json = await res.json().catch(() => null);
