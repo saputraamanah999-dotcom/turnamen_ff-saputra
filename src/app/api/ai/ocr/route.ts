@@ -33,7 +33,7 @@ export async function GET() {
       jere: has(process.env.JERE_API_KEY || process.env.JEREXD_API_KEY),
       imgbb: has(process.env.IMGBB_API_KEY),
     },
-    engine: "tesseract kill-anchored v3 (browser utama, server fallback)",
+    engine: "tesseract kill-anchored v4 (browser utama, server fallback, recovery per-paruh)",
     modelConfig: "ui:settings/ocr",
   });
 }
