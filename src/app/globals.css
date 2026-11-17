@@ -522,6 +522,149 @@ html[data-theme] .theme-accent { color: var(--fs-fire); }
 }
 .fs-glow-text { animation: fs-glow-text 2.8s ease-in-out infinite; }
 
+/* ============================================================
+   ESPORTS BROADCAST LEADERBOARD — podium emas/perak/perunggu
+   Gaya turnamen internasional FF (FFWS/PSL): glow juara, rays,
+   watermark angka raksasa, kontras tinggi untuk layar tancap.
+   ============================================================ */
+
+/* ---- Chip rank 1/2/3 kontras tinggi (dipakai RankBadge global) ---- */
+.rank-1-gold {
+  background: linear-gradient(145deg, #FFF3C6 0%, #FFC247 55%, #E8960A 100%);
+  color: #231400;
+  border-color: #FFDF8C !important;
+  box-shadow: 0 0 14px rgba(255, 194, 71, 0.5), 0 0 0 1px rgba(255, 223, 140, 0.7) inset;
+}
+.rank-2-silver {
+  background: linear-gradient(145deg, #F4F8FC 0%, #C9D3E0 55%, #8B99AD 100%);
+  color: #0F141B;
+  border-color: #E6EDF5 !important;
+  box-shadow: 0 0 10px rgba(201, 211, 224, 0.35);
+}
+.rank-3-bronze {
+  background: linear-gradient(145deg, #F7C993 0%, #D98E45 55%, #8F531B 100%);
+  color: #FFF7EE;
+  border-color: #F7C993 !important;
+  box-shadow: 0 0 10px rgba(217, 142, 69, 0.4);
+}
+
+/* ---- Kartu podium ---- */
+.es-podium {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.es-podium-gold {
+  background: linear-gradient(155deg, #FFF3C6 0%, #FFD97A 32%, #FFC247 62%, #E8960A 100%);
+  color: #1A1002;
+  border-color: rgba(255, 223, 140, 0.9);
+  box-shadow: 0 18px 46px rgba(232, 150, 10, 0.38), 0 0 0 1px rgba(255, 223, 140, 0.55) inset;
+}
+.es-podium-silver {
+  background: linear-gradient(155deg, #F4F8FC 0%, #D9E1EC 38%, #B7C3D3 72%, #8B99AD 100%);
+  color: #10151C;
+  border-color: rgba(233, 240, 248, 0.7);
+  box-shadow: 0 14px 36px rgba(139, 153, 173, 0.3), 0 0 0 1px rgba(233, 240, 248, 0.45) inset;
+}
+.es-podium-bronze {
+  background: linear-gradient(155deg, #F7C993 0%, #E09A52 44%, #B96E2C 76%, #8F531B 100%);
+  color: #FFF7EE;
+  border-color: rgba(247, 201, 147, 0.6);
+  box-shadow: 0 14px 36px rgba(185, 110, 44, 0.32), 0 0 0 1px rgba(247, 201, 147, 0.4) inset;
+}
+/* Kilau kaca di atas kartu podium */
+.es-podium::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0) 44%),
+    radial-gradient(120% 90% at 50% -20%, rgba(255, 255, 255, 0.26), transparent 55%);
+}
+
+/* ---- Watermark angka raksasa di podium ---- */
+.es-watermark {
+  position: absolute;
+  right: -0.06em;
+  bottom: -0.22em;
+  line-height: 1;
+  font-family: var(--font-stat), var(--font-inter), sans-serif;
+  font-weight: 700;
+  font-size: clamp(7rem, 16vw, 11rem);
+  color: transparent;
+  -webkit-text-stroke: 2px rgba(255, 255, 255, 0.55);
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
+}
+.es-watermark-ink { -webkit-text-stroke: 2px rgba(16, 10, 2, 0.22); }
+
+/* ---- Rays berputar di belakang juara 1 ---- */
+@keyframes es-rotate { to { transform: rotate(360deg); } }
+.es-rays {
+  position: absolute;
+  inset: -45% -35%;
+  pointer-events: none;
+  opacity: 0.55;
+  background: repeating-conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(255, 255, 255, 0.18) 0deg 7deg,
+    transparent 7deg 22deg
+  );
+  animation: es-rotate 16s linear infinite;
+  mask-image: radial-gradient(70% 70% at 50% 50%, #000 20%, transparent 75%);
+  -webkit-mask-image: radial-gradient(70% 70% at 50% 50%, #000 20%, transparent 75%);
+}
+
+/* ---- Mahkota juara 1 berdenyut ---- */
+@keyframes es-crown {
+  0%, 100% { transform: translateY(0) rotate(-5deg); filter: drop-shadow(0 0 6px rgba(122, 64, 0, 0.35)); }
+  50% { transform: translateY(-4px) rotate(5deg); filter: drop-shadow(0 0 14px rgba(122, 64, 0, 0.55)); }
+}
+.es-crown-anim { animation: es-crown 2.6s ease-in-out infinite; }
+
+/* ---- Glow teks poin juara ---- */
+.es-glow-gold { text-shadow: 0 0 18px rgba(255, 194, 71, 0.55), 0 2px 0 rgba(0, 0, 0, 0.12); }
+
+/* ---- Baris klasemen broadcast ---- */
+.es-row {
+  position: relative;
+  transition: background-color 0.18s ease, box-shadow 0.18s ease;
+}
+.es-row:hover {
+  background: rgba(255, 194, 71, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 194, 71, 0.22);
+}
+
+/* ---- Ring radar STAND BY (menunggu data) ---- */
+@keyframes es-radar {
+  0% { transform: scale(0.4); opacity: 0.9; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.es-radar-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 194, 71, 0.6);
+  animation: es-radar 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+/* ---- Judul hero gradasi api ---- */
+.es-title-fire {
+  background: linear-gradient(100deg, #FF5A1F 8%, #FFC247 52%, #FF8A00 92%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: fs-holo 8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .es-rays, .es-crown-anim, .es-radar-ring { animation: none !important; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bo-skel, .flash-up, .rank-champion, .zb-rise, .fs-live-badge,
   .fs-scanline::after, .fs-onair, .fs-connecting, .fs-ticker-track,

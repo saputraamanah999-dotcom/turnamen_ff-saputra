@@ -20,10 +20,12 @@ export function MovementIcon({ movement }: { movement: StandingsRow["movement"] 
   return <Minus className="h-3.5 w-3.5 text-fs-text/40" strokeWidth={3} />;
 }
 
+// Rank 1/2/3 memakai gradasi emas/perak/perunggu ala turnamen FF
+// internasional (FFWS) — kontras tinggi agar terbaca jelas di layar tancap.
 const RANK_STYLES: Record<number, string> = {
-  1: "bg-zb-yellow text-fs-ink rank-champion",
-  2: "bg-zb-cyan text-fs-ink",
-  3: "bg-zb-purple text-white",
+  1: "rank-1-gold rank-champion",
+  2: "rank-2-silver",
+  3: "rank-3-bronze",
 };
 
 export function RankBadge({ rank, className }: { rank: number; className?: string }) {
@@ -65,7 +67,7 @@ export function TeamInitials({ name, size = "md" }: { name: string; size?: "sm" 
  * Angka dengan kilatan emas saat nilainya berubah (realtime).
  * Dipakai pada sel POIN/KILL agar perubahan terlihat jelas saat siaran.
  */
-function FlashNumber({ value, className }: { value: number; className?: string }) {
+export function FlashNumber({ value, className }: { value: number; className?: string }) {
   const prev = useRef(value);
   const [flashAt, setFlashAt] = useState(0);
   // Pola resmi React "adjusting state during render" — tanpa setState di effect.

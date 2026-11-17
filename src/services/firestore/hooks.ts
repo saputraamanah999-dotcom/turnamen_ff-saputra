@@ -53,7 +53,16 @@ export function useDoc<T>(
 
   useEffect(() => {
     gotSnapshot.current = false;
-    if (!db || !path) return;
+    if (!db || !path) {
+      // Tanpa konfigurasi Firebase: langsung tampilkan data demo
+      // (konsisten dengan banner MODE DEMO) daripada kosong selamanya.
+      if (opts?.fallback && !opts.disableFallback) {
+        setState({ data: opts.fallback(), status: "offline" });
+      } else {
+        setState((s) => ({ ...s, status: "offline" }));
+      }
+      return;
+    }
     const timer = setTimeout(() => {
       if (!gotSnapshot.current) {
         setState((s) =>
@@ -111,7 +120,15 @@ export function useCollection<T>(
 
   useEffect(() => {
     gotSnapshot.current = false;
-    if (!db || !path) return;
+    if (!db || !path) {
+      // Tanpa konfigurasi Firebase: langsung tampilkan data demo.
+      if (opts?.fallback) {
+        setState({ data: opts.fallback(), status: "offline" });
+      } else {
+        setState((s) => ({ ...s, status: "offline" }));
+      }
+      return;
+    }
     const ref = collection(db, path);
      
     const constraints: QueryConstraint[] = [];
