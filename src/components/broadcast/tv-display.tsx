@@ -13,12 +13,20 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Crown, Maximize, Swords } from "lucide-react";
 import { BroadcastLeaderboard } from "@/components/leaderboard/broadcast-board";
 import { LiveVideoPlayer, type PlayerStatus } from "@/components/video/player";
+import { enterFullscreen, exitFullscreen, isFullscreenActive, useAutoFullscreen } from "@/lib/fullscreen";
 import {
   useActiveTournament, useBroadcast, useMatches, usePublicObserverEvents, useStandings, useTeams,
 } from "@/services/firestore/hooks";
 import { ORG } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import type { BroadcastEvent, PresentationState, Tournament } from "@/lib/types";
+import { useKeepAwake } from "@/lib/wakelock";
+import { useBroadcastTheme } from "@/components/common/theme-boot";
+import { CountdownOverlay } from "@/components/broadcast/presentation";
+import { ChampionPodium } from "@/components/leaderboard/champion-podium";
+import { PresenceBadge } from "@/components/broadcast/presence-badge";
+import { SmkLogoBadge } from "@/components/broadcast/brand-logo";
+import { useLivePresence } from "@/services/broadcast/presence";
+import type { BroadcastEvent, BroadcastSettings, PresentationState, Tournament } from "@/lib/types";
 
 export function TvDisplayPage({ tidOverride }: { tidOverride?: string }) {
   return (
@@ -36,6 +44,8 @@ function TvDisplayInner({ tidOverride }: { tidOverride?: string }) {
   const matches = useMatches(tid, false);
   const teams = useTeams(tid, false);
   const broadcast = useBroadcast(tid, false);
+  // Tema broadcast dari admin berlaku real-time (menimpa preferensi lokal TV).
+  useBroadcastTheme(broadcast.data?.theme);
   const observerEvents = usePublicObserverEvents(tid);
   // Presentasi TV (§17): TV mengikuti kendali admin realtime.
   const presentation = useDoc<PresentationState>(tid ? `presentationState/${tid}` : null, { disableFallback: true });
@@ -43,6 +53,15 @@ function TvDisplayInner({ tidOverride }: { tidOverride?: string }) {
   const [clock, setClock] = useState("");
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>("idle");
   const [shownEvent, setShownEvent] = useState<BroadcastEvent | null>(null);
+  // Indikator penonton online (jumlah di header — TV ikut terhitung sebagai 1 perangkat).
+  const presence = useLivePresence(tid, { heartbeat: true });
+
+  // Layar TV TIDAK mati sendiri (Wake Lock + fallback NoSleep) —
+  // aktif sejak halaman dibuka, termasuk saat layar darurat tampil.
+  useKeepAwake();
+
+  // Link/QR TV memakai ?fs=1 → TV masuk layar penuh otomatis saat halaman dibuka.
+  useAutoFullscreen();
 
   const currentMatch =
     matches.data?.find((m) => m.isCurrent) ?? matches.data?.find((m) => m.status === "live") ?? null;
@@ -109,7 +128,7 @@ function TvDisplayInner({ tidOverride }: { tidOverride?: string }) {
             exit={{ opacity: 0 }}
             className="absolute inset-0 z-[90]"
           >
-            <PresentationScene scene={presScene} tid={tid} />
+            <PresentationScene scene={presScene} tid={tid} broadcast={broadcast.data} />
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -117,13 +136,14 @@ function TvDisplayInner({ tidOverride }: { tidOverride?: string }) {
       {/* ---------- TOP BROADCAST HEADER ---------- */}
       <header className="relative flex items-center justify-between gap-4 border-b border-fs-edge bg-[#0C1117] px-4 py-2.5 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="fs-cut-sm flex h-11 w-11 shrink-0 items-center justify-center bg-gradient-to-br from-fs-fire to-fs-flame font-display text-xl font-black text-white shadow-[0_0_16px_rgba(255,90,31,.45)]">Z</span>
+          {/* Logo resmi sekolah (menggantikan kotak "Z") — medali putih + cincin emas */}
+          <SmkLogoBadge size={46} className="fs-cut-sm" />
           <div className="min-w-0">
             <p className="font-display text-lg font-black uppercase leading-none tracking-[0.12em] sm:text-xl">
               STIKAR <span className="text-fs-fire">ESPORTS</span>
             </p>
             <p className="truncate text-[9.5px] font-bold uppercase tracking-[0.26em] text-fs-muted">
-              {ORG.tournament} · {tournament.data?.name ?? "—"}
+              SMK TI BALI GLOBAL KARANGASEM · {tournament.data?.name ?? "—"}
             </p>
           </div>
         </div>
@@ -153,6 +173,7 @@ function TvDisplayInner({ tidOverride }: { tidOverride?: string }) {
 
         <div className="flex items-center gap-3">
           <span className="hidden font-stat text-sm font-bold text-fs-muted sm:block tabular-nums">{clock}</span>
+          <PresenceBadge count={presence.count} />
           {isLive || playerStatus === "live" ? (
             <span className="fs-live-badge inline-flex items-center gap-1.5 bg-fs-err px-3 py-1.5 font-display text-sm font-black uppercase tracking-[0.2em] text-white">
               <span className="inline-block h-2 w-2 rounded-full bg-white" /> LIVE
@@ -284,7 +305,7 @@ function Main({ children, className }: { children: React.ReactNode; className?: 
 }
 
 /** Scene presentasi fullscreen — konten sesuai perintah admin (§17). */
-function PresentationScene({ scene, tid }: { scene: string; tid: string | null }) {
+function PresentationScene({ scene, tid, broadcast }: { scene: string; tid: string | null; broadcast?: BroadcastSettings | null }) {
   const standings = useStandings(tid);
   const matches = useMatches(tid, false);
   const { tournament: active } = useActiveTournament();
@@ -292,10 +313,14 @@ function PresentationScene({ scene, tid }: { scene: string; tid: string | null }
   const rows = standings.data?.standings ?? [];
   const currentMatch = matches.data?.find((m) => m.isCurrent) ?? null;
   const t = tournament.data ?? active;
+  // Scene "countdown" menampilkan countdown NYATA bila panitia memulainya dari
+  // /admin/broadcast (Panggung TV & Countdown); kalau tidak, tampil Starting Soon.
+  const realCountdown = broadcast?.countdown?.active === true;
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center bg-fs-bg px-10 text-center">
-      {scene === "opening" ? (
+    <div className="relative flex h-full w-full flex-col items-center justify-center bg-fs-bg px-10 text-center">
+      {scene === "countdown" && realCountdown ? <CountdownOverlay broadcast={broadcast ?? null} /> : null}
+      {scene === "countdown" && realCountdown ? null : scene === "opening" ? (
         <>
           <p className="fs-live-in font-display text-6xl font-black uppercase tracking-[0.08em]">STIKAR <span className="text-fs-fire">ESPORTS</span></p>
           <p className="mt-3 font-display text-2xl font-black uppercase text-fs-muted">{ORG.tournament}</p>
@@ -315,20 +340,28 @@ function PresentationScene({ scene, tid }: { scene: string; tid: string | null }
           <BroadcastLeaderboard standings={rows} mode="tv" status={standings.status} updatedAt={standings.data?.updatedAt} />
         </div>
       ) : null}
-      {scene === "match-info" || scene === "starting-soon" || scene === "countdown" ? (
+      {(scene === "match-info" || scene === "starting-soon" || (scene === "countdown" && !realCountdown)) ? (
         <>
           <p className="fs-live-in font-display text-6xl font-black uppercase text-fs-fire">Starting Soon</p>
           <p className="mt-4 text-xl font-bold text-fs-muted">
             {currentMatch ? `Match ${currentMatch.matchNumber} · ${currentMatch.map}` : "Jadwal segera diumumkan"}
           </p>
+          {scene === "countdown" ? (
+            <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.3em] text-fs-muted/60">
+              Countdown nyata dijalankan dari Admin → Broadcast → Panggung TV &amp; Countdown
+            </p>
+          ) : null}
         </>
       ) : null}
       {scene === "champion" || scene === "mvp" ? (
-        <>
-          <p className="bo-kicker mb-4">Champion Tracking</p>
-          <p className="font-display text-5xl font-black uppercase text-fs-gold">{rows[0]?.teamName ?? "—"}</p>
-          <p className="mt-2 text-lg font-bold text-fs-muted">{rows[0]?.totalPoints ?? 0} PTS · {rows[0]?.kills ?? 0} kill</p>
-        </>
+        <div className="w-full max-w-3xl">
+          <p className="bo-kicker mb-6">Panggung Juara — Champion Tracking</p>
+          <ChampionPodium
+            standings={rows}
+            totalMatches={t?.totalMatches ?? 0}
+            publishedMatchCount={standings.data?.publishedMatchCount ?? 0}
+          />
+        </div>
       ) : null}
       {scene === "results" ? (
         <>
@@ -352,19 +385,30 @@ function PresentationScene({ scene, tid }: { scene: string; tid: string | null }
 function FullscreenButton() {
   const [fs, setFs] = useState(false);
   useEffect(() => {
-    const onChange = () => setFs(Boolean(document.fullscreenElement));
+    const onChange = () => setFs(isFullscreenActive());
     document.addEventListener("fullscreenchange", onChange);
-    return () => document.removeEventListener("fullscreenchange", onChange);
+    // Tombol F pada keyboard (dan beberapa remote TV yang mengirim "F")
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "f" || e.key === "F") {
+        if (isFullscreenActive()) void exitFullscreen();
+        else void enterFullscreen().catch(() => {});
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      document.removeEventListener("keydown", onKey);
+    };
   }, []);
   return (
     <button
       onClick={() => {
-        if (document.fullscreenElement) void document.exitFullscreen();
-        else void document.documentElement.requestFullscreen().catch(() => {});
+        if (isFullscreenActive()) void exitFullscreen();
+        else void enterFullscreen().catch(() => {});
       }}
-      className="hidden h-9 w-9 items-center justify-center border border-fs-edge text-fs-muted transition hover:border-fs-fire hover:text-fs-fire sm:flex"
+      className="flex h-9 w-9 items-center justify-center border border-fs-edge bg-black/30 text-fs-muted transition hover:border-fs-fire hover:text-fs-fire"
       aria-label={fs ? "Keluar layar penuh" : "Masuk layar penuh"}
-      title="Fullscreen (F)"
+      title="Layar penuh (F)"
     >
       <Maximize className="h-4 w-4" />
     </button>

@@ -10,10 +10,48 @@
 // ============================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Play, Radio, Volume2, VolumeX, WifiOff, RefreshCw } from "lucide-react";
+import { AlertTriangle, Maximize, Minimize, MonitorUp, Play, Radio, Volume2, VolumeX, WifiOff, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { enterFullscreen, exitFullscreen, isFullscreenActive } from "@/lib/fullscreen";
+import { useKeepAwake, type WakeState } from "@/lib/wakelock";
 import { playWHE } from "@/services/broadcast/stream";
+import { P2PViewer, mapP2PStatusToPlayerStatus } from "@/services/broadcast/p2p";
+import { casterBasePath } from "@/services/broadcast/caster";
+import { CasterPairingCard } from "@/components/broadcast/caster-card";
+import { PresentationOverlays } from "@/components/broadcast/presentation";
+import { MusicPlayer } from "@/components/broadcast/music-player";
+import { useSfxListener } from "@/components/broadcast/sfx";
+import { PresenceBadge } from "@/components/broadcast/presence-badge";
+import { useLivePresence } from "@/services/broadcast/presence";
 import type { BroadcastSettings } from "@/lib/types";
+
+/**
+ * Ambil ID video YouTube (11 karakter) dari apa pun yang ditempel panitia:
+ * ID mentah, youtube.com/watch?v=…, youtu.be/…, /live/…, /shorts/…, /embed/…, /v/…,
+ * termasuk varian m./music./gaming. dan youtube-nocookie.com. "" bila tidak dikenali.
+ */
+export function parseYouTubeId(raw: string): string {
+  const s = (raw ?? "").trim();
+  if (!s) return "";
+  if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+  try {
+    const url = new URL(/^https?:\/\//i.test(s) ? s : `https://${s}`);
+    const host = url.hostname.replace(/^(www|m|music|gaming)\./i, "").toLowerCase();
+    if (host === "youtu.be") {
+      const id = url.pathname.split("/").filter(Boolean)[0] ?? "";
+      return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : "";
+    }
+    if (host === "youtube.com" || host === "youtube-nocookie.com") {
+      const v = url.searchParams.get("v");
+      if (v && /^[A-Za-z0-9_-]{11}$/.test(v)) return v;
+      const m = url.pathname.match(/^\/(?:live|shorts|embed|v)\/([A-Za-z0-9_-]{11})/);
+      if (m) return m[1];
+    }
+  } catch {
+    /* bukan URL — dibiarkan kosong */
+  }
+  return "";
+}
 
 export type PlayerStatus = "idle" | "connecting" | "live" | "reconnecting" | "signal-lost" | "blocked";
 
@@ -39,26 +77,215 @@ export function LiveVideoPlayer({
   idleContent?: React.ReactNode;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const ytRef = useRef<HTMLIFrameElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<{ destroy: () => void } | null>(null);
   const wheRef = useRef<{ pc: RTCPeerConnection; close: () => void } | null>(null);
+  const p2pRef = useRef<P2PViewer | null>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Penonton pernah menyentuh kontrol suara (mute/unMute) → auto-unmute TV jangan menimpanya.
+  const userTouchedSoundRef = useRef(false);
   const [status, setStatus] = useState<PlayerStatus>("idle");
+  const [ytPlaying, setYtPlaying] = useState(false);
+  const [ytSound, setYtSound] = useState(false);
+  const [ytError, setYtError] = useState("");
   const [detail, setDetail] = useState<string>("");
   const [needsPlay, setNeedsPlay] = useState(false);
   const [muted, setMuted] = useState(true);
   const [attempt, setAttempt] = useState(0);
+  const [fs, setFs] = useState(false);
+  // TV: autoplay tertahan (embed YouTube tidak mulai sendiri) → tombol PUTAR besar.
+  const [ytStalled, setYtStalled] = useState(false);
+  // Layar TV tetap menyala (Wake Lock + fallback NoSleep).
+  const wake = useKeepAwake();
+
+  // Musik latar realtime + SFX broadcast + presence (heartbeat 1x per tab —
+  // singleton di services/broadcast/presence.ts, tak peduli berapa komponen memakai).
+  const presence = useLivePresence(broadcast?.tournamentId ?? null, { heartbeat: true });
+  useSfxListener(broadcast);
+
+  // Sinkron status layar penuh (mis. keluar via tombol ESC/remote TV)
+  useEffect(() => {
+    const onChange = () => setFs(isFullscreenActive());
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (isFullscreenActive()) void exitFullscreen();
+    else void enterFullscreen(boxRef.current).catch(() => {});
+  }
+
+  // ---------- Kontrol pemutar YouTube via postMessage (enablejsapi=1) ----------
+  function ytCommand(func: string, args: (string | number)[] = []) {
+    ytRef.current?.contentWindow?.postMessage(
+      JSON.stringify({ event: "command", func, args }),
+      "*",
+    );
+  }
+
+  function handleYtLoad() {
+    // Aktifkan stream event onStateChange/onError dari widget YouTube.
+    ytRef.current?.contentWindow?.postMessage(
+      JSON.stringify({ event: "listening", id: "bof-yt", channel: "widget" }),
+      "*",
+    );
+  }
+
+  function toggleYtSound() {
+    userTouchedSoundRef.current = true;
+    if (ytSound) {
+      ytCommand("mute");
+      setYtSound(false);
+    } else {
+      ytCommand("unMute");
+      ytCommand("setVolume", [100]);
+      setYtSound(true);
+    }
+  }
+
+  /** PUTAR + SUARA ON (dipakai tombol putar besar & ketukan pertama — konteks gestur). */
+  function forceYtPlayWithSound() {
+    ytCommand("playVideo");
+    ytCommand("unMute");
+    ytCommand("setVolume", [100]);
+    setYtSound(true);
+    setYtStalled(false);
+  }
+
+  function ytRetry() {
+    setYtError("");
+    setYtPlaying(false);
+    setAttempt((a) => a + 1); // iframe di-key oleh attempt → remount & sambung ulang
+  }
 
   const mode = broadcast?.streamMode ?? "offline";
-  const ytId = broadcast?.youtubeVideoId?.trim() ?? "";
+  const ytId = parseYouTubeId(broadcast?.youtubeVideoId ?? "");
   const hlsUrl = broadcast?.hlsUrl?.trim() ?? "";
   const wheUrl = (wheUrlOverride ?? broadcast?.wheUrl?.trim() ?? "").trim();
-  const streamKey = `${mode}|${wheUrl}|${hlsUrl}|${ytId}`;
+  const isP2P = mode === "p2p";
+  const isCaster = mode === "caster";
+  const isYouTube = mode === "youtube" && Boolean(ytId);
+  const casterCode = broadcast?.caster?.code ?? "";
+  const casterActive = broadcast?.caster?.active === true;
+  const casterReady = isCaster && casterActive && Boolean(casterCode);
+  const p2pLive = broadcast?.p2pLive === true;
+  const streamKey = `${mode}|${wheUrl}|${hlsUrl}|${ytId}|${casterCode}|${casterActive}`;
 
   const setStat = useCallback((s: PlayerStatus, msg = "") => {
     setStatus(s);
     setDetail(msg);
     onStatus?.(s);
   }, [onStatus]);
+
+  // Dengarkan status pemutar YouTube yang BENAR (PLAYING/BUFFERING/error embed).
+  // Gagal menerima event pun tidak masalah: overlay status sengaja tidak dipakai
+  // untuk YouTube (iframe punya UI sendiri), jadi video tetap tampil & bisa diklik.
+  useEffect(() => {
+    if (!isYouTube) return;
+    function onMsg(e: MessageEvent) {
+      const win = ytRef.current?.contentWindow;
+      if (!win || e.source !== win) return;
+      let data: { event?: string; info?: unknown } | null = null;
+      try {
+        data = typeof e.data === "string" ? (JSON.parse(e.data) as { event?: string; info?: unknown }) : e.data;
+      } catch {
+        return;
+      }
+      if (!data || typeof data !== "object") return;
+      if (data.event === "onStateChange") {
+        const st = Number(data.info);
+        if (st === 1) {
+          setYtPlaying(true);
+          setYtError("");
+        } else if (st === 2 || st === 3 || st === 5) {
+          setYtPlaying(false);
+        }
+      } else if (data.event === "onError") {
+        const code = Number(data.info);
+        setYtPlaying(false);
+        setYtError(
+          code === 101 || code === 150
+            ? "Pemilik video memblokir pemutaran ter-embed. Ganti video/stream yang mengizinkan embed."
+            : code === 100
+              ? "Video YouTube tidak ditemukan — ID salah atau video sudah dihapus."
+              : "Video YouTube tidak dapat diputar. Periksa ID/URL video lalu coba lagi.",
+        );
+      }
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [isYouTube]);
+
+  // Reset status YouTube saat sumber / percobaan berubah.
+  useEffect(() => {
+    setYtPlaying(false);
+    setYtError("");
+  }, [streamKey, attempt]);
+
+  // ---------- PENGUAT AUTOPLAY TV (embed YouTube tidak mulai sendiri di banyak
+  // browser TV walau autoplay=1&mute=1) ----------
+  //  1. Kirim mute+playVideo berulang di awal (0.8–22 dtk) — beberapa TV baru
+  //     mengizinkan setelah embed siap penuh.
+  //  2. Tab kembali terlihat / jendela focus → playVideo lagi.
+  //  3. Jika setelah 6 dtk masih tidak PLAYING → tampilkan tombol PUTAR besar
+  //     (ytStalled) yang memutar + menyalakan suara sekaligus.
+  useEffect(() => {
+    if (!isYouTube) {
+      setYtStalled(false);
+      return;
+    }
+    const kick = (t: number) =>
+      setTimeout(() => {
+        ytCommand("mute"); // tetap senyap — kebijakan autoplay browser
+        ytCommand("playVideo");
+      }, t);
+    const timers = [800, 2000, 4000, 7000, 11000, 16000, 22000].map(kick);
+    const stallTimer = setTimeout(() => setYtStalled(true), 6000);
+    const onVis = () => {
+      if (document.visibilityState === "visible") ytCommand("playVideo");
+    };
+    const onFocus = () => ytCommand("playVideo");
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      timers.forEach(clearTimeout);
+      clearTimeout(stallTimer);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isYouTube, streamKey, attempt]);
+
+  // Saat benar-benar PLAYING, matikan tanda stalled.
+  useEffect(() => {
+    if (ytPlaying) setYtStalled(false);
+  }, [ytPlaying]);
+
+  // ---------- TRIK SUARA TV: ketukan pada iframe YouTube TIDAK sampai ke halaman
+  // (event masuk ke document iframe) → parent window menerima event "blur".
+  // Itulah sinyal terkuat bahwa penonton baru saja menekuk video —
+  // nyalakan suara SEKALI per mount. Mute manual lewat tombol tetap dihormati
+  // (userTouchedSoundRef). ----------
+  useEffect(() => {
+    if (!isYouTube) return;
+    let done = false;
+    const onBlur = () => {
+      if (done || ytSound || userTouchedSoundRef.current) return;
+      done = true;
+      // Tunggu sebentar — gesture di iframe diproses dulu oleh widget.
+      setTimeout(() => {
+        ytCommand("playVideo");
+        ytCommand("unMute");
+        ytCommand("setVolume", [100]);
+        setYtSound(true);
+      }, 250);
+    };
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [isYouTube, ytSound]);
 
   // ---------- Sumber WHE (WebRTC) ----------
   useEffect(() => {
@@ -106,6 +333,76 @@ export function LiveVideoPlayer({
     };
   }, [mode, wheUrl, setStat, streamKey]);
 
+  // ---------- Sumber P2P (WebRTC langsung laptop → penonton, signaling Firestore) ----------
+  useEffect(() => {
+    if (mode !== "p2p") return;
+    if (!p2pLive) {
+      p2pRef.current?.stop();
+      p2pRef.current = null;
+      setStat("idle"); // "Menunggu siaran" — panitia belum START LIVE
+      return;
+    }
+    const tid = broadcast?.tournamentId;
+    if (!tid) return;
+    const viewer = new P2PViewer({
+      tid,
+      onStream: (s) => {
+        const v = videoRef.current;
+        if (v && v.srcObject !== s) v.srcObject = s;
+        if (!s) setStat("connecting", "Menunggu siaran…");
+      },
+      onStatus: (s, msg) => {
+        setStat(mapP2PStatusToPlayerStatus(s), msg ?? "");
+        if (s === "live") {
+          const v = videoRef.current;
+          if (v) v.play().catch(() => setNeedsPlay(true)); // autoplay ditolak → tombol play
+        }
+      },
+    });
+    p2pRef.current = viewer;
+    void viewer.start();
+    return () => {
+      viewer.stop();
+      p2pRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, p2pLive, broadcast?.tournamentId, setStat]);
+
+  // ---------- Sumber CASTER (layar panitia via kode pairing — signaling
+  // casterSessions/{code}: penonton menawarkan offer, host anonim menjawab) ----------
+  useEffect(() => {
+    if (isCaster && (!casterReady || !broadcast?.tournamentId)) {
+      p2pRef.current?.stop();
+      p2pRef.current = null;
+      setStat("idle"); // sesi belum aktif / kode belum ada
+      return;
+    }
+    if (!isCaster || !casterReady || !broadcast?.tournamentId) return;
+    const viewer = new P2PViewer({
+      tid: broadcast.tournamentId,
+      basePath: casterBasePath(casterCode),
+      onStream: (s) => {
+        const v = videoRef.current;
+        if (v && v.srcObject !== s) v.srcObject = s;
+        if (!s) setStat("connecting", "Menunggu layar panitia…");
+      },
+      onStatus: (s, msg) => {
+        setStat(mapP2PStatusToPlayerStatus(s), msg ?? "");
+        if (s === "live") {
+          const v = videoRef.current;
+          if (v) v.play().catch(() => setNeedsPlay(true));
+        }
+      },
+    });
+    p2pRef.current = viewer;
+    void viewer.start();
+    return () => {
+      viewer.stop();
+      p2pRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCaster, casterReady, casterCode, broadcast?.tournamentId, setStat]);
+
   // ---------- Fallback HLS ----------
   useEffect(() => {
     if (mode !== "mediamtx" || !hlsUrl) return;
@@ -152,6 +449,7 @@ export function LiveVideoPlayer({
   function manualRetry() {
     setAttempt((a) => a + 1);
     setStat("connecting", "Menyambung ulang…");
+    if (isP2P || isCaster) void p2pRef.current?.retry();
   }
 
   function forcePlay() {
@@ -165,20 +463,26 @@ export function LiveVideoPlayer({
   }
 
   const showIdle =
-    mode === "offline" || (mode === "mediamtx" && !wheUrl && !hlsUrl) || (mode === "youtube" && !ytId);
-  const isYouTube = mode === "youtube" && Boolean(ytId);
-  const showVideo = mode === "mediamtx" && (wheUrl || hlsUrl) && !showIdle;
+    mode === "offline"
+    || (mode === "mediamtx" && !wheUrl && !hlsUrl)
+    || (mode === "youtube" && !ytId)
+    || (isP2P && !p2pLive)
+    || (isCaster && !casterReady);
+  const showVideo = (mode === "mediamtx" && (wheUrl || hlsUrl) && !showIdle) || (isP2P && p2pLive) || (isCaster && casterReady);
 
   return (
-    <div className={cn("relative overflow-hidden border border-fs-edge bg-black", className)}>
+    <div ref={boxRef} className={cn("relative overflow-hidden border border-fs-edge bg-black", className)}>
       <div className="relative aspect-video w-full">
         {isYouTube ? (
           <iframe
+            key={attempt}
+            ref={ytRef}
             className="h-full w-full"
-            src={`https://www.youtube.com/embed/${ytId}?autoplay=0&rel=0&modestbranding=1`}
+            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&cc_load_policy=0&hl=id&color=white&enablejsapi=1`}
             title="Siaran langsung turnamen"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
+            onLoad={handleYtLoad}
           />
         ) : showVideo ? (
           <video
@@ -211,8 +515,10 @@ export function LiveVideoPlayer({
           </div>
         ) : null}
 
-        {/* Overlay status — jujur sesuai koneksi (§8: area video tidak boleh kosong tanpa penjelasan) */}
-        {!showIdle && status !== "live" ? (
+        {/* Overlay status — jujur sesuai koneksi (§8: area video tidak boleh kosong tanpa penjelasan).
+            YouTube TIDAK memakai overlay ini: status koneksinya tak terbaca dari iframe luar dan
+            overlay justru menutupi + memblokir klik pemutar YouTube (bug "layar gelap diam"). */}
+        {!showIdle && !isYouTube && !isCaster && status !== "live" ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/72 px-6 text-center">
             {status === "connecting" ? (
               <>
@@ -258,25 +564,110 @@ export function LiveVideoPlayer({
           </div>
         ) : null}
 
-        {/* LIVE badge saat benar-benar live */}
-        {status === "live" ? (
-          <div className="absolute left-3 top-3 flex items-center gap-2">
-            <span className="fs-live-badge inline-flex items-center gap-1.5 bg-fs-err px-2.5 py-1 font-display text-xs font-black uppercase tracking-[0.2em] text-white">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-white" /> LIVE
-            </span>
+        {/* Strip branding penutup judul/nama channel YouTube (parameter resmi sudah deprecated).
+            pointer-events-none agar klik tetap menerus ke pemutar. */}
+        {isYouTube && broadcast?.presentation?.cleanYouTube !== false ? (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-0 flex h-[13%] min-h-9 items-center gap-3 bg-gradient-to-b from-black/90 via-black/60 to-transparent px-12">
+            <p className="shrink-0 font-display text-[10px] font-black uppercase tracking-[0.28em] text-white/85 sm:text-[11px]">
+              Battle Off Friends
+            </p>
+            <p className="truncate text-[9px] font-bold uppercase tracking-[0.2em] text-white/45 sm:text-[10px]">
+              SMK TI Bali Global Karangasem · Siaran Resmi
+            </p>
           </div>
         ) : null}
 
-        {/* Kontrol audio */}
-        {showVideo && status === "live" ? (
-          <button
-            onClick={() => setMuted((m) => !m)}
-            className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center border border-white/25 bg-black/55 text-white/85 hover:bg-black/75"
-            aria-label={muted ? "Bunyikan audio" : "Bisukan audio"}
-          >
-            {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-          </button>
+        {/* LIVE badge saat benar-benar live (YouTube: hanya saat pemutar benar-benar PLAYING) */}
+        {status === "live" || (isYouTube && ytPlaying) ? (
+          <div className="absolute left-3 top-3 z-10 flex flex-wrap items-center gap-2">
+            <span className="fs-live-badge inline-flex items-center gap-1.5 bg-fs-err px-2.5 py-1 font-display text-xs font-black uppercase tracking-[0.2em] text-white">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-white" /> LIVE
+            </span>
+            {isYouTube && !ytSound ? (
+              <span className="border border-white/25 bg-black/60 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-white/70">
+                Tanpa suara — klik ikon speaker di kanan atas
+              </span>
+            ) : null}
+            {(isP2P || isCaster) && muted ? (
+              <button
+                onClick={() => setMuted(false)}
+                className="border border-white/30 bg-black/60 px-3 py-1 font-display text-[11px] font-black uppercase tracking-widest text-white/90 hover:bg-black/80"
+              >
+                Aktifkan Suara
+              </button>
+            ) : null}
+          </div>
         ) : null}
+
+        {/* Kontrol audio + layar penuh */}
+        {showVideo || isYouTube ? (
+          <div className="absolute right-3 top-3 z-10 flex gap-2">
+            {isYouTube ? (
+              <button
+                onClick={toggleYtSound}
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center border bg-black/55 text-white/85 hover:bg-black/75",
+                  ytSound ? "border-fs-ok text-fs-ok" : "border-white/25",
+                )}
+                aria-label={ytSound ? "Bisukan audio YouTube" : "Aktifkan audio YouTube"}
+                title={ytSound ? "Bisukan suara" : "Aktifkan suara"}
+              >
+                {ytSound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </button>
+            ) : showVideo && status === "live" ? (
+              <button
+                onClick={() => setMuted((m) => !m)}
+                className="flex h-9 w-9 items-center justify-center border border-white/25 bg-black/55 text-white/85 hover:bg-black/75"
+                aria-label={muted ? "Bunyikan audio" : "Bisukan audio"}
+              >
+                {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </button>
+            ) : null}
+            <button
+              onClick={toggleFullscreen}
+              className="flex h-9 w-9 items-center justify-center border border-white/25 bg-black/55 text-white/85 hover:bg-black/75"
+              aria-label={fs ? "Keluar layar penuh" : "Layar penuh"}
+              title="Layar penuh (F) — mode TV"
+            >
+              {fs ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+            </button>
+          </div>
+        ) : null}
+
+        {/* TV: autoplay YouTube tertahan > 6 dtk → tombol PUTAR besar.
+            Container pointer-events-none agar klik di sekeliling tetap menerus
+            ke pemutar YouTube; HANYA tombolnya yang bisa diklik. */}
+        {isYouTube && ytStalled && !ytPlaying && !ytError && !showIdle ? (
+          <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-3">
+            <button
+              onClick={forceYtPlayWithSound}
+              className="pointer-events-auto flex h-20 w-20 items-center justify-center rounded-full border-2 border-fs-fire bg-black/60 text-fs-fire shadow-[0_0_36px_rgba(255,90,31,.45)] backdrop-blur-sm transition hover:scale-110 hover:bg-fs-fire/25"
+              aria-label="Putar siaran sekarang"
+            >
+              <Play className="h-9 w-9 fill-current" />
+            </button>
+            <p className="pointer-events-none rounded-sm bg-black/70 px-3 py-1.5 text-xs font-black uppercase tracking-[0.25em] text-white/85">
+              Ketuk tombol untuk memutar siaran
+            </p>
+          </div>
+        ) : null}
+
+        {/* BOF CASTER: kartu pairing (kode + QR + langkah) sampai layar panitia
+            benar-benar tersambung — persis pengalaman hi.casts.app. */}
+        {casterReady && status !== "live" ? (
+          <CasterPairingCard
+            code={casterCode}
+            label={broadcast?.caster?.label}
+            expiresAtMs={broadcast?.caster?.expiresAt ?? null}
+          />
+        ) : null}
+
+        {/* Overlay panggung realtime: countdown besar + sekuens mulai game + Panggung Juara
+            (dikendalikan panitia dari /admin/broadcast → Panggung TV & Countdown). */}
+        <PresentationOverlays broadcast={broadcast} />
+
+        {/* Musik latar siaran (MP3 / YouTube Music) — mengikuti panel Musik Siaran admin. */}
+        <MusicPlayer broadcast={broadcast} />
       </div>
 
       {/* Bar info sumber */}
@@ -290,19 +681,65 @@ export function LiveVideoPlayer({
           />
           {isYouTube
             ? "YouTube Live · Internet"
-            : showVideo
-              ? `Local Stream · ${status === "live" ? "WebRTC/HLS" : "MediaMTX"}`
-              : "Stream Offline"}
+            : isCaster
+              ? casterReady
+                ? "BOF Caster · Layar Panitia (real-time)"
+                : "BOF Caster · Menunggu kode sesi"
+              : showVideo && isP2P
+                ? "P2P · WebRTC langsung dari laptop panitia"
+                : showVideo
+                  ? `Local Stream · ${status === "live" ? "WebRTC/HLS" : "MediaMTX"}`
+                  : "Stream Offline"}
         </span>
-        {broadcast?.streamTitle ? (
-          <span className="truncate text-xs font-semibold text-fs-muted">{broadcast.streamTitle}</span>
-        ) : null}
+        <span className="flex min-w-0 items-center gap-2">
+          <WakeChip wake={wake.state} onRequest={wake.request} />
+          <PresenceBadge count={presence.count} viewers={presence.viewers} />
+          {broadcast?.streamTitle ? (
+            <span className="truncate text-xs font-semibold text-fs-muted">{broadcast.streamTitle}</span>
+          ) : null}
+        </span>
       </div>
       {detail && status === "signal-lost" && !showIdle ? (
         <div className="flex items-center gap-2 border-t border-fs-err/40 bg-fs-err/10 px-3 py-2 text-xs font-bold text-fs-err">
           <AlertTriangle className="h-4 w-4" /> {detail}
         </div>
       ) : null}
+      {isYouTube && ytError ? (
+        <div className="flex flex-wrap items-center gap-2 border-t border-fs-err/40 bg-fs-err/10 px-3 py-2 text-xs font-bold text-fs-err">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 flex-1">{ytError}</span>
+          <button onClick={ytRetry} className="bo-btn bo-btn-fire !px-3 !py-1 text-[11px]">
+            <RefreshCw className="h-3 w-3" /> Coba Lagi
+          </button>
+        </div>
+      ) : null}
     </div>
   );
+}
+
+/** Chip "layar tetap nyala" — TV tidak akan mati sendiri.
+ *  active/fallback = hijau (sudah terkunci); blocked = tombol untuk mencoba lagi. */
+function WakeChip({ wake, onRequest }: { wake: WakeState; onRequest: () => void }) {
+  if (wake === "active" || wake === "fallback") {
+    return (
+      <span
+        className="hidden items-center gap-1.5 border border-fs-ok/30 bg-fs-ok/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-fs-ok md:inline-flex"
+        title="Wake Lock aktif — layar TV tidak akan mati sendiri"
+      >
+        <MonitorUp className="h-3.5 w-3.5" /> Layar Nyala
+      </span>
+    );
+  }
+  if (wake === "blocked") {
+    return (
+      <button
+        onClick={onRequest}
+        className="hidden items-center gap-1.5 border border-fs-gold/40 bg-fs-gold/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-fs-gold md:inline-flex"
+        title="Ketuk agar layar TV tidak mati otomatis"
+      >
+        <MonitorUp className="h-3.5 w-3.5" /> Nyalakan Layar
+      </button>
+    );
+  }
+  return null;
 }

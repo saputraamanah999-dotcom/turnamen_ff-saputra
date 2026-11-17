@@ -66,7 +66,7 @@ export default function AdminTeamsPage() {
         </div>
         <BoButton
           variant="primary"
-          onClick={() => setEditing({ name: "", tag: "", number: (teams.data?.length ?? 0) + 1, status: "active", description: "" })}
+          onClick={() => setEditing({ name: "", tag: "", number: (teams.data?.length ?? 0) + 1, status: "active", description: "", captain: "" })}
         >
           <Plus className="h-4 w-4" /> Tambah Tim
         </BoButton>
@@ -92,6 +92,14 @@ export default function AdminTeamsPage() {
                 <option value="inactive">Nonaktif</option>
                 <option value="banned">Diblokir</option>
               </select>
+            </Field>
+            <Field label="Kapten — nama akun FF (memori AI OCR)">
+              <input
+                className="bo-input"
+                value={editing.captain ?? ""}
+                onChange={(e) => setEditing({ ...editing, captain: e.target.value })}
+                placeholder="Nama kapten di Free Fire"
+              />
             </Field>
             <Field label="Deskripsi (opsional)" className="sm:col-span-2 lg:col-span-4">
               <textarea className="bo-input h-20 py-2" value={editing.description ?? ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
@@ -128,6 +136,10 @@ export default function AdminTeamsPage() {
               <p className="truncate font-display text-sm font-black uppercase">{team.name}</p>
               <p className="text-[11px] font-bold uppercase text-fs-text/50">
                 #{team.number} · [{team.tag || "—"}] · {team.status}
+              </p>
+              <p className="truncate text-[11px] font-semibold text-fs-cyan" title={team.captain ?? ""}>
+                Kapten: {team.captain || "belum diisi"}
+                {team.ocrAliases?.length ? ` · alias AI: ${team.ocrAliases.length}` : ""}
               </p>
             </div>
             <div className="flex shrink-0 gap-2">

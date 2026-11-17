@@ -28,6 +28,8 @@ import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { logger } from '../logger.js';
 import { renderDisplayPage, renderLivePage, renderInfoPage } from './pages.js';
+import { bestLanIp, listLanInterfaces } from '../netinfo.js';
+import { normalizeIp } from '../security/auth.js';
 
 const READY = 1;
 const PAIRING_TTL_MS = 15 * 60 * 1000; // 15 menit (§22: pairing punya masa berlaku)
@@ -48,17 +50,10 @@ function findHlsJs() {
   return null;
 }
 
-/** Ambil IPv4 non-internal dari interface yang benar-benar aktif. */
+/** IP LAN terbaik (adapter virtual/VPN dilewati) — lihat netinfo.js. */
 function activeLanIp() {
-  const nets = os.networkInterfaces();
-  for (const name of Object.keys(nets)) {
-    for (const n of nets[name] || []) {
-      if (!n.internal && n.family === 'IPv4' && !n.address.startsWith('169.254')) {
-        return { name, address: n.address, mac: n.mac };
-      }
-    }
-  }
-  return null;
+  const b = bestLanIp();
+  return b ? { name: b.name, address: b.address, mac: b.mac } : null;
 }
 
 function isPrivateAddress(addr) {
@@ -73,8 +68,11 @@ export class LocalGateway {
    * @param {object} opts.bridge      BridgeServer (untuk broadcast status)
    * @param {string} opts.defaultPath path stream MediaMTX default (bof-main)
    */
-  constructor({ port = 8080, token, bridge, defaultPath = 'bof-main' }) {
+  constructor({ port = 8080, token, bridge, defaultPath = 'bof-main', wsPort = 8078, allowedOrigins = [], mediamtxManager = null }) {
     this.port = port;
+    this.wsPort = wsPort;
+    this.allowedOrigins = allowedOrigins;
+    this.mtx = mediamtxManager;
     this.token = token || '';
     this.bridge = bridge;
     this.defaultPath = defaultPath;
@@ -106,7 +104,7 @@ export class LocalGateway {
     });
 
     // Pantau MediaMTX + IP berubah + umur pairing
-    this._timers.push(setInterval(() => this._probeMediamtx(), 10000));
+    this._timers.push(setInterval(() => this._probeMediamtx(), 3000));
     this._timers.push(setInterval(() => this._pushStatus(), 5000));
     this._timers.push(setInterval(() => this._expirePairings(), 30000));
     this._probeMediamtx();
@@ -135,10 +133,15 @@ export class LocalGateway {
       r.setHeader('Access-Control-Allow-Origin', '*');
       r.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
       r.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      r.setHeader('Access-Control-Allow-Private-Network', 'true');
     };
 
     if (req.method === 'OPTIONS') {
       cors(res);
+      if (p === '/api/bootstrap' && req.headers.origin) {
+        res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+        res.setHeader('Vary', 'Origin');
+      }
       res.writeHead(204);
       res.end();
       return;
@@ -172,6 +175,12 @@ export class LocalGateway {
       return;
     }
 
+    // ---- Bootstrap otomatis untuk admin di laptop yang sama (loopback saja) ----
+    if (req.method === 'GET' && p === '/api/bootstrap') {
+      this._bootstrap(req, res);
+      return;
+    }
+
     // ---- API status (non-sensitif, boleh diprobe admin) ----
     if (req.method === 'GET' && (p === '/api/status' || p === '/api/network')) {
       cors(res);
@@ -181,6 +190,7 @@ export class LocalGateway {
         server: true,
         gatewayPort: this.port,
         lanIp: ip ? ip.address : null,
+        lanIps: listLanInterfaces().map((i) => ({ name: i.name, address: i.address, virtual: i.virtual })),
         interface: ip ? ip.name : null,
         mediamtx: this.mediamtxUp,
         mediamtxPath: this.defaultPath,
@@ -267,6 +277,67 @@ export class LocalGateway {
     res.end('404 — tidak ditemukan');
   }
 
+  /** Kumpulan URL siap pakai berdasarkan IP LAN terdeteksi. */
+  _urls(ip) {
+    const base = ip ? `http://${ip}:${this.port}` : null;
+    const loop = `http://127.0.0.1:${this.port}`;
+    const sp = this.defaultPath;
+    return {
+      gatewayLan: base,
+      display: base ? `${base}/display/${sp}` : null,
+      live: base ? `${base}/live/${sp}` : null,
+      hls: base ? `${base}/hls/${sp}/index.m3u8` : null,
+      whe: base ? `${base}/mediamtx/${sp}/whe` : null,
+      whip: `${loop}/mediamtx/${sp}/whip`,
+    };
+  }
+
+  /**
+   * GET /api/bootstrap — website admin (di laptop ini) mengambil token + IP otomatis.
+   * Dilindungi 3 lapis: (1) koneksi harus dari loopback, (2) header Host harus localhost/127.0.0.1
+   * (anti DNS-rebinding), (3) Origin harus ada di daftar ALLOWED_ORIGINS. Situs lain tidak bisa membacanya.
+   */
+  _bootstrap(req, res) {
+    const remote = normalizeIp(req.socket.remoteAddress || '');
+    const hostName = String(req.headers.host || '').replace(/:\d+$/, '').toLowerCase();
+    const origin = String(req.headers.origin || '');
+    const loopback = remote === '127.0.0.1' || remote === '::1';
+    const hostOk = hostName === '127.0.0.1' || hostName === 'localhost' || hostName === '[::1]';
+    const originOk =
+      !origin ||
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+      this.allowedOrigins.includes(origin);
+
+    const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+    if (!loopback || !hostOk || !originOk) {
+      logger.warn(`Bootstrap ditolak (remote=${remote}, host=${hostName}, origin=${origin || '-'}) — tambahkan ke ALLOWED_ORIGINS bila ini website resmi`);
+      res.writeHead(403, headers);
+      res.end(JSON.stringify({ error: 'Bootstrap hanya untuk website resmi di laptop ini' }));
+      return;
+    }
+    if (origin) {
+      headers['Access-Control-Allow-Origin'] = origin;
+      headers['Vary'] = 'Origin';
+      headers['Access-Control-Allow-Private-Network'] = 'true';
+    }
+    const ip = activeLanIp();
+    res.writeHead(200, headers);
+    res.end(JSON.stringify({
+      ok: true,
+      service: 'stikar-local-gateway',
+      token: this.token,
+      wsUrl: `ws://127.0.0.1:${this.wsPort}`,
+      wsPort: this.wsPort,
+      gatewayPort: this.port,
+      lanIp: ip ? ip.address : null,
+      interface: ip ? ip.name : null,
+      lanIps: listLanInterfaces().map((i) => ({ name: i.name, address: i.address, virtual: i.virtual })),
+      mediamtx: this.mediamtxUp,
+      mediamtxPath: this.defaultPath,
+      urls: this._urls(ip ? ip.address : null),
+    }));
+  }
+
   /* ---------------- Proxy streaming ---------------- */
   _proxy(req, res, targetPort, targetPath) {
     const proxied = http.request(
@@ -322,7 +393,11 @@ export class LocalGateway {
   /** Broadcast status gateway → semua klien bridge (admin panel). */
   _pushStatus() {
     const ip = activeLanIp();
-    this.lanIp = ip ? ip.address : this.lanIp;
+    const nextIp = ip ? ip.address : null;
+    if (this.lanIp && nextIp && nextIp !== this.lanIp) {
+      logger.warn(`IP LAN laptop berubah: ${this.lanIp} → ${nextIp}. Website admin memperbarui URL otomatis; perangkat penonton perlu buka ulang link baru: http://${nextIp}:${this.port}/display`);
+    }
+    this.lanIp = nextIp || this.lanIp;
     if (!this.bridge) return;
     this.bridge.broadcast({
       type: 'event',

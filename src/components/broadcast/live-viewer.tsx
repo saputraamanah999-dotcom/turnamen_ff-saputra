@@ -14,12 +14,40 @@ import { motion } from "framer-motion";
 import { Info, MapPin, RadioTower, Signal, Smartphone } from "lucide-react";
 import { BroadcastLeaderboard } from "@/components/leaderboard/broadcast-board";
 import { LiveVideoPlayer, type PlayerStatus } from "@/components/video/player";
+import { PresenceBadge } from "@/components/broadcast/presence-badge";
+import { useBroadcastTheme } from "@/components/common/theme-boot";
+import { SmkLogoBadge } from "@/components/broadcast/brand-logo";
+import { useLivePresence } from "@/services/broadcast/presence";
+import { useAutoFullscreen } from "@/lib/fullscreen";
 import {
   useActiveTournament, useBroadcast, useMatches, useStandings, useTeams, useTournament,
 } from "@/services/firestore/hooks";
 import { ORG } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { BroadcastState } from "@/lib/types";
+
+/** Ajakan membuka siaran lokal bagi penonton yang sedang di venue (browser memblokir deteksi otomatis HTTPS→HTTP LAN). */
+function LocalStreamBanner({ url }: { url: string }) {
+  const [here, setHere] = useState(false);
+  useEffect(() => {
+    try { setHere(window.location.origin === new URL(url).origin); } catch { /* abaikan */ }
+  }, [url]);
+  if (here) return null;
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border border-fs-cyan/40 bg-fs-cyan/10 px-4 py-3">
+      <p className="flex items-center gap-2 text-sm font-bold text-fs-cyan">
+        <Smartphone className="h-4 w-4 shrink-0" />
+        Sedang di lokasi turnamen (Wi-Fi yang sama dengan laptop panitia)? Siaran lokal lebih lancar dan tanpa internet.
+      </p>
+      <a
+        href={`${url.replace(/\/$/, "")}/live`}
+        className="border border-fs-cyan px-3 py-1.5 font-display text-xs font-black uppercase tracking-[0.15em] text-fs-cyan hover:bg-fs-cyan/20"
+      >
+        Buka siaran lokal
+      </a>
+    </div>
+  );
+}
 
 export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
   const active = useActiveTournament();
@@ -29,6 +57,10 @@ export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
   const matches = useMatches(tid, false);
   const teams = useTeams(tid, false);
   const broadcast = useBroadcast(tid, false);
+  // Tema broadcast dari admin berlaku real-time di halaman penonton.
+  useBroadcastTheme(broadcast.data?.theme);
+  // Indikator penonton realtime (berapa & siapa yang online).
+  const presence = useLivePresence(tid, { heartbeat: true });
 
   // Konfigurasi pairing (Mode B) — tersimpan saat viewer /live/connect.
   const [pairing, setPairing] = useState<{ gw: string; whe: string; hls: string } | null>(null);
@@ -41,6 +73,9 @@ export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
     }, 0);
     return () => clearTimeout(t);
   }, []);
+
+  // Buka /live?fs=1 → layar penuh otomatis (dipakai link/QR mode TV).
+  useAutoFullscreen();
 
   const currentMatch =
     matches.data?.find((m) => m.isCurrent) ?? matches.data?.find((m) => m.status === "live") ?? null;
@@ -56,11 +91,15 @@ export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
       <div className="mx-auto max-w-7xl px-3 py-6 sm:px-6">
         {/* Header halaman */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="bo-kicker">Live Broadcast</p>
-            <h1 className="mt-2 font-display text-3xl font-black uppercase leading-none sm:text-4xl">
-              {tournament.data?.name ?? ORG.tournament}
-            </h1>
+          <div className="flex items-center gap-3">
+            {/* Logo resmi sekolah — konsisten dengan header siaran TV */}
+            <SmkLogoBadge size={44} className="hidden sm:inline-flex" />
+            <div>
+              <p className="bo-kicker">Live Broadcast</p>
+              <h1 className="mt-2 font-display text-3xl font-black uppercase leading-none sm:text-4xl">
+                {tournament.data?.name ?? ORG.tournament}
+              </h1>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {liveState === "live" ? (
@@ -77,6 +116,7 @@ export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
                 ROUND {String(currentMatch.matchNumber).padStart(2, "0")} · {currentMatch.map || "UNKNOWN"}
               </span>
             ) : null}
+            <PresenceBadge count={presence.count} viewers={presence.viewers} className="!border-fs-cyan/45 !bg-fs-cyan/10 !text-fs-cyan" />
           </div>
         </div>
 
@@ -95,6 +135,10 @@ export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
               Stream sedang dipulihkan operator — video akan kembali otomatis.
             </p>
           </div>
+        ) : null}
+
+        {broadcast.data?.streamMode === "mediamtx" && broadcast.data.localGatewayUrl ? (
+          <LocalStreamBanner url={broadcast.data.localGatewayUrl} />
         ) : null}
 
         {/* Video + leaderboard */}
@@ -119,11 +163,21 @@ export function LiveViewerPage({ tidOverride }: { tidOverride?: string }) {
               }
             />
 
+            {/* Petunjuk khusus mode P2P — video dikirim laptop → perangkat lewat Wi-Fi lokal */}
+            {broadcast.data?.streamMode === "p2p" ? (
+              <p className="mt-2 flex items-start gap-2 border border-fs-cyan/40 bg-fs-cyan/10 px-3 py-2 text-[11px] font-bold text-fs-cyan">
+                <Smartphone className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                Mode P2P: video dikirim langsung dari laptop panitia ke perangkatmu. Pastikan
+                perangkat terhubung ke Wi-Fi yang sama dengan laptop panitia. Maks
+                {" "}{broadcast.data.p2pMaxViewers ?? 2} penonton bersamaan — bila slot penuh, coba lagi beberapa saat.
+              </p>
+            ) : null}
+
             {/* Info bar */}
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
               <InfoChip icon={<MapPin className="h-3.5 w-3.5" />} label="Map" value={currentMatch?.map ?? "NOT SET"} />
               <InfoChip icon={<RadioTower className="h-3.5 w-3.5" />} label="Format" value={currentMatch?.format ?? tournament.data?.format ?? "—"} />
-              <InfoChip icon={<Signal className="h-3.5 w-3.5" />} label="Sumber" value={pairing ? "Local stream (paired)" : broadcast.data?.streamMode === "youtube" ? "YouTube" : broadcast.data?.streamMode === "mediamtx" ? "MediaMTX" : "N/A"} />
+              <InfoChip icon={<Signal className="h-3.5 w-3.5" />} label="Sumber" value={pairing ? "Local stream (paired)" : broadcast.data?.streamMode === "youtube" ? "YouTube" : broadcast.data?.streamMode === "mediamtx" ? "MediaMTX" : broadcast.data?.streamMode === "p2p" ? "P2P (langsung)" : "N/A"} />
               <InfoChip icon={<Info className="h-3.5 w-3.5" />} label="Tim" value={`${teams.data?.length ?? 0} tim`} />
             </div>
 

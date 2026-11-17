@@ -7,7 +7,46 @@ export type TournamentStatus = "draft" | "active" | "completed";
 export type MatchFormat = "BO3" | "BO5" | "BO7" | "CUSTOM";
 export type MatchStatus = "scheduled" | "live" | "completed" | "cancelled";
 export type TeamStatus = "active" | "inactive" | "banned";
-export type StreamMode = "youtube" | "mediamtx" | "offline";
+/** Mode sumber siaran. "p2p" = WebRTC langsung laptop → penonton, signaling Firestore (tanpa bridge/MediaMTX/OBS).
+ *  "caster" = BOF CASTER — berbagi layar ala hi.casts.app: TV menampilkan kode pairing + QR,
+ *  panitia membuka /caster, mengetik kode, layar laptop/HP ikut tampil real-time di website. */
+export type StreamMode = "youtube" | "mediamtx" | "p2p" | "caster" | "offline";
+
+// ---------- P2P signaling (dokumen Firestore) ----------
+
+/** State sesi penonton P2P di p2pSessions/{tid}/viewers/{viewerId}. */
+export type P2PSessionState = "waiting" | "answered" | "rejected" | "closed";
+
+export interface P2PSdpMessage {
+  type: string;
+  sdp: string;
+}
+
+/** Dokumen sesi penonton P2P (dibuat penonton, dijawab admin). */
+export interface P2PViewerDoc {
+  viewerId: string;
+  createdAt?: unknown; // Timestamp Firestore (serverTimestamp saat create)
+  expiresAt?: unknown; // Timestamp Firestore — kebijakan TTL opsional (+6 jam)
+  state: P2PSessionState;
+  offer: P2PSdpMessage;
+  answer?: P2PSdpMessage;
+  reason?: string;
+}
+
+/** Dokumen ICE candidate di subkoleksi candidates. */
+export interface P2PCandidateDoc {
+  from: "viewer" | "host";
+  candidate: string; // JSON RTCIceCandidate
+  createdAt?: unknown;
+}
+
+/** Ringkasan satu slot penonton P2P untuk UI admin. */
+export interface P2PViewerInfo {
+  viewerId: string;
+  state: "connected" | "waiting" | "answered" | "rejected" | "closed";
+  reason?: string;
+  since: number; // epoch ms saat sesi diterima/dibuat
+}
 
 /** Mesin status siaran Live Control (§5 prompt PHASE 2). */
 export type BroadcastState =
@@ -149,6 +188,10 @@ export interface Team {
   status: TeamStatus;
   description?: string;
   roster?: RosterMember[];
+  /** Kapten tim — nama akun FF. Dipakai AI OCR sebagai memori identitas tim. */
+  captain?: string;
+  /** Nama alternatif yang pernah dikenali AI OCR untuk tim ini (memori pencocokan). */
+  ocrAliases?: string[];
   createdAt?: number;
   updatedAt?: number;
 }
@@ -164,8 +207,71 @@ export interface Match {
   isCurrent: boolean;
   resultsPublished: boolean;
   scoringVersion: string;
+  /** Bukti screenshot hasil match (hasil upload AI OCR, link hosting gambar). */
+  screenshotUrl?: string;
+  screenshotThumbUrl?: string;
   createdAt?: number;
   updatedAt?: number;
+}
+
+// ---------- AI OCR screenshot ----------
+
+/** Satu baris hasil pembacaan AI/OCR dari screenshot Free Fire. */
+export interface OcrRow {
+  /** Placement/peringkat pada screenshot; null bila tidak terbaca. */
+  rank: number | null;
+  /** Nama tim PERSIS seperti tertulis di layar (mentah dari AI).
+   *  Bila layar hanya menampilkan pemain (tanpa nama tim), berisi
+   *  daftar nama pemain di blok placement tersebut. */
+  teamRaw: string;
+  /** Tim terdaftar yang dicocokkan AI (id di teams/{tid}); null bila tidak cocok. */
+  teamId: string | null;
+  /** Nama tim terdaftar hasil pencocokan (untuk tampilan). */
+  teamName?: string | null;
+  /** TOTAL kill tim = JUMLAH kill semua anggota di blok placement ini
+   *  (1 blok top # berisi sampai 4 pemain — dihitung total, bukan 1 orang). */
+  kills: number | null;
+  /** Poin total yang tertulis di layar (bila ada); tidak dipakai untuk hitung resmi. */
+  points?: number | null;
+  /** 0..1 — keyakinan pembacaan baris ini. */
+  confidence?: number;
+  /** Nama-nama pemain yang terbaca di blok placement ini (0..4 orang). */
+  players?: string[];
+  /** Rincian kill per pemain — sumber kebenaran kills = penjumlahan ini. */
+  memberKills?: { name: string; kills: number | null; disputed?: boolean }[];
+}
+
+export interface OcrAnalysis {
+  /** Mesin yang berhasil dipakai: "browser-ocr" | "browser-ocr+jere" | "tesseract" | "tesseract+jere" | "jere". */
+  source: string;
+  /** Nama tim yang jadi BOOYAH (juara 1) menurut AI, bila ada. */
+  booyahTeam?: string | null;
+  rows: OcrRow[];
+  notes?: string | null;
+  /** true bila hasil berasal dari OCR polos dan wajib diperiksa admin. */
+  needsReview?: boolean;
+  analyzedAt?: number;
+}
+
+/** Dokumen koleksi ocrUploads — arsip screenshot + hasil analisa per match. */
+export interface OcrUpload {
+  id?: string;
+  tid: string;
+  matchId: string;
+  matchNumber?: number;
+  url: string;
+  thumbUrl?: string;
+  /** Link hapus gambar di hosting (ImgBB) — simpan untuk housekeeping. */
+  deleteUrl?: string;
+  host: "imgbb";
+  width?: number;
+  height?: number;
+  size?: number;
+  mime?: string;
+  filename?: string;
+  analysis?: OcrAnalysis | null;
+  applied?: boolean;
+  createdAt?: number | null;
 }
 
 export interface MatchResult {
@@ -218,6 +324,35 @@ export interface ScoringConfiguration {
   updatedBy?: string;
 }
 
+/** Satu lagu pada playlist musik latar siaran. */
+export interface MusicTrack {
+  id: string;
+  title: string;
+  /** "mp3" = URL audio langsung (.mp3/.m4a/.ogg/.wav), "yt" = YouTube / YT Music. */
+  type: "mp3" | "yt";
+  /** URL audio langsung — wajib untuk type "mp3". */
+  url?: string;
+  /** ID video 11 karakter — wajib untuk type "yt". */
+  ytId?: string;
+}
+
+/** Pengaturan musik latar (broadcastSettings/{tid}.music). */
+export interface MusicSettings {
+  enabled: boolean;
+  /** 0–100 — volume musik di perangkat penonton. */
+  volume: number;
+  tracks: MusicTrack[];
+  /** Lagu yang sedang diputar (loop). Kosong = lagu pertama. */
+  activeTrackId?: string | null;
+}
+
+/** Perintah sound effect realtime (panitia → semua penonton). */
+export interface SfxCommand {
+  type: "beep" | "go" | "booyah" | "match-end" | "airhorn" | "applause" | "pop" | "swoosh";
+  /** Epoch ms saat tombol ditekan — penonton mengabaikan perintah > 25 detik. */
+  at: number;
+}
+
 export interface BroadcastEmergency {
   active: boolean;
   preset: string; // Technical Difficulties | Signal Lost | Reconnecting | Source Offline | Match Paused | Waiting for Official Results | Network Problem | OBS Disconnected
@@ -236,14 +371,98 @@ export interface BroadcastSettings {
   whipUrl?: string;
   /** URL WHE (WebRTC playback endpoint) untuk pemirsa/LAN. */
   wheUrl?: string;
+  /** Alamat gateway lokal laptop produksi (http://IP:8080) — terdeteksi otomatis oleh admin. */
+  localGatewayUrl?: string;
+  /** Mode P2P aktif: admin menyetel true saat START LIVE, false saat STOP (signaling hanya boleh dipakai bila true). */
+  p2pLive?: boolean;
+  /** Batas penonton P2P bersamaan (default 2, rentang 1–4) — laptop mengirim satu aliran per penonton. */
+  p2pMaxViewers?: number;
   /** Mesin status siaran (Live Control). */
   live?: BroadcastLiveState;
+  /** Musik latar siaran — dikelola dari kartu "Musik Siaran" /admin/broadcast,
+   *  diputar (loop) di TV & halaman penonton mengikuti pengaturan realtime. */
+  music?: MusicSettings;
+  /** Perintah sound effect terakhir — semua penonton membunyikannya saat field berubah. */
+  sfx?: SfxCommand | null;
+  /** Overlay BOOYAH! besar di TV & /live — momen juara match (muncul ±8 detik lalu
+   *  menutup sendiri; perintah lebih tua dari 8 detik diabaikan halaman baru). */
+  booyah?: {
+    active: boolean;
+    /** Nama tim yang BOOYAH (ditampilkan di bawah teks BOOYAH!). */
+    teamName?: string;
+    matchNumber?: number | null;
+    /** Epoch ms saat tombol ditekan. */
+    at?: number;
+  } | null;
+  /** Otomatis pindah ke match berikutnya (dari data Match admin) saat sekuens
+   *  mulai game selesai — panitia hanya menekan satu tombol, TV & /live
+   *  berganti "MATCH 2 · KALAHARI" realtime. */
+  autoNextMatch?: boolean;
+  /** BOF CASTER — berbagi layar real-time dengan kode pairing (ala hi.casts.app).
+   *  TV menampilkan kode + QR; panitia buka /caster di laptop/HP, ketik kode,
+   *  pilih layar → tampil real-time di /display & /live berdampingan leaderboard. */
+  caster?: {
+    /** Kode pairing 6 digit — ditampilkan besar di TV dan QR mengarah ke /caster?code=… */
+    code: string;
+    /** Sesi aktif: penonton boleh menyambung ke aliran caster. */
+    active: boolean;
+    /** Label sumber, mis. "Laptop Operator" / "HP Meja Komentator". */
+    label?: string;
+    /** Epoch ms sesi dimulai. */
+    startedAt?: number;
+    /** Epoch ms sesi kedaluwarsa (default mulai +8 jam). */
+    expiresAt?: number;
+  } | null;
+  /** Tema tampilan seluruh layar (id dari THEMES) — dipilih admin,
+   *  berlaku real-time di TV, /live, /leaderboard & halaman publik lain. */
+  theme?: string;
+  /** Pengaturan panggung/presentasi (TV & /live). */
+  presentation?: {
+    /** Sembunyikan judul video & nama channel pada embed YouTube (strip branding di atas video). Default true. */
+    cleanYouTube?: boolean;
+    /** Animasi & efek panggung (countdown besar, burst GAME START, dsb.). Default true. */
+    effects?: boolean;
+    /** Tampilkan "Panggung Juara" (podium Top 3 + confetti) fullscreen di TV & /live. */
+    podium?: boolean;
+  };
+  /** Countdown besar di TV & /live — dipicu panitia dari kartu "Panggung TV & Countdown".
+   *  endsAt wajib saat active=true (patch stop mengirim { active: false } saja). */
+  countdown?: {
+    active: boolean;
+    /** Epoch ms saat countdown selesai (dihitung dari laptop panitia). */
+    endsAt?: number;
+    /** Label di atas angka, mis. "MENUJU SIARAN DIMULAI". */
+    label?: string;
+  };
+  /** Sekuens mulai game dengan delay yang diatur panitia — overlay besar di TV & /live:
+   *  hitung mundur -> 10..1 -> GAME START. Field wajib saat active=true. */
+  startSequence?: {
+    active: boolean;
+    /** Epoch ms saat panitia menekan tombol mulai. */
+    triggerAt?: number;
+    /** Jeda (detik) sebelum game benar-benar dimulai, 5–600. */
+    delaySeconds?: number;
+    /** Label, mis. "MATCH 3 · BERLIN". */
+    matchLabel?: string;
+  };
   /** Event broadcast terakhir (LIVE NOW, dst.) untuk TV & /live. */
   event?: BroadcastEvent | null;
   showPublicTimeline: boolean;
   announcements?: string[];
   emergency?: BroadcastEmergency;
   updatedAt?: number;
+}
+
+/** Pengaturan kualitas berbagi layar BOF Caster (perangkat caster, localStorage). */
+export interface CasterQuality {
+  /** Resolusi capture: 720p, 1080p, atau ikuti layar asli. */
+  resolution: "720" | "1080" | "native";
+  /** Target FPS: 15 hemat CPU, 24 sinematik, 30 standar, 60 terlampin. */
+  fps: 15 | 24 | 30 | 60;
+  /** Preset kualitas encoder: HD Maksimal / Seimbang / Hemat CPU. */
+  quality: "hd" | "balanced" | "light";
+  /** true = audio game murni (tanpa voice processing); false = mode komunikasi. */
+  rawAudio: boolean;
 }
 
 export interface ObserverEvent {

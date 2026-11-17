@@ -12,8 +12,9 @@ const SERVICE_ACCOUNT_PATH =
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "turnamenffbof";
 
 const serviceAccount = JSON.parse(readFileSync(resolve(SERVICE_ACCOUNT_PATH), "utf8"));
-const rulesSource = readFileSync(resolve(process.cwd(), "firestore.rules"), "utf8");
-const indexes = JSON.parse(readFileSync(resolve(process.cwd(), "firestore.indexes.json"), "utf8"));
+// Sumber sebenarnya ada di folder firebase/ (firebase.json, firestore.rules, firestore.indexes.json).
+const rulesSource = readFileSync(resolve(process.cwd(), "firebase/firestore.rules"), "utf8");
+const indexes = JSON.parse(readFileSync(resolve(process.cwd(), "firebase/firestore.indexes.json"), "utf8"));
 
 // --- Auth token via JWT signing (google-auth-library, tersedia via firebase-admin deps) ---
 const { JWT } = await import("google-auth-library");

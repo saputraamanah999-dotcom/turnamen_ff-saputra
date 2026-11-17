@@ -14,10 +14,11 @@ import {
 } from "lucide-react";
 import { BoBadge, BoButton, BoCard } from "@/components/common/bo";
 import {
-  connectBridge, disconnectBridge, getBridgeToken, getBridgeUrl, subscribeBridge,
+  autoConnectBridge, disconnectBridge, getBridgeToken, getBridgeUrl, subscribeBridge,
   type BridgeState,
 } from "@/services/broadcast/bridge";
 import { useNotifications } from "@/components/broadcast/notification-center";
+import { useBridgeHeartbeat } from "@/services/broadcast/heartbeat";
 import { cn } from "@/lib/utils";
 
 type TestState = "idle" | "testing" | "ok" | "fail";
@@ -84,11 +85,13 @@ export default function AdminLocalNetworkPage() {
   const lanIp = bridge?.lanIp;
   const gatewayPort = bridge?.gatewayPort ?? 8080;
   const displayUrl = lanIp ? `http://${lanIp}:${gatewayPort}/display` : "";
+  // Link/QR yang ditampilkan untuk TV: versi ?fs=1 (langsung layar penuh).
+  const displayUrlFs = displayUrl ? `${displayUrl}?fs=1` : "";
   const liveUrl = lanIp ? `http://${lanIp}:${gatewayPort}/live` : "";
   const token = getBridgeToken();
 
   useEffect(() => {
-    connectBridge();
+    void autoConnectBridge();
     return subscribeBridge((s) => setBridge(s));
   }, []);
   useEffect(() => () => disconnectBridge(), []);
@@ -121,19 +124,19 @@ export default function AdminLocalNetworkPage() {
     return () => clearInterval(t);
   }, [refreshGateway]);
 
-  // QR display URL
+  // QR display URL (versi layar penuh untuk TV)
   useEffect(() => {
-    if (!displayUrl) { setQr(null); return; }
+    if (!displayUrlFs) { setQr(null); return; }
     let cancelled = false;
     (async () => {
       try {
         const QR = (await import("qrcode")).default;
-        const url = await QR.toDataURL(displayUrl, { width: 260, margin: 1, color: { dark: "#0B0E14", light: "#FFFFFF" } });
+        const url = await QR.toDataURL(displayUrlFs, { width: 260, margin: 1, color: { dark: "#0B0E14", light: "#FFFFFF" } });
         if (!cancelled) setQr(url);
       } catch { if (!cancelled) setQr(null); }
     })();
     return () => { cancelled = true; };
-  }, [displayUrl]);
+  }, [displayUrlFs]);
 
   // ---------- Connection tests (nyata) ----------
   async function runTest(key: string, fn: () => Promise<boolean>) {
@@ -215,6 +218,8 @@ export default function AdminLocalNetworkPage() {
           diambil dari kondisi jaringan nyata — bukan simulasi.
         </p>
       </div>
+
+      <LocalHeartbeatBanner />
 
       {/* Status ringkas */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -339,7 +344,7 @@ export default function AdminLocalNetworkPage() {
                   ) : (
                     <span className="flex items-center gap-1.5 text-sm font-bold text-fs-err"><WifiOff className="h-4 w-4" /> SERVER OFFLINE</span>
                   )}
-                  <BoButton variant="white" className="!px-2.5 !py-1.5 !text-[11px]" onClick={() => { disconnectBridge(); connectBridge(); }}>
+                  <BoButton variant="white" className="!px-2.5 !py-1.5 !text-[11px]" onClick={() => { disconnectBridge(); void autoConnectBridge(); }}>
                     <RefreshCcw className="h-3.5 w-3.5" /> Restart Koneksi
                   </BoButton>
                 </div>
@@ -386,10 +391,10 @@ export default function AdminLocalNetworkPage() {
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-3">
                 <div className="border border-fs-edge bg-fs-bg/60 p-4">
-                  <p className="font-display text-sm font-bold uppercase tracking-wider text-fs-cyan">Local Display URL (TV)</p>
+                  <p className="font-display text-sm font-bold uppercase tracking-wider text-fs-cyan">Local Display URL (TV · layar penuh otomatis)</p>
                   <div className="mt-2 flex items-center gap-2">
-                    <code className="min-w-0 flex-1 truncate border border-fs-edge bg-black px-3 py-2.5 font-mono text-xs text-fs-cyan">{displayUrl || "menunggu IP…"}</code>
-                    <BoButton variant="cyan" className="!px-2.5 !py-2 !text-[11px]" disabled={!displayUrl} onClick={() => copy(displayUrl, "disp")}>
+                    <code className="min-w-0 flex-1 truncate border border-fs-edge bg-black px-3 py-2.5 font-mono text-xs text-fs-cyan">{displayUrlFs || "menunggu IP…"}</code>
+                    <BoButton variant="cyan" className="!px-2.5 !py-2 !text-[11px]" disabled={!displayUrlFs} onClick={() => copy(displayUrlFs, "disp")}>
                       {copied === "disp" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                     </BoButton>
                   </div>
@@ -401,7 +406,7 @@ export default function AdminLocalNetworkPage() {
                     </BoButton>
                   </div>
                   <p className="mt-2 text-[11px] font-semibold text-fs-muted">
-                    TV buka Display URL → langsung tampil layout siaran STIKAR (Mode A, tanpa internet untuk video).
+                    TV buka Display URL → langsung tampil layout siaran STIKAR (Mode A, tanpa internet untuk video) dan masuk layar penuh otomatis (tombol ⛶ atau ketukan pertama bila browser TV menuntut sentuhan).
                   </p>
                 </div>
                 {/* Pairing Mode B untuk website publik */}
@@ -516,6 +521,29 @@ function TestCard({ label, state, note }: { label: string; state: TestState; not
             <span className="text-[10px] font-bold text-fs-muted">IDLE</span>}
       </p>
       <p className="mt-1 text-[10px] font-semibold text-fs-muted">{note}</p>
+    </div>
+  );
+}
+
+/** Banner heartbeat bridge: status running dari perangkat MANA PUN (via Firestore). */
+function LocalHeartbeatBanner() {
+  const { data, ageSec, fresh } = useBridgeHeartbeat("bof-main");
+  const running = fresh && (data?.gatewayUp ?? false);
+  return (
+    <div className={cn(
+      "flex flex-wrap items-center justify-between gap-2 border p-3 text-xs font-bold",
+      running ? "border-fs-ok/60 bg-fs-ok/10" : data ? "border-fs-err/60 bg-fs-err/10" : "border-fs-edge bg-fs-bg/60",
+    )}>
+      <span className="flex items-center gap-2">
+        <span className={cn("inline-block h-2.5 w-2.5 rounded-full", running ? "animate-pulse bg-fs-ok" : "bg-fs-err")} />
+        BRIDGE LOKAL: {running ? "RUNNING" : data ? "TIDAK AKTIF (laporan terakhir sudah basi)" : "BELUM ADA LAPORAN"}
+        {running && data?.lanIp ? (
+          <span className="font-stat text-fs-cyan">
+            {data.lanIp}:{data.gatewayPort ?? 8080} · MediaMTX {data.mediamtxUp ? "UP" : "DOWN"} · OBS {data.obsConnected ? "OK" : "-"} · {data.viewers} penonton
+          </span>
+        ) : null}
+      </span>
+      {ageSec != null ? <span className="text-[10px] font-semibold text-fs-muted">laporan {ageSec}s lalu (heartbeat tiap 30s)</span> : null}
     </div>
   );
 }

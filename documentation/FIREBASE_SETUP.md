@@ -167,3 +167,29 @@ firebase deploy
 - [ ] File service account disimpan aman, tidak dibagikan.
 
 Jika semua tercentang, lanjut ke [OBS_SETUP.md](OBS_SETUP.md).
+
+---
+
+## 14. Koleksi Pengaya Siaran (Musik, SFX, Penonton Online)
+
+Fitur pengaya siaran (Admin → Broadcast) menyimpan datanya seperti berikut —
+**tidak ada koleksi baru yang berisi data sensitif**, dan tidak ada perubahan struktur lama:
+
+| Koleksi / Field | Isi | Ditulis oleh | Dibaca oleh |
+| --- | --- | --- | --- |
+| `broadcastSettings/{tid}.music` | Playlist musik latar: `{ enabled, volume (0–100), tracks[], activeTrackId }` — tiap track `{ id, title, type: "mp3"\|"yt", url? , ytId? }` | Admin | Semua penonton (TV & /live memutar loop) |
+| `broadcastSettings/{tid}.sfx` | Perintah sound effect terakhir: `{ type, at }` (beep/go/booyah/match-end/airhorn/applause/pop/swoosh) | Admin | Semua penonton (bunyi realtime) |
+| `broadcastSettings/{tid}.presentation.podium` | `true` = Panggung Juara (podium Top 3 + confetti) tampil fullscreen | Admin | TV & semua penonton |
+| `livePresence/{tid}/viewers/{viewerId}` | Heartbeat penonton: `{ name (≤40 char), lastSeen, clientMs, sinceMs }` — TANPA data pribadi | Browser penonton (tiap 20 dtk, auto-hapus saat tab ditutup) | Semua (jumlah & nama penonton online) |
+
+**Rules**: `livePresence` sudah ditambahkan di `firebase/firestore.rules` dengan validasi ketat
+(hanya 4 field, nama maks 40 karakter). Deploy ulang rules setelah update:
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+> Catatan: penonton TIDAK login, jadi `livePresence` menerima tulisan anonim tervalidasi —
+> isinya hanya nama panggangan + timestamp, risikonya minimal dan disengaja untuk fitur publik.
+
+Asset suara SFX ada di `public/sfx/*.mp3` (dibangkitkan oleh `scripts/make_sfx.py`).

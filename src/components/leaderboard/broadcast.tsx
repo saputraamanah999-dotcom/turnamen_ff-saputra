@@ -608,6 +608,8 @@ export function BroadcastLeaderboard({
   institution,
   showPoints = false,
   banner,
+  extraAfterPodium,
+  extraBottom,
 }: {
   standings: StandingsRow[];
   status?: "connecting" | "online" | "offline";
@@ -622,6 +624,10 @@ export function BroadcastLeaderboard({
   institution?: string;
   showPoints?: boolean;
   banner?: ReactNode;
+  /** Konten tambahan tepat setelah podium (mis. banner juara turnamen selesai). */
+  extraAfterPodium?: ReactNode;
+  /** Konten tambahan sebelum referensi poin (mis. sertifikat juara). */
+  extraBottom?: ReactNode;
 }) {
   const rows = standings ?? [];
   const rest = rows.slice(3);
@@ -655,6 +661,7 @@ export function BroadcastLeaderboard({
               <SectionTitle>Podium Juara</SectionTitle>
               <EsportsPodium standings={rows} />
             </section>
+            {extraAfterPodium ? <div className="space-y-3">{extraAfterPodium}</div> : null}
             {rest.length ? (
               <section className="space-y-3">
                 <SectionTitle>Peringkat 4 — {rows.length}</SectionTitle>
@@ -667,6 +674,8 @@ export function BroadcastLeaderboard({
             ) : null}
           </>
         )}
+
+        {extraBottom ? <div>{extraBottom}</div> : null}
 
         {showPoints ? <PointReference /> : null}
       </div>

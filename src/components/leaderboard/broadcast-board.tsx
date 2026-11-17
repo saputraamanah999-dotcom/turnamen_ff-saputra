@@ -80,7 +80,7 @@ function Movement({ row }: { row: StandingsRow }) {
   );
 }
 
-function TeamChip({ name, size }: { name: string; size: "sm" | "md" | "lg" }) {
+export function TeamChip({ name, size }: { name: string; size: "sm" | "md" | "lg" }) {
   const initials = name.split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
   const cls = size === "lg" ? "h-11 w-11 text-base" : size === "sm" ? "h-7 w-7 text-[10px]" : "h-9 w-9 text-xs";
   // Warna deterministik dari nama tim — 6 palet arena.

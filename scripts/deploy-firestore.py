@@ -93,7 +93,9 @@ def deploy_rules(tok, project, rules_text):
     releases = requests.get(f"{FR}/releases", headers=H(tok), timeout=30).json().get("releases", [])
     rel = next((x for x in releases if "firestore" in x.get("name", "").lower()), None)
     if rel:
-        r2 = requests.patch(f"{FR}/{rel['name']}", headers=H(tok),
+        # rel["name"] sudah berbentuk "projects/{p}/releases/{id}" -> jangan
+        # ditambah prefix FR lagi (dobel prefix = 404 HTML dari server).
+        r2 = requests.patch(f"https://firebaserules.googleapis.com/v1/{rel['name']}", headers=H(tok),
                             json={"release": {"name": rel["name"], "rulesetName": rs},
                                   "updateMask": "rulesetName"}, timeout=60)
         if r2.status_code >= 300:

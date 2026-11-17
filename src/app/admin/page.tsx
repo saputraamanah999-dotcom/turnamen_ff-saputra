@@ -13,7 +13,7 @@ import {
 import { BoCard } from "@/components/common/bo";
 import { useActiveTournament, useBroadcast, useMatches, useStandings, useTeams } from "@/services/firestore/hooks";
 import { formatDateTime } from "@/lib/constants";
-import { connectBridge, disconnectBridge, subscribeBridge, type BridgeState } from "@/services/broadcast/bridge";
+import { autoConnectBridge, disconnectBridge, subscribeBridge, type BridgeState } from "@/services/broadcast/bridge";
 import { cn } from "@/lib/utils";
 import type { BroadcastState } from "@/lib/types";
 
@@ -40,7 +40,7 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    connectBridge();
+    void autoConnectBridge();
     const unsub = subscribeBridge((s) => setBridge(s));
     return () => { unsub(); disconnectBridge(); };
   }, []);
